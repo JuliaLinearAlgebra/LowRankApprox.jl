@@ -1,5 +1,9 @@
-using LowRankApprox
 using Base.Test
+using LowRankApprox
 
-# write your own tests here
-@test 1 == 1
+include("linop.jl")
+include("permute.jl")
+include("pqr.jl")
+include("sketch.jl")
+include("snorm.jl")
+include("trapezoidal.jl")
