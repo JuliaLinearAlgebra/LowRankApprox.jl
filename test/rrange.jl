@@ -24,7 +24,7 @@ for (t, s) in ((:RandomGaussian,       :randn),
     B = T <: Real ? real(A) : A
     B = convert(Array{T}, B)
 
-    nrm = norm(B)
+    nrm = snorm(B)
     Q = rrange(:n, B, opts)
     @test_approx_eq_eps B Q*(Q'*B) approx_rtol*nrm
     Q = rrange(:c, B, opts)
