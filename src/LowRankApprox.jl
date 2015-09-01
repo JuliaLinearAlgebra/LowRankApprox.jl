@@ -26,12 +26,14 @@ export
   pqrfact, pqrfact!,
 
   # rrange.jl
+  rrange,
 
   # sketch.jl
   SketchMatrix,
   RandomGaussian,
   RandomSubset,
   SRFT,
+  SparseRandomGaussian,
   sketch,
   sketchfact,
 
@@ -64,7 +66,7 @@ LRAOptions(;
     atol::Real=0.,
     nb::Integer=32,
     rank::Integer=-1,
-    rtol::Real=eps(),
+    rtol::Real=default_rtol(Float64),
     sketch::Symbol=:none,
     sketch_randn_niter::Integer=0,
     sketch_randn_samp::Integer=8,
@@ -85,8 +87,8 @@ LRAOptions(;
     snorm_info,
     snorm_niter)
 
-copy(opts::LRAOptions) =
-  LRAOptions(
+function copy(opts::LRAOptions; args...)
+  opts_ = LRAOptions(
     opts.atol,
     opts.nb,
     opts.rank,
@@ -98,16 +100,24 @@ copy(opts::LRAOptions) =
     opts.sketch_subs_samp,
     opts.snorm_info,
     opts.snorm_niter)
+  for (key, value) in args
+    setfield!(opts_, key, value)
+  end
+  opts_
+end
 
 function chkopts(opts)
   opts.atol >= 0 || throw(ArgumentError("atol"))
   opts.nb > 0 || throw(ArgumentError("nb"))
   opts.rtol >= 0 || throw(ArgumentError("rtol"))
-  opts.sketch in (:none, :randn, :srft, :subs) || throw(ArgumentError("sketch"))
+  opts.sketch in (:none, :randn, :sprn, :srft, :subs) ||
+    throw(ArgumentError("sketch"))
   opts.sketch_randn_samp >= 0 || throw(ArgumentError("sketch_randn_samp"))
   opts.sketch_srft_samp >= 0 || throw(ArgumentError("sketch_srft_samp"))
   opts.sketch_subs_samp > 0 || throw(ArgumentError("sketch_subs_samp"))
 end
+
+default_rtol{T}(::Type{T}) = 5*eps(real(one(T)))
 
 #
 include("lapack.jl")

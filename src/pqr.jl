@@ -4,6 +4,10 @@ References:
 
   P. Businger, G.H. Golub. Linear least squares solutions by Householder
     transformations. Numer. Math. 7: 269-276, 1965.
+
+  N. Halko, P.G. Martinsson, J.A. Tropp. Finding structure with randomness:
+    Probabilistic algorithms for constructing approximate matrix
+    decompositions. SIAM Rev. 53 (2): 217-288, 2011.
 =#
 
 type PartialQR{T} <: Factorization{T}
@@ -192,25 +196,42 @@ end
 
 # factorization routines
 
-function pqr!(A::AbstractMatOrLinOp, args...)
-  F = pqrfact!(A, args...)
-  F.Q, F.R, F.p
-end
-pqr(A::StridedMatrix, args...) = pqr!(copy(A), args...)
-pqr(A::AbstractMatOrLinOp, args...) = pqr(A, args...)
-
 function pqrfact!(A::AbstractMatOrLinOp, opts::LRAOptions)
   chkopts(opts)
-  pqrfact_lapack!(A, opts)
+  if typeof(A) <: StridedMatrix && opts.sketch == :none
+    return pqrfact_lapack!(A, opts)
+  end
+  Q = rrange(:n, A, opts)
+  opts = copy(opts, sketch=:none)
+  F = pqrfact_lapack!(Q'*A, opts)
+  F.Q = Q*F.Q
+  F
 end
-function pqrfact!(A::AbstractMatOrLinOp, rank_or_rtol::Real)
-  opts = (rank_or_rtol < 1 ? LRAOptions(rtol=rank_or_rtol)
-                           : LRAOptions(rank=rank_or_rtol))
+function pqrfact(A::AbstractMatOrLinOp, opts::LRAOptions)
+  if typeof(A) <: StridedMatrix && opts.sketch == :none
+    return pqrfact!(copy(A), opts)
+  end
   pqrfact!(A, opts)
 end
-pqrfact!{T}(A::AbstractMatOrLinOp{T}) = pqrfact!(A, eps(real(one(T))))
-pqrfact(A::StridedMatrix, args...) = pqrfact!(copy(A), args...)
-pqrfact(A::AbstractMatOrLinOp, args...) = pqrfact!(A, args...)
+
+for sfx in ("", "!")
+  f = symbol("pqr", sfx)
+  g = symbol("pqrfact", sfx)
+  @eval begin
+    function $f(A::AbstractMatOrLinOp, args...)
+      F = $g(A, args...)
+      F.Q, F.R, F.p
+    end
+
+    function $g(A::AbstractMatOrLinOp, rank_or_rtol::Real)
+      opts = (rank_or_rtol < 1 ? LRAOptions(rtol=rank_or_rtol)
+                               : LRAOptions(rank=rank_or_rtol))
+      $g(A, opts)
+    end
+    $g{T}(A::AbstractMatOrLinOp{T}) = $g(A, default_rtol(T))
+    $g(A, args...) = $g(LinOp(A), args...)
+  end
+end
 
 ## core backend routine: GEQP3 with rank termination
 function pqrfact_lapack!{T<:BlasFloat}(A::StridedMatrix{T}, opts::LRAOptions)
@@ -223,6 +244,9 @@ function pqrfact_lapack!{T<:BlasFloat}(A::StridedMatrix{T}, opts::LRAOptions)
   l    = min(m, n)
   k    = (opts.rank < 0 || opts.rank > l) ? l : opts.rank
   tau  = Array(T, k)
+
+  # bug fix for initialization error in LARFG?
+  tau[k] = 0
 
   # quick return if empty
   isempty(A) && @goto ret

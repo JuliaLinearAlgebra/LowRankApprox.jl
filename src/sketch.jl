@@ -13,7 +13,7 @@ References:
 
 abstract SketchMatrix
 
-size(A::SketchMatrix, dims...) = A.k
+size(A::SketchMatrix, dim::Integer...) = A.k
 
 for (f, f!, i) in ((:*,        :A_mul_B!,  2),
                    (:A_mul_Bc, :A_mul_Bc!, 1))
@@ -38,8 +38,11 @@ end
 function sketch(
     side::Symbol, trans::Symbol, A::AbstractMatOrLinOp, rank::Integer,
     opts::LRAOptions)
-  opts = sketch_chkargs(typeof(A), side, trans, rank, opts)
+  chkopts(opts)
+  opts = sketch_chkopts(typeof(A), opts)
+  sketch_chkargs(side, trans, rank)
   if     opts.sketch == :randn  return sketch_randn(side, trans, A, rank, opts)
+  elseif opts.sketch == :sprn   return  sketch_sprn(side, trans, A, rank, opts)
   elseif opts.sketch == :srft   return  sketch_srft(side, trans, A, rank, opts)
   elseif opts.sketch == :subs   return  sketch_subs(side, trans, A, rank, opts)
   end
@@ -54,8 +57,11 @@ sketch(side::Symbol, trans::Symbol, A, rank::Integer, args...) =
 
 function sketchfact(
     side::Symbol, trans::Symbol, A::AbstractMatOrLinOp, opts::LRAOptions)
-  opts = sketchfact_chkargs(typeof(A), side, trans, opts)
+  chkopts(opts)
+  opts = sketch_chkopts(typeof(A), opts)
+  sketchfact_chkargs(side, trans)
   if     opts.sketch == :randn  return sketchfact_randn(side, trans, A, opts)
+  elseif opts.sketch == :sprn   return  sketchfact_sprn(side, trans, A, opts)
   elseif opts.sketch == :srft   return  sketchfact_srft(side, trans, A, opts)
   elseif opts.sketch == :subs   return  sketchfact_subs(side, trans, A, opts)
   end
@@ -67,29 +73,25 @@ function sketchfact(
   sketchfact(side, trans, A, opts)
 end
 sketchfact{T}(side::Symbol, trans::Symbol, A::AbstractMatOrLinOp{T}) =
-  sketchfact(side, trans, A, eps(real(one(T))))
+  sketchfact(side, trans, A, default_rtol(T))
 sketchfact(side::Symbol, trans::Symbol, A, args...) =
   sketchfact(side, trans, LinOp(A), args...)
 
-function sketch_chkargs{T}(
-    ::Type{T}, side::Symbol, trans::Symbol, rank::Integer, opts::LRAOptions)
-  opts = sketchfact_chkargs(T, side, trans, opts)
-  rank >= 0 || throw(ArgumentError("rank"))
-  opts
-end
-function sketchfact_chkargs{T}(
-    ::Type{T}, side::Symbol, trans::Symbol, opts::LRAOptions)
-  side in (:left, :right) || throw(ArgumentError("side"))
-  trans in (:n, :c) || throw(ArgumentError("trans"))
-  opts.sketch in (:randn, :srft, :subs) || throw(ArgumentError("sketch"))
-  if T <: AbstractLinOp && opts.sketch != :randn
-    opts_ = copy(opts)
-    opts_.sketch = :randn
-    warn(string("sketch \"$(opts.sketch)\" not implemented for linear ",
-                "operators; using \"randn\""))
-    opts = opts_
+function sketch_chkopts{T}(::Type{T}, opts::LRAOptions)
+  if opts.sketch == :none || T <: AbstractLinOp && opts.sketch != :randn
+    warn("invalid sketch method; using \"randn\"")
+    opts = copy(opts, sketch=:randn)
   end
   opts
+end
+
+function sketch_chkargs(side::Symbol, trans::Symbol, rank::Integer)
+  sketchfact_chkargs(side, trans)
+  rank >= 0 || throw(ArgumentError("rank"))
+end
+function sketchfact_chkargs(side::Symbol, trans::Symbol)
+  side in (:left, :right) || throw(ArgumentError("side"))
+  trans in (:n, :c) || throw(ArgumentError("trans"))
 end
 
 # RandomGaussian
@@ -99,7 +101,7 @@ type RandomGaussian <: SketchMatrix
 end
 
 full{T}(::Type{T}, side::Symbol, A::RandomGaussian, n::Integer) =
-  side == :left ? randnt(T, A.k, n) : randnt(T, n, A.k)
+  side == :left ? crandn(T, A.k, n) : crandn(T, n, A.k)
 
 A_mul_B!{T}(C, A::RandomGaussian, B::AbstractMatOrLinOp{T}) =
   (S = full(T, :left, A, size(B,1)); A_mul_B!(C, S, B))
@@ -141,9 +143,9 @@ for (trans, p, q, g, h) in ((:n, :n, :m, :A_mul_B!,  :A_mul_Bc!),
       end
       $g(Bp, S, A)
       for i = 1:opts.sketch_randn_niter
-        $h(Bq, orthrows!(Bp), A)
+        $h(Bq, orthrows!(Bp, thin=false), A)
         if isherm  Bp, Bq = Bq, Bp
-        else       $g(Bp, orthrows!(Bq), A)
+        else       $g(Bp, orthrows!(Bq, thin=false), A)
         end
       end
       Bp
@@ -165,9 +167,9 @@ for (trans, p, q, g, h) in ((:n, :m, :n, :A_mul_B!,  :Ac_mul_B!),
       end
       $g(Bp, A, S)
       for i = 1:opts.sketch_randn_niter
-        $h(Bq, A, orthcols!(Bp))
+        $h(Bq, A, orthcols!(Bp, thin=false))
         if isherm  Bp, Bq = Bq, Bp
-        else       $g(Bp, A, orthcols!(Bq))
+        else       $g(Bp, A, orthcols!(Bq, thin=false))
         end
       end
       Bp
@@ -196,7 +198,7 @@ function A_mul_B!(C, A::RandomSubset, B::AbstractMatrix)
   k = A.k
   m, n = size(B)
   size(C) == (k, n) || throw(DimensionMismatch)
-  r = randi(1, m, k)
+  r = rand(1:m, k)
   for i = 1:k
     C[i,:] = sub(B, r[i], :)
   end
@@ -206,7 +208,7 @@ function A_mul_Bc!(C, A::RandomSubset, B::AbstractMatrix)
   k = A.k
   m, n = size(B)
   size(C) == (k, m) || throw(DimensionMismatch)
-  r = randi(1, n, k)
+  r = rand(1:n, k)
   for i = 1:k
     ctranspose!(sub(C,i,:), sub(B,:,r[i]))
   end
@@ -217,7 +219,7 @@ function A_mul_B!(C, A::AbstractMatrix, B::RandomSubset)
   k = B.k
   m, n = size(A)
   size(C) == (m, k) || throw(DimensionMismatch)
-  r = randi(1, n, k)
+  r = rand(1:n, k)
   for i = 1:k
     C[:,i] = sub(A, :, r[i])
   end
@@ -227,7 +229,7 @@ function Ac_mul_B!(C, A::AbstractMatrix, B::RandomSubset)
   k = B.k
   m, n = size(A)
   size(C) == (n, k) || throw(DimensionMismatch)
-  r = randi(1, m, k)
+  r = rand(1:m, k)
   for i = 1:k
     ctranspose!(sub(C,:,i), sub(A,r[i],:))
   end
@@ -279,7 +281,7 @@ function srft_init{T<:Real}(::Type{T}, n::Integer, k::Integer)
   m = div(n, l)
   X = Array(T, l, m)
   d = srft_rand(T, n)
-  idx = randi(1, n, k)
+  idx = rand(1:n, k)
   r2rplan! = FFTW.plan_r2r!(X, FFTW.R2HC, 1)
   X, d, idx, r2rplan!
 end
@@ -291,7 +293,7 @@ function srft_init{T<:Complex}(::Type{T}, n::Integer, k::Integer)
   m = div(n, l)
   X = Array(T, l, m)
   d = srft_rand(T, n)
-  idx = randi(1, n, k)
+  idx = rand(1:n, k)
   fftplan! = plan_fft!(X, 1)
   X, d, idx, fftplan!
 end
@@ -323,8 +325,8 @@ function srft_apply!{T<:Real}(
   n = l*m
   k = length(idx)
   r2rplan!(X)
-  wn = exp(-2im*pi/n);
-  wm = exp(-2im*pi/m);
+  wn = exp(-2im*pi/n)
+  wm = exp(-2im*pi/m)
   nnyq = div(n, 2)
   cnyq = div(l, 2)
   p = 0
@@ -379,8 +381,8 @@ function srft_apply!{T<:Complex}(
   n = l*m
   k = length(idx)
   fftplan!(X)
-  wn = exp(-2im*pi/n);
-  wm = exp(-2im*pi/m);
+  wn = exp(-2im*pi/n)
+  wm = exp(-2im*pi/m)
   for i = 1:k
     row = fld(idx[i] - 1, l) + 1
     col = rem(idx[i] - 1, l) + 1
@@ -459,6 +461,119 @@ function sketchfact_srft(
   k = opts.nb
   while true
     B = sketch_srft(side, trans, A, k+opts.sketch_srft_samp, opts)
+    F = pqrfact_lapack!(B, opts)
+    F[:k] < k && return F
+    k *= 2
+  end
+end
+
+# SparseRandomGaussian
+
+type SparseRandomGaussian <: SketchMatrix
+  k::Int
+end
+typealias SparseRandGauss SparseRandomGaussian
+
+function A_mul_B!{T}(C, A::SparseRandGauss, B::AbstractMatrix{T})
+  k = A.k
+  m, n = size(B)
+  size(C) == (k, n) || throw(DimensionMismatch)
+  r = randperm(m)
+  idx = 0
+  for i = 1:k
+    p = fld(m - i, k) + 1
+    s = crandn(T, p)
+    for j = 1:n
+      C[i,j] = zero(T)
+      for l = 1:p
+        C[i,j] += s[l]*B[r[idx+l],j]
+      end
+    end
+    idx += p
+  end
+  C
+end
+function A_mul_Bc!{T}(C, A::SparseRandGauss, B::AbstractMatrix{T})
+  k = A.k
+  m, n = size(B)
+  size(C) == (k, m) || throw(DimensionMismatch)
+  r = randperm(n)
+  idx = 0
+  for i = 1:k
+    p = fld(n - i, k) + 1
+    s = crandn(T, p)
+    for j = 1:m
+      C[i,j] = zero(T)
+      for l = 1:p
+        C[i,j] += s[l]*conj(B[j,r[idx+l]])
+      end
+    end
+    idx += p
+  end
+  C
+end
+
+function A_mul_B!{T}(C, A::AbstractMatrix{T}, B::SparseRandGauss)
+  k = B.k
+  m, n = size(A)
+  size(C) == (m, k) || throw(DimensionMismatch)
+  r = randperm(n)
+  idx = 0
+  for j = 1:k
+    p = fld(n - j, k) + 1
+    s = crandn(T, p)
+    for i = 1:m
+      C[i,j] = zero(T)
+      for l = 1:p
+        C[i,j] += A[i,r[idx+l]]*s[l]
+      end
+    end
+    idx += p
+  end
+  C
+end
+function Ac_mul_B!{T}(C, A::AbstractMatrix{T}, B::SparseRandGauss)
+  k = B.k
+  m, n = size(A)
+  size(C) == (n, k) || throw(DimensionMismatch)
+  r = randperm(m)
+  idx = 0
+  for j = 1:k
+    p = fld(m - j, k) + 1
+    s = crandn(T, p)
+    for i = 1:n
+      C[i,j] = zero(T)
+      for l = 1:p
+        C[i,j] += A[r[idx+l],i]*s[l]
+      end
+    end
+    idx += p
+  end
+  C
+end
+
+## sketch interface
+
+function sketch_sprn(
+    side::Symbol, trans::Symbol, A::AbstractMatrix, k::Integer,
+    opts::LRAOptions)
+  S = SparseRandGauss(k)
+  if side == :left
+    if trans == :n  return S*A
+    else            return S*A'
+    end
+  else
+    if trans == :n  return A *S
+    else            return A'*S
+    end
+  end
+end
+
+function sketchfact_sprn(
+    side::Symbol, trans::Symbol, A::AbstractMatrix, opts::LRAOptions)
+  k = opts.nb
+  while true
+    B = sketch_sprn(side, trans, A, k, opts)
     F = pqrfact_lapack!(B, opts)
     F[:k] < k && return F
     k *= 2

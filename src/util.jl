@@ -1,27 +1,36 @@
 #= src/util.jl
 =#
 
+crandn{T<:Real}(::Type{T}, dims::Integer...) = convert(Array{T}, randn(dims...))
+for (elty, relty) in ((:Complex64, :Float32), (:Complex128, :Float64))
+  @eval begin
+    crandn(::Type{$elty}, dims::Integer...) =
+      reinterpret($elty, crandn($relty, 2*dims[1], dims[2:end]...), (dims...))
+  end
+end
+function crandn2{T<:Complex}(::Type{T}, dims::Integer...)
+  Tr = eltype(real(one(T)))
+  crandn(Tr, dims...) + im*crandn(Tr, dims...)
+end
+
 hilbert(m::Integer, n::Integer) = 1./(broadcast(+, 1:m, (1:n)') - 1)
 
-function orthcols!{T<:BlasFloat}(A::StridedMatrix{T})
-  tau = Array(T, minimum(size(A)))
+function orthcols!{T<:BlasFloat}(A::StridedMatrix{T}; thin::Bool=true)
+  k = minimum(size(A))
+  tau = Array(T, k)
   LAPACK.geqrf!(A, tau)
-  LAPACK.orgqr!(A, tau)
-end
-
-function orthrows!{T<:BlasFloat}(A::StridedMatrix{T})
-  tau = Array(T, minimum(size(A)))
-  LAPACK.gelqf!(A, tau)
-  LAPACK.orglq!(A, tau)
-end
-
-randi(a::Integer, b::Integer, dims...) =
-  floor(Int, (b - a + 1)*rand(dims...)) + a
-
-function randnt{T}(::Type{T}, dims...)
-  A = randn(dims...)
-  if T <: Complex
-    A += im*randn(dims...)
+  Q = LAPACK.orgqr!(A, tau)
+  if thin  return Q
+  else     (A[:,k+1:end] = 0; return A)
   end
-  convert(Array{T}, A)
+end
+
+function orthrows!{T<:BlasFloat}(A::StridedMatrix{T}; thin::Bool=true)
+  k = minimum(size(A))
+  tau = Array(T, k)
+  LAPACK.gelqf!(A, tau)
+  Q = LAPACK.orglq!(A, tau)
+  if thin  return Q
+  else     (A[k+1:end,:] = 0; return A)
+  end
 end

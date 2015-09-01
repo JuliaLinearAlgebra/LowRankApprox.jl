@@ -14,12 +14,12 @@ for (t, data, trilu) in ((:LowerTrapezoidal, :data_lo, :tril),
   for T in (Float32, Float64, Complex64, Complex128)
     println("  $t/$T")
 
-    @eval A = $t($T <: Real ? real($data) : $data)
+    @eval A = $t{$T}($T <: Real ? real($data) : $data)
     m, n = size(A)
     F = full(A)
-    @test_approx_eq F @eval $trilu(A.data)
-    @test_approx_eq F A*eye(n)
-    @test_approx_eq F eye(m)*A
+    @test_approx_eq (@eval $trilu(A.data)) F
+    @test_approx_eq A*eye(n) F
+    @test_approx_eq eye(m)*A F
 
     xm = rand(T, m)
     xn = rand(T, n)

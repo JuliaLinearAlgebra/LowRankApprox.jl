@@ -22,7 +22,7 @@ function snorm{T}(A::AbstractLinOp{T}, opts::LRAOptions)
   chkopts(opts)
   m, n      = size(A)
   isherm    = ishermitian(A)
-  xn        = randnt(T, n)
+  xn        = crandn(T, n)
   xm        = Array(T, m)
   xnrm      = vecnorm(xn)
   s         = [real(one(T))]
@@ -60,7 +60,7 @@ function snorm(A::AbstractLinOp, niter_or_rtol::Real)
                             : LRAOptions(snorm_niter=niter_or_rtol))
   snorm(A, opts)
 end
-snorm{T}(A::AbstractLinOp{T}) = snorm(A, eps(real(one(T))))
+snorm{T}(A::AbstractLinOp{T}) = snorm(A, default_rtol(T))
 snorm(A, args...) = snorm(LinOp(A), args...)
 
 # spectral norm difference
