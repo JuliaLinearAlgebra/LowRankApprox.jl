@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="UTF-8">
+    <title>LowRankApprox.jl by klho</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
+    <link href='https://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+  </head>
+  <body>
+    <section class="page-header">
+      <h1 class="project-name">LowRankApprox.jl</h1>
+      <h2 class="project-tagline">Fast low-rank matrix approximation in Julia</h2>
+      <a href="https://github.com/klho/LowRankApprox.jl" class="btn">View on GitHub</a>
+      <a href="https://github.com/klho/LowRankApprox.jl/zipball/master" class="btn">Download .zip</a>
+      <a href="https://github.com/klho/LowRankApprox.jl/tarball/master" class="btn">Download .tar.gz</a>
+    </section>
+
+    <section class="main-content">
+      <h1>
+<a id="lowrankapprox" class="anchor" href="#lowrankapprox" aria-hidden="true"><span class="octicon octicon-link"></span></a>LowRankApprox</h1>
+
+<p>This Julia package implements fast low-rank matrix approximation algorithms for BLAS/LAPACK-compatible matrices. The focus is on performance and feature-completeness; we include both deterministic early-termination variants of standard codes as well as those based on some of the latest work in adaptive randomized matrix sketching. All user-level functions accept a number of options specifying, e.g., the rank, estimated absolute precision, and estimated relative precision of approximation.</p>
+
+<h2>
+<a id="usage" class="anchor" href="#usage" aria-hidden="true"><span class="octicon octicon-link"></span></a>Usage</h2>
+
+<p>To illustrate the usage of this package, consider the computation of a partial QR decomposition of a matrix <code>A</code>:</p>
+
+<pre><code>F = LowRankApprox.pqrfact(A)
+</code></pre>
+
+<p>or, alternatively,</p>
+
+<pre><code>Q, R, p = LowRankApprox.pqr(A)
+</code></pre>
+
+<p>This computes a factorization using the default options: an early-terminated version of GEQP3 at approximately <code>1e-15</code> relative precision. To request only <code>1e-12</code> relative precision, use</p>
+
+<pre><code>F = LowRankApprox.pqrfact(A, 1e-12)
+</code></pre>
+
+<p>We can also directly control the rank of the approximation instead by typing, e.g.,</p>
+
+<pre><code>F = LowRankApprox.pqrfact(A, 20)
+</code></pre>
+
+<p>which computes an approximation of rank at most <code>20</code>.</p>
+
+<p>Further user options can be exposed through the interface</p>
+
+<pre><code>F = LowRankApprox.pqrfact(A, opts)
+</code></pre>
+
+<p>For example, to compute an approximation of rank at most <code>20</code> to an estimated relative precision of at least <code>1e-12</code>, use</p>
+
+<pre><code>opts = LowRankApprox.LRAOptions(rank=20, rtol=1e-12)
+</code></pre>
+
+<p>In other words, this sets two termination criteria, one at reaching rank <code>20</code> and another at achieving <code>1e-12</code> relative precision, with the algorithm terminating when either one of these is reached. The most general accuracy setting includes also the estimated absolute precision, e.g.,</p>
+
+<pre><code>opts = LowRankApprox.LRAOptions(atol=1e-9, rank=20, rtol=1e-12)
+</code></pre>
+
+<p>We can also take advantage of matrix sketching (randomized sampling) as follows. For example, to sketch with a random Gaussian matrix, set</p>
+
+<pre><code>opts = LowRankApprox.LRAOptions(sketch=:randn)
+</code></pre>
+
+<p>This sketch is used to quickly compress the matrix, which is then run through the deterministic algorithm (at a potentially much lower cost) and post-processed to return the original matrix factors as requested. Sketching is a core component of this package and is completely adaptive based on the accuracy options described above.</p>
+
+<h2>
+<a id="status" class="anchor" href="#status" aria-hidden="true"><span class="octicon octicon-link"></span></a>Status</h2>
+
+<p>Currently implemented algorithms include:</p>
+
+<ul>
+<li>sketch methods:
+
+<ul>
+<li>random Gaussian</li>
+<li>random subset</li>
+<li>subsampled random Fourier transform</li>
+<li>sparse random Gaussian</li>
+</ul>
+</li>
+<li>randomized range finder based on sketching</li>
+<li>factorizations:
+
+<ul>
+<li>partial QR decomposition</li>
+<li>interpolative decomposition</li>
+</ul>
+</li>
+</ul>
+
+<p>Still to come (hopefully):</p>
+
+<ul>
+<li>eigendecomposition</li>
+<li>singular value decomposition</li>
+<li>CUR decomposition</li>
+</ul>
+
+      <footer class="site-footer">
+        <span class="site-footer-owner"><a href="https://github.com/klho/LowRankApprox.jl">LowRankApprox.jl</a> is maintained by <a href="https://github.com/klho">klho</a>.</span>
+
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
+      </footer>
+
+    </section>
+
+  
+  </body>
+</html>
