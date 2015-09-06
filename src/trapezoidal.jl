@@ -89,9 +89,8 @@ for (f, trans) in ((:Ac_mul_B!, 'C'), (:At_mul_B!, 'T'))
       BLAS.gemv!($trans, one(T), sub(A.data,n+1:m,:), sub(x,n+1:m), one(T), y)
       y
     end
-
     function $f{T<:BlasFloat}(
-        C::StridedVecOrMat{T}, A::LowerTrapezoidal{T}, B::StridedVecOrMat{T})
+        C::StridedMatrix{T}, A::LowerTrapezoidal{T}, B::StridedMatrix{T})
       m, n = size(A)
       copy!(C, sub(B,1:n,:))
       BLAS.trmm!('L', 'L', $trans, 'N', one(T), sub(A.data,1:n,:), C)

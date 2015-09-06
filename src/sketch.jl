@@ -200,7 +200,7 @@ function A_mul_B!(C, A::RandomSubset, B::AbstractMatrix)
   size(C) == (k, n) || throw(DimensionMismatch)
   r = rand(1:m, k)
   for i = 1:k
-    C[i,:] = sub(B, r[i], :)
+    copy!(sub(C,i,:), sub(B,r[i],:))
   end
   C
 end
@@ -221,7 +221,7 @@ function A_mul_B!(C, A::AbstractMatrix, B::RandomSubset)
   size(C) == (m, k) || throw(DimensionMismatch)
   r = rand(1:n, k)
   for i = 1:k
-    C[:,i] = sub(A, :, r[i])
+    copy!(sub(C,:,i), sub(A,:,r[i]))
   end
   C
 end

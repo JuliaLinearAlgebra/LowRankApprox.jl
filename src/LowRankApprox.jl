@@ -11,6 +11,12 @@ export
   # LowRankApprox.jl
   LRAOptions,
 
+  # id.jl
+  IDPackedV,
+  ID,
+  id, id!,
+  idfact, idfact!,
+
   # linop.jl
   AbstractLinearOperator,
   LinearOperator,
@@ -46,7 +52,7 @@ export
   LowerTrapezoidal,
   UpperTrapezoidal
 
-#
+# common
 
 type LRAOptions
   atol::Float64
@@ -73,7 +79,8 @@ LRAOptions(;
     sketch_srft_samp::Integer=8,
     sketch_subs_samp::Integer=6,
     snorm_info::Bool=false,
-    snorm_niter::Integer=32) =
+    snorm_niter::Integer=32,
+    ) =
   LRAOptions(
     atol,
     nb,
@@ -85,7 +92,8 @@ LRAOptions(;
     sketch_srft_samp,
     sketch_subs_samp,
     snorm_info,
-    snorm_niter)
+    snorm_niter,
+    )
 
 function copy(opts::LRAOptions; args...)
   opts_ = LRAOptions(
@@ -99,7 +107,8 @@ function copy(opts::LRAOptions; args...)
     opts.sketch_srft_samp,
     opts.sketch_subs_samp,
     opts.snorm_info,
-    opts.snorm_niter)
+    opts.snorm_niter,
+    )
   for (key, value) in args
     setfield!(opts_, key, value)
   end
@@ -119,15 +128,18 @@ end
 
 default_rtol{T}(::Type{T}) = 5*eps(real(one(T)))
 
-#
+# source files
+
 include("lapack.jl")
 include("linop.jl")
 include("permute.jl")
-include("pqr.jl")
-include("rrange.jl")
-include("sketch.jl")
 include("snorm.jl")
 include("trapezoidal.jl")
 include("util.jl")
+
+include("id.jl")
+include("pqr.jl")
+include("rrange.jl")
+include("sketch.jl")
 
 end  # module

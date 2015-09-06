@@ -1,6 +1,7 @@
 using Base.Test
 using LowRankApprox
 
+include("id.jl")
 include("linop.jl")
 include("permute.jl")
 include("pqr.jl")

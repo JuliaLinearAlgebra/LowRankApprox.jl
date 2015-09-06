@@ -8,10 +8,6 @@ for (elty, relty) in ((:Complex64, :Float32), (:Complex128, :Float64))
       reinterpret($elty, crandn($relty, 2*dims[1], dims[2:end]...), (dims...))
   end
 end
-function crandn2{T<:Complex}(::Type{T}, dims::Integer...)
-  Tr = eltype(real(one(T)))
-  crandn(Tr, dims...) + im*crandn(Tr, dims...)
-end
 
 hilbert(m::Integer, n::Integer) = 1./(broadcast(+, 1:m, (1:n)') - 1)
 

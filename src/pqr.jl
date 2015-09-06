@@ -58,7 +58,6 @@ function A_mul_B!!{T}(
   Ac_mul_B!(A[:P], B)
   A_mul_B!(C, A[:Q], A[:R]*B)
 end  # overwrites B
-
 A_mul_B!{T}(C::StridedVecOrMat{T}, A::PartialQR{T}, B::StridedVecOrMat{T}) =
   A_mul_B!!(C, A, copy(B))
 
@@ -110,7 +109,6 @@ for f in (:A_mul_Bc, :A_mul_Bt)
       tmp = $f(A, B[:R])
       $f!(C, tmp, B[:Q])
     end  # overwrites A
-
     $f!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialQR{T}) =
       $f!!(C, copy(A), B)
   end
@@ -197,7 +195,6 @@ end
 # factorization routines
 
 function pqrfact!(A::AbstractMatOrLinOp, opts::LRAOptions)
-  chkopts(opts)
   if typeof(A) <: StridedMatrix && opts.sketch == :none
     return pqrfact_lapack!(A, opts)
   end
@@ -215,28 +212,27 @@ function pqrfact(A::AbstractMatOrLinOp, opts::LRAOptions)
 end
 
 for sfx in ("", "!")
-  f = symbol("pqr", sfx)
-  g = symbol("pqrfact", sfx)
+  f = symbol("pqrfact", sfx)
+  g = symbol("pqr", sfx)
   @eval begin
-    function $f(A::AbstractMatOrLinOp, args...)
-      F = $g(A, args...)
-      F.Q, F.R, F.p
-    end
-
-    function $g(A::AbstractMatOrLinOp, rank_or_rtol::Real)
+    function $f(A::AbstractMatOrLinOp, rank_or_rtol::Real)
       opts = (rank_or_rtol < 1 ? LRAOptions(rtol=rank_or_rtol)
                                : LRAOptions(rank=rank_or_rtol))
-      $g(A, opts)
+      $f(A, opts)
     end
-    $g{T}(A::AbstractMatOrLinOp{T}) = $g(A, default_rtol(T))
-    $g(A, args...) = $g(LinOp(A), args...)
+    $f{T}(A::AbstractMatOrLinOp{T}) = $f(A, default_rtol(T))
+    $f(A, args...) = $f(LinOp(A), args...)
+
+    function $g(A::AbstractMatOrLinOp, args...)
+      F = $f(A, args...)
+      F.Q, F.R, F.p
+    end
   end
 end
 
 ## core backend routine: GEQP3 with rank termination
 function pqrfact_lapack!{T<:BlasFloat}(A::StridedMatrix{T}, opts::LRAOptions)
-
-  # initialize
+  chkopts(opts)
   chkstride1(A)
   m, n = size(A)
   lda  = stride(A, 2)
@@ -244,9 +240,6 @@ function pqrfact_lapack!{T<:BlasFloat}(A::StridedMatrix{T}, opts::LRAOptions)
   l    = min(m, n)
   k    = (opts.rank < 0 || opts.rank > l) ? l : opts.rank
   tau  = Array(T, k)
-
-  # bug fix for initialization error in LARFG?
-  tau[k] = 0
 
   # quick return if empty
   isempty(A) && @goto ret
@@ -273,10 +266,10 @@ function pqrfact_lapack!{T<:BlasFloat}(A::StridedMatrix{T}, opts::LRAOptions)
   # set pivot threshold
   ptol = max(opts.atol, opts.rtol*maxnrm)
 
-  # factorize by block
+  # block factorization
   j = 1
   fjb = Array(BlasInt, 1)
-  while j < k
+  while j <= k
     jb = min(nb, k-j+1)
     if is_real
       _LAPACK.laqps!(
