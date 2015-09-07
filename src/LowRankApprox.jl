@@ -28,8 +28,15 @@ export
   ColumnPermutation,
 
   # pqr.jl
+  PartialQR,
   pqr, pqr!,
   pqrfact, pqrfact!,
+
+  # psvd.jl
+  PartialSVD,
+  psvdfact,
+  psvd,
+  psvdvals,
 
   # rrange.jl
   rrange,
@@ -139,6 +146,7 @@ include("util.jl")
 
 include("id.jl")
 include("pqr.jl")
+include("psvd.jl")
 include("rrange.jl")
 include("sketch.jl")
 

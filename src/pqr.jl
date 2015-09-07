@@ -28,7 +28,7 @@ copy(A::PartialQR) = PartialQR(copy(A.Q), copy(A.R), copy(A.p))
 
 full(A::PartialQR) = A_mul_Bc!(A[:Q]*A[:R], A[:P])
 
-function getindex{T}(A::PartialQR{T}, d::Symbol)
+function getindex(A::PartialQR, d::Symbol)
   if     d == :P  return ColumnPermutation(A.p)
   elseif d == :Q  return A.Q
   elseif d == :R  return UpperTrapezoidal(A.R)
@@ -195,6 +195,7 @@ end
 # factorization routines
 
 function pqrfact!(A::AbstractMatOrLinOp, opts::LRAOptions)
+  chkopts(opts)
   if typeof(A) <: StridedMatrix && opts.sketch == :none
     return pqrfact_lapack!(A, opts)
   end
@@ -232,7 +233,6 @@ end
 
 ## core backend routine: GEQP3 with rank termination
 function pqrfact_lapack!{T<:BlasFloat}(A::StridedMatrix{T}, opts::LRAOptions)
-  chkopts(opts)
   chkstride1(A)
   m, n = size(A)
   lda  = stride(A, 2)

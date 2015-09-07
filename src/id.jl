@@ -30,7 +30,7 @@ copy(A::IDPackedV) = IDPackedV(copy(A.sk), copy(A.rd), copy(A.T))
 
 full(A::IDPackedV) = A_mul_Bc!([eye(A[:k]) A[:T]], A[:P])
 
-function getindex{T}(A::IDPackedV{T}, d::Symbol)
+function getindex(A::IDPackedV, d::Symbol)
   if     d == :P   return ColumnPermutation([A.sk; A.rd])
   elseif d == :T   return A.T
   elseif d == :k   return length(A.sk)
@@ -354,13 +354,16 @@ for sfx in ("", "!")
   h = symbol("pqrfact", sfx)
   @eval begin
     function $f{S}(A::AbstractMatOrLinOp{S}, opts::LRAOptions)
-      F = $h(A, opts)
+      chkopts(opts)
+      if opts.sketch in (:none, :subs)  F = $h(A, opts)
+      else                              F = sketchfact(:left, :n, A, opts)
+      end
       k, n = size(F.R)
       sk = F.p[1:k]
       rd = F.p[k+1:n]
       T = F.R[1:k,k+1:n]
       BLAS.trsm!('L', 'U', 'N', 'N', one(S), sub(F.R,1:k,1:k), T)
-      V = IDPackedV(sk, rd, T)
+      IDPackedV(sk, rd, T)
     end
     function $f(A::AbstractMatOrLinOp, rank_or_rtol::Real)
       opts = (rank_or_rtol < 1 ? LRAOptions(rtol=rank_or_rtol)

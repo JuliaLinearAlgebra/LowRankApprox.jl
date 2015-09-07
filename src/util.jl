@@ -30,3 +30,10 @@ function orthrows!{T<:BlasFloat}(A::StridedMatrix{T}; thin::Bool=true)
   else     (A[k+1:end,:] = 0; return A)
   end
 end
+
+function scalevec!(s::StridedVector, x::StridedVector)
+  for i = 1:length(x)
+    x[i] *= s[i]
+  end
+  x
+end

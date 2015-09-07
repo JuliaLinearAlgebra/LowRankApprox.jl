@@ -55,8 +55,8 @@ Currently implemented algorithms include:
 - factorizations:
  - partial QR decomposition
  - interpolative decomposition
+ - partial singular value decomposition
 
 Still to come (hopefully):
-- eigendecomposition
-- singular value decomposition
+- partial eigendecomposition
 - CUR decomposition

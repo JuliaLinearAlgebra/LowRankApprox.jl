@@ -18,8 +18,6 @@ for (t, data, trilu) in ((:LowerTrapezoidal, :data_lo, :tril),
     m, n = size(A)
     F = full(A)
     @test_approx_eq (@eval $trilu(A.data)) F
-    @test_approx_eq A*eye(n) F
-    @test_approx_eq eye(m)*A F
 
     xm = rand(T, m)
     xn = rand(T, n)

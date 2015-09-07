@@ -52,6 +52,8 @@ full(A::AbstractLinOp) = A*eye(size(A, 2))
 
 ishermitian(A::LinOp) = false
 ishermitian(A::HermLinOp) = true
+issym(A::LinOp) = false
+issym(A::HermLinOp) = isreal(A)
 
 isreal{T}(A::AbstractLinOp{T}) = T <: Real
 
