@@ -5,10 +5,9 @@ println("linop.jl")
 tic()
 
 n = 10
-T = Complex128
 
 for (t, herm) in ((:LinearOperator, false), (:HermitianLinearOperator, true))
-  for T in (Float64, Complex128)
+  for T in (Float32, Float64, Complex64, Complex128)
     println("  $t/$T")
 
     A = rand(T, n, n)

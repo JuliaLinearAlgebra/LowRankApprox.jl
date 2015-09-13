@@ -17,7 +17,7 @@ type PartialQR{T} <: Factorization{T}
 end
 
 conj!(A::PartialQR) = PartialQR(conj!(A.Q), conj!(A.R), A.p)
-conj(A::PartialQR) = conj!(copy(A))
+conj(A::PartialQR) = PartialQR(conj(A.Q), conj(A.R), A.p)
 
 convert{T}(::Type{PartialQR{T}}, A::PartialQR) =
   PartialQR(convert(Array{T}, A.Q), convert(Array{T}, A.R), A.p)
@@ -199,7 +199,7 @@ function pqrfact!(A::AbstractMatOrLinOp, opts::LRAOptions)
   if typeof(A) <: StridedMatrix && opts.sketch == :none
     return pqrfact_lapack!(A, opts)
   end
-  Q = rrange(:n, A, opts)
+  Q = prange(:n, A, opts)
   opts = copy(opts, sketch=:none)
   F = pqrfact_lapack!(Q'*A, opts)
   F.Q = Q*F.Q
@@ -224,7 +224,7 @@ for sfx in ("", "!")
     $f{T}(A::AbstractMatOrLinOp{T}) = $f(A, default_rtol(T))
     $f(A, args...) = $f(LinOp(A), args...)
 
-    function $g(A::AbstractMatOrLinOp, args...)
+    function $g(A, args...)
       F = $f(A, args...)
       F.Q, F.R, F.p
     end

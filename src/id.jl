@@ -19,7 +19,7 @@ type IDPackedV{S} <: Factorization{S}
 end
 
 conj!(A::IDPackedV) = IDPackedV(A.sk, A.rd, conj!(A.T))
-conj(A::IDPackedV) = conj!(copy(A))
+conj(A::IDPackedV) = IDPackedV(A.sk, A.rd, conj(A.T))
 
 convert{T}(::Type{IDPackedV{T}}, A::IDPackedV) =
   IDPackedV(A.sk, A.rd, convert(Array{T}, A.T))
@@ -373,7 +373,7 @@ for sfx in ("", "!")
     $f{T}(A::AbstractMatOrLinOp{T}) = $f(A, default_rtol(T))
     $f(A, args...) = $f(LinOp(A), args...)
 
-    function $g(A::AbstractMatOrLinOp, args...)
+    function $g(A, args...)
       V = $f(A, args...)
       V.sk, V.rd, V.T
     end

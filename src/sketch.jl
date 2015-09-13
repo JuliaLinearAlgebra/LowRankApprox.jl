@@ -320,17 +320,17 @@ end
 
 function srft_apply!{T<:Real}(
     y::StridedVecOrMat{T}, X::StridedMatrix{T}, idx::AbstractVector,
-    r2rplan!::Function)
+    r2rplan!::FFTW.r2rFFTWPlan)
   l, m = size(X)
   n = l*m
   k = length(idx)
-  r2rplan!(X)
+  A_mul_B!(X, r2rplan!, X)
   wn = exp(-2im*pi/n)
   wm = exp(-2im*pi/m)
   nnyq = div(n, 2)
   cnyq = div(l, 2)
-  p = 0
-  for i = 1:k
+  i = 1
+  while i <= k
     idx_ = idx[i] - 1
     row = fld(idx_, l) + 1
     col = rem(idx_, l) + 1
@@ -342,45 +342,42 @@ function srft_apply!{T<:Real}(
     ia = cswap ? l - col_ : col_
     ib = col_ > 0 ? l - ia : 0
 
-    # initialze the next entry to fill
-    p += 1
-    y[p] = 0
+    # initialze next entry to fill
+    y[i] = 0
 
     # compute only one entry if purely real or no more space
-    if in == 0 || in == nnyq || p == k
+    if in == 0 || in == nnyq || i == k
       for j = 1:m
         a = X[ia+1,j]
         b = ib == 0 || ib == ia ? zero(T) : X[ib+1,j]
         b = cswap ? -b : b
-        y[p] += real(w^(j - 1)*(a + b*im))
+        y[i] += real(w^(j - 1)*(a + b*im))
       end
 
     # else compute one entry each for real/imag parts
     else
-      y[p+1] = 0
+      y[i+1] = 0
       for j = 1:m
         a = X[ia+1,j]
         b = ib == 0 || ib == ia ? zero(T) : X[ib+1,j]
         b = cswap ? -b : b
         z = w^(j - 1)*(a + b*im)
-        y[p  ] += real(z)
-        y[p+1] += imag(z)
+        y[i  ] += real(z)
+        y[i+1] += imag(z)
       end
-      p += 1
+      i += 1
     end
-
-    # return if all spaces filled
-    p == k && return
+    i += 1
   end
 end
 
 function srft_apply!{T<:Complex}(
     y::StridedVecOrMat{T}, X::StridedMatrix, idx::AbstractVector,
-    fftplan!::Function)
+    fftplan!::FFTW.FFTWPlan)
   l, m = size(X)
   n = l*m
   k = length(idx)
-  fftplan!(X)
+  A_mul_B!(X, fftplan!, X)
   wn = exp(-2im*pi/n)
   wm = exp(-2im*pi/m)
   for i = 1:k
@@ -484,7 +481,7 @@ function A_mul_B!{T}(C, A::SparseRandGauss, B::AbstractMatrix{T})
     p = fld(m - i, k) + 1
     s = crandn(T, p)
     for j = 1:n
-      C[i,j] = zero(T)
+      C[i,j] = 0
       for l = 1:p
         C[i,j] += s[l]*B[r[idx+l],j]
       end
@@ -503,7 +500,7 @@ function A_mul_Bc!{T}(C, A::SparseRandGauss, B::AbstractMatrix{T})
     p = fld(n - i, k) + 1
     s = crandn(T, p)
     for j = 1:m
-      C[i,j] = zero(T)
+      C[i,j] = 0
       for l = 1:p
         C[i,j] += s[l]*conj(B[j,r[idx+l]])
       end
@@ -523,7 +520,7 @@ function A_mul_B!{T}(C, A::AbstractMatrix{T}, B::SparseRandGauss)
     p = fld(n - j, k) + 1
     s = crandn(T, p)
     for i = 1:m
-      C[i,j] = zero(T)
+      C[i,j] = 0
       for l = 1:p
         C[i,j] += A[i,r[idx+l]]*s[l]
       end
@@ -542,7 +539,7 @@ function Ac_mul_B!{T}(C, A::AbstractMatrix{T}, B::SparseRandGauss)
     p = fld(m - j, k) + 1
     s = crandn(T, p)
     for i = 1:n
-      C[i,j] = zero(T)
+      C[i,j] = 0
       for l = 1:p
         C[i,j] += A[r[idx+l],i]*s[l]
       end

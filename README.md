@@ -28,7 +28,7 @@ Further user options can be exposed through the interface
 ```
 F = LowRankApprox.pqrfact(A, opts)
 ```
-For example, to compute an approximation of rank at most `20` to an estimated relative precision of at least `1e-12`, use
+For example, to compute an approximation of rank at most `20` or to an estimated relative precision of at most `1e-12`, use
 ```
 opts = LowRankApprox.LRAOptions(rank=20, rtol=1e-12)
 ```
@@ -51,12 +51,12 @@ Currently implemented algorithms include:
  - random subset
  - subsampled random Fourier transform
  - sparse random Gaussian
-- randomized range finder based on sketching
+- partial range finder
 - factorizations:
  - partial QR decomposition
  - interpolative decomposition
  - partial singular value decomposition
+ - partial eigendecomposition
 
 Still to come (hopefully):
-- partial eigendecomposition
 - CUR decomposition

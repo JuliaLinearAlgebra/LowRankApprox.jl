@@ -22,6 +22,14 @@ export
   LinearOperator,
   HermitianLinearOperator,
 
+  # peig.jl
+  AbstractPartialEigen,
+  PartialEigen,
+  HermitianPartialEigen,
+  peigfact,
+  peig,
+  peigvals,
+
   # permute.jl
   PermutationMatrix,
   RowPermutation,
@@ -32,14 +40,14 @@ export
   pqr, pqr!,
   pqrfact, pqrfact!,
 
+  # prange.jl
+  prange,
+
   # psvd.jl
   PartialSVD,
   psvdfact,
   psvd,
   psvdvals,
-
-  # rrange.jl
-  rrange,
 
   # sketch.jl
   SketchMatrix,
@@ -64,6 +72,7 @@ export
 type LRAOptions
   atol::Float64
   nb::Int
+  peig_vecs::Symbol
   rank::Int
   rtol::Float64
   sketch::Symbol
@@ -78,6 +87,7 @@ end
 LRAOptions(;
     atol::Real=0.,
     nb::Integer=32,
+    peig_vecs::Symbol=:right,
     rank::Integer=-1,
     rtol::Real=default_rtol(Float64),
     sketch::Symbol=:none,
@@ -91,6 +101,7 @@ LRAOptions(;
   LRAOptions(
     atol,
     nb,
+    peig_vecs,
     rank,
     rtol,
     sketch,
@@ -106,6 +117,7 @@ function copy(opts::LRAOptions; args...)
   opts_ = LRAOptions(
     opts.atol,
     opts.nb,
+    opts.peig_vecs,
     opts.rank,
     opts.rtol,
     opts.sketch,
@@ -125,6 +137,7 @@ end
 function chkopts(opts)
   opts.atol >= 0 || throw(ArgumentError("atol"))
   opts.nb > 0 || throw(ArgumentError("nb"))
+  opts.peig_vecs in (:left, :right) || throw(ArgumentError("peig_vecs"))
   opts.rtol >= 0 || throw(ArgumentError("rtol"))
   opts.sketch in (:none, :randn, :sprn, :srft, :subs) ||
     throw(ArgumentError("sketch"))
@@ -145,9 +158,10 @@ include("trapezoidal.jl")
 include("util.jl")
 
 include("id.jl")
+include("peig.jl")
 include("pqr.jl")
+include("prange.jl")
 include("psvd.jl")
-include("rrange.jl")
 include("sketch.jl")
 
 end  # module

@@ -1,19 +1,19 @@
-#= test/rrange.jl
+#= test/prange.jl
 =#
 
 import LowRankApprox.hilbert
 
-println("rrange.jl")
+println("prange.jl")
 tic()
 
-m = 128
-n = 64
-A = hilbert(m, n)*(1 + im)
+n = 128
+A = hilbert(n, n)*(1 + im)
 rtol = 1e-6
 approx_rtol = 100*rtol
 opts = LRAOptions(rtol=rtol, sketch_randn_niter=1)
 
-for (t, s) in ((:RandomGaussian,       :randn),
+for (t, s) in ((:none,                 :none),
+               (:RandomGaussian,       :randn),
                (:RandomSubset,         :subs),
                (:SRFT,                 :srft),
                (:SparseRandomGaussian, :sprn))
@@ -25,10 +25,12 @@ for (t, s) in ((:RandomGaussian,       :randn),
     B = convert(Array{T}, B)
 
     nrm = snorm(B)
-    Q = rrange(:n, B, opts)
-    @test_approx_eq_eps B Q*(Q'*B) approx_rtol*nrm
-    Q = rrange(:c, B, opts)
-    @test_approx_eq_eps B (B*Q)*Q' approx_rtol*nrm
+    Q = prange(:n,  B, opts)
+    @test_approx_eq_eps B Q*(Q'*B)      approx_rtol*nrm
+    Q = prange(:c,  B, opts)
+    @test_approx_eq_eps B      (B*Q)*Q' approx_rtol*nrm
+    Q = prange(:nc, B, opts)
+    @test_approx_eq_eps B Q*(Q'*B*Q)*Q' approx_rtol*nrm
   end
 end
 

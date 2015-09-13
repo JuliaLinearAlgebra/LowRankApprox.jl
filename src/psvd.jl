@@ -14,7 +14,7 @@ type PartialSVD{T,Tr<:Real} <: Factorization{T}
 end
 
 conj!(A::PartialSVD) = PartialSVD(conj!(A.U), A.S, conj!(A.Vt))
-conj(A::PartialSVD) = conj!(copy(A))
+conj(A::PartialSVD) = PartialSVD(conj(A.U), A.S, conj(A.Vt))
 
 function convert{T}(::Type{PartialSVD{T}}, A::PartialSVD)
   Tr = eltype(real(one(T)))
@@ -193,19 +193,19 @@ end
 function psvdfact(A::AbstractMatOrLinOp, opts::LRAOptions)
   chkopts(opts)
   if ishermitian(A)
-    Q = opts.sketch == :none ? pqrfact(A, opts)[:Q] : rrange(:n, A, opts)
-    F = svdfact!(Q'*A*Q)
+    Q = prange(:n, A, opts)
+    F = svdfact!(Q'*(A*Q))
     U  = Q*F.U
     Vt = U'
   else
     m, n = size(A)
     if m >= n
-      Q = opts.sketch == :none ? pqrfact(A, opts)[:Q] : rrange(:n, A, opts)
+      Q = prange(:n, A, opts)
       F = svdfact!(Q'*A)
       U  = Q*F.U
       Vt = F.Vt
     else
-      Q = opts.sketch == :none ? pqrfact!(A', opts)[:Q] : rrange(:c, A, opts)
+      Q = prange(:c, A, opts)
       F = svdfact!(A*Q)
       U  = F.U
       Vt = F.Vt*Q'
@@ -213,38 +213,28 @@ function psvdfact(A::AbstractMatOrLinOp, opts::LRAOptions)
   end
   PartialSVD(U, F.S, Vt)
 end
-function psvdfact(A::AbstractMatOrLinOp, rank_or_rtol::Real)
-  opts = (rank_or_rtol < 1 ? LRAOptions(rtol=rank_or_rtol)
-                           : LRAOptions(rank=rank_or_rtol))
-  psvdfact(A, opts)
-end
-psvdfact{T}(A::AbstractMatOrLinOp{T}) = psvdfact(A, default_rtol(T))
-psvdfact(A, args...) = psvdfact(LinOp(A), args...)
-
-function psvd(A::AbstractMatOrLinOp, args...)
-  F = psvdfact(A, args...)
-  F.U, F.S, F.Vt'
-end
+psvd(A, args...) = (F = psvdfact(A, args...); (F.U, F.S, F.Vt'))
 
 function psvdvals(A::AbstractMatOrLinOp, opts::LRAOptions)
   chkopts(opts)
   if ishermitian(A)
-    Q = opts.sketch == :none ? pqrfact(A, opts)[:Q] : rrange(:n, A, opts)
-    return svdvals!(Q'*A*Q)
+    Q = prange(:n, A, opts)
+    return svdvals!(Q'*(A*Q))
   end
   m, n = size(A)
-  if m >= n
-    Q = opts.sketch == :none ? pqrfact(A, opts)[:Q] : rrange(:n, A, opts)
-    return svdvals!(Q'*A)
-  else
-    Q = opts.sketch == :none ? pqrfact!(A', opts)[:Q] : rrange(:c, A, opts)
-    return svdvals!(A*Q)
+  if m >= n  Q = prange(:n, A, opts); return svdvals!(Q'*A  )
+  else       Q = prange(:c, A, opts); return svdvals!(   A*Q)
   end
 end
-function psvdvals(A::AbstractMatOrLinOp, rank_or_rtol::Real)
-  opts = (rank_or_rtol < 1 ? LRAOptions(rtol=rank_or_rtol)
-                           : LRAOptions(rank=rank_or_rtol))
-  psvdvals(A, opts)
+
+for f in (:psvdfact, :psvdvals)
+  @eval begin
+    function $f(A::AbstractMatOrLinOp, rank_or_rtol::Real)
+      opts = (rank_or_rtol < 1 ? LRAOptions(rtol=rank_or_rtol)
+                               : LRAOptions(rank=rank_or_rtol))
+      $f(A, opts)
+    end
+    $f{T}(A::AbstractMatOrLinOp{T}) = $f(A, default_rtol(T))
+    $f(A, args...) = $f(LinOp(A), args...)
+  end
 end
-psvdvals{T}(A::AbstractMatOrLinOp{T}) = psvdvals(A, default_rtol(T))
-psvdvals(A, args...) = psvdvals(LinOp(A), args...)
