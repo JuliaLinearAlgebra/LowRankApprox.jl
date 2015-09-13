@@ -54,7 +54,7 @@
 <pre><code>F = LowRankApprox.pqrfact(A, opts)
 </code></pre>
 
-<p>For example, to compute an approximation of rank at most <code>20</code> to an estimated relative precision of at least <code>1e-12</code>, use</p>
+<p>For example, to compute an approximation of rank at most <code>20</code> or to an estimated relative precision of at most <code>1e-12</code>, use</p>
 
 <pre><code>opts = LowRankApprox.LRAOptions(rank=20, rtol=1e-12)
 </code></pre>
@@ -86,12 +86,14 @@
 <li>sparse random Gaussian</li>
 </ul>
 </li>
-<li>randomized range finder based on sketching</li>
+<li>partial range finder</li>
 <li>factorizations:
 
 <ul>
 <li>partial QR decomposition</li>
 <li>interpolative decomposition</li>
+<li>partial singular value decomposition</li>
+<li>partial eigendecomposition</li>
 </ul>
 </li>
 </ul>
@@ -99,8 +101,6 @@
 <p>Still to come (hopefully):</p>
 
 <ul>
-<li>eigendecomposition</li>
-<li>singular value decomposition</li>
 <li>CUR decomposition</li>
 </ul>
 
