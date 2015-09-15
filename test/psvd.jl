@@ -54,6 +54,12 @@ for (t, s) in ((:none,                 :none),
     C = Bn' *B'  ; @test_approx_eq_eps C Bn' *F'   approx_rtol*snorm(C)
     C = Bm.'*B   ; @test_approx_eq_eps C Bm.'*F    approx_rtol*snorm(C)
     C = Bn.'*B.' ; @test_approx_eq_eps C Bn.'*F.'  approx_rtol*snorm(C)
+
+    x = B*rand(T, n)
+    y = F\x; @test_approx_eq_eps x B*y approx_rtol*norm(y)
+
+    X = B*rand(T, n, n)
+    C = F\X; @test_approx_eq_eps X B*C approx_rtol*snorm(X)
   end
 end
 

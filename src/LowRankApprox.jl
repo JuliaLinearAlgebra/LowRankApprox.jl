@@ -90,7 +90,7 @@ LRAOptions(;
     peig_vecs::Symbol=:right,
     rank::Integer=-1,
     rtol::Real=default_rtol(Float64),
-    sketch::Symbol=:none,
+    sketch::Symbol=:randn,
     sketch_randn_niter::Integer=0,
     sketch_randn_samp::Integer=8,
     sketch_srft_samp::Integer=8,

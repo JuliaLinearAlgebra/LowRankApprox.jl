@@ -48,14 +48,12 @@ size(A::PartialSVD) = (size(A.U,1), size(A.Vt,2))
 size(A::PartialSVD, dim::Integer) =
   dim == 1 ? size(A.U,1) : (dim == 2 ? size(A.Vt,2) : 1)
 
-# BLAS/LAPACK multiplication routines
+# BLAS/LAPACK multiplication/division routines
 
 ## left-multiplication
 
-A_mul_B!{T}(y::StridedVector{T}, A::PartialSVD{T}, x::StridedVector{T}) =
-  A_mul_B!(y, A[:U], scalevec!(A[:S], A[:Vt]*x))
-A_mul_B!{T}(C::StridedMatrix{T}, A::PartialSVD{T}, B::StridedMatrix{T}) =
-  A_mul_B!(C, A[:U], scale!(A[:S], A[:Vt]*B))
+A_mul_B!{T}(C::StridedVecOrMat{T}, A::PartialSVD{T}, B::StridedVecOrMat{T}) =
+  A_mul_B!(C, A[:U], _scale!(A[:S], A[:Vt]*B))
 
 for f in (:A_mul_Bc, :A_mul_Bt)
   f! = symbol(f, "!")
@@ -71,14 +69,10 @@ end
 for f in (:Ac_mul_B, :At_mul_B)
   f! = symbol(f, "!")
   @eval begin
-    function $f!{T}(y::StridedVector{T}, A::PartialSVD{T}, x::StridedVector{T})
-      tmp = $f(A[:U], x)
-      scalevec!(A[:S], tmp)
-      $f!(y, A[:Vt], tmp)
-    end
-    function $f!{T}(C::StridedMatrix{T}, A::PartialSVD{T}, B::StridedMatrix{T})
+    function $f!{T}(
+        C::StridedVecOrMat{T}, A::PartialSVD{T}, B::StridedVecOrMat{T})
       tmp = $f(A[:U], B)
-      scale!(A[:S], tmp)
+      _scale!(A[:S], tmp)
       $f!(C, A[:Vt], tmp)
     end
   end
@@ -133,6 +127,10 @@ for (f, g!) in ((:Ac_mul_Bc, :A_mul_Bc!), (:At_mul_Bt, :A_mul_Bt!))
   end
 end
 
+## left-division (pseudoinverse left-multiplication)
+A_ldiv_B!{T}(C::StridedVecOrMat{T}, A::PartialSVD{T}, B::StridedVecOrMat{T}) =
+  Ac_mul_B!(C, A[:Vt], _iscale!(A[:S], A[:U]'*B))
+
 # standard operations
 
 ## left-multiplication
@@ -186,6 +184,22 @@ for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
       $f!(CT, AT, BT)
     end
   end
+end
+
+## left-division
+function \{TA,TB}(A::PartialSVD{TA}, B::StridedVector{TB})
+  T = promote_type(TA, TB)
+  AT = convert(PartialSVD{T}, A)
+  BT = (T == TB ? B : convert(Array{T}, B))
+  CT = Array(T, size(A,2))
+  A_ldiv_B!(CT, AT, BT)
+end
+function \{TA,TB}(A::PartialSVD{TA}, B::StridedMatrix{TB})
+  T = promote_type(TA, TB)
+  AT = convert(PartialSVD{T}, A)
+  BT = (T == TB ? B : convert(Array{T}, B))
+  CT = Array(T, size(A,2), size(B,2))
+  A_ldiv_B!(CT, AT, BT)
 end
 
 # factorization routines

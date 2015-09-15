@@ -49,7 +49,7 @@ size(A::PartialQR) = (size(A.Q,1), size(A.R,2))
 size(A::PartialQR, dim::Integer) =
   dim == 1 ? size(A.Q,1) : (dim == 2 ? size(A.R,2) : 1)
 
-# BLAS/LAPACK multiplication routines
+# BLAS/LAPACK multiplication/division routines
 
 ## left-multiplication
 
@@ -137,6 +137,14 @@ for (f!, g, h) in ((:Ac_mul_Bc!, :Ac_mul_B, :A_mul_Bc),
   end
 end
 
+## left-division (pseudoinverse left-multiplication)
+function A_ldiv_B!{T}(
+    C::StridedVecOrMat{T}, A::PartialQR{T}, B::StridedVecOrMat{T})
+  tmp = (A[:R]*A.R')\(A[:Q]'*B)
+  Ac_mul_B!(C, A[:R], tmp);
+  A_mul_B!(A[:P], C)
+end
+
 # standard operations
 
 ## left-multiplication
@@ -190,6 +198,22 @@ for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
       $f!(CT, AT, BT)
     end
   end
+end
+
+## left-division
+function \{TA,TB}(A::PartialQR{TA}, B::StridedVector{TB})
+  T = promote_type(TA, TB)
+  AT = convert(PartialQR{T}, A)
+  BT = (T == TB ? B : convert(Array{T}, B))
+  CT = Array(T, size(A,2))
+  A_ldiv_B!(CT, AT, BT)
+end
+function \{TA,TB}(A::PartialQR{TA}, B::StridedMatrix{TB})
+  T = promote_type(TA, TB)
+  AT = convert(PartialQR{T}, A)
+  BT = (T == TB ? B : convert(Array{T}, B))
+  CT = Array(T, size(A,2), size(B,2))
+  A_ldiv_B!(CT, AT, BT)
 end
 
 # factorization routines

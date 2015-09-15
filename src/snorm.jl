@@ -22,7 +22,7 @@ function snorm{T}(A::AbstractLinOp{T}, opts::LRAOptions)
   chkopts(opts)
   m, n      = size(A)
   isherm    = ishermitian(A)
-  xn        = crandn(T, n)
+  xn        = _randn(T, n)
   xm        = Array(T, m)
   xnrm      = vecnorm(xn)
   s         = [real(one(T))]

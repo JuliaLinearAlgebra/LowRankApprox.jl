@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/klho/LowRankApprox.jl.svg?branch=master)](https://travis-ci.org/klho/LowRankApprox.jl)
 
-This Julia package implements fast low-rank matrix approximation algorithms for BLAS/LAPACK-compatible matrices. The focus is on performance and feature-completeness; we include both deterministic early-termination variants of standard codes as well as those based on some of the latest work in adaptive randomized matrix sketching. All user-level functions accept a number of options specifying, e.g., the rank, estimated absolute precision, and estimated relative precision of approximation.
+This Julia package implements fast low-rank matrix approximation algorithms for BLAS/LAPACK-compatible matrices. The focus is on performance and feature-completeness; we include both deterministic early-termination variants of standard codes as well as those based on some of the latest technology in adaptive randomized matrix sketching. All user-level functions accept a number of options specifying, e.g., the rank, estimated absolute precision, and estimated relative precision of approximation.
 
 ## Usage
 
@@ -14,7 +14,7 @@ or, alternatively,
 ```
 Q, R, p = LowRankApprox.pqr(A)
 ```
-This computes a factorization using the default options: an early-terminated version of GEQP3 at approximately `1e-15` relative precision. To request only `1e-12` relative precision, use
+This computes a factorization using the default options: an approximation to roughly `1e-15` relative precision accelerated by an adaptive random Gaussian sketch. To request only `1e-12` relative precision, use
 ```
 F = LowRankApprox.pqrfact(A, 1e-12)
 ```
@@ -37,11 +37,14 @@ In other words, this sets two termination criteria, one at reaching rank `20` an
 opts = LowRankApprox.LRAOptions(atol=1e-9, rank=20, rtol=1e-12)
 ```
 
-We can also take advantage of matrix sketching (randomized sampling) as follows. For example, to sketch with a random Gaussian matrix, set
+Other matrix sketching methods can also be specified. For example, to sketch with a subsampled random Fourier transform, set
 ```
-opts = LowRankApprox.LRAOptions(sketch=:randn)
+opts = LowRankApprox.LRAOptions(sketch=:srft)
 ```
-This sketch is used to quickly compress the matrix, which is then run through the deterministic algorithm (at a potentially much lower cost) and post-processed to return the original matrix factors as requested. Sketching is a core component of this package and is completely adaptive based on the accuracy options described above.
+Sketching is a core component of this package and is critical for performance. To disable sketching, use
+```
+opts = LowRankApprox.LRAOptions(sketch=:none)
+```
 
 ## Status
 
@@ -52,11 +55,11 @@ Currently implemented algorithms include:
  - subsampled random Fourier transform
  - sparse random Gaussian
 - partial range finder
-- factorizations:
- - partial QR decomposition
+- partial factorizations:
+ - QR decomposition
  - interpolative decomposition
- - partial singular value decomposition
- - partial eigendecomposition
+ - singular value decomposition
+ - eigendecomposition
 
 Still to come (hopefully):
 - CUR decomposition

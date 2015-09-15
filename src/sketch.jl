@@ -101,7 +101,7 @@ type RandomGaussian <: SketchMatrix
 end
 
 full{T}(::Type{T}, side::Symbol, A::RandomGaussian, n::Integer) =
-  side == :left ? crandn(T, A.k, n) : crandn(T, n, A.k)
+  side == :left ? _randn(T, A.k, n) : _randn(T, n, A.k)
 
 A_mul_B!{T}(C, A::RandomGaussian, B::AbstractMatOrLinOp{T}) =
   (S = full(T, :left, A, size(B,1)); A_mul_B!(C, S, B))
@@ -479,7 +479,7 @@ function A_mul_B!{T}(C, A::SparseRandGauss, B::AbstractMatrix{T})
   idx = 0
   for i = 1:k
     p = fld(m - i, k) + 1
-    s = crandn(T, p)
+    s = _randn(T, p)
     for j = 1:n
       C[i,j] = 0
       for l = 1:p
@@ -498,7 +498,7 @@ function A_mul_Bc!{T}(C, A::SparseRandGauss, B::AbstractMatrix{T})
   idx = 0
   for i = 1:k
     p = fld(n - i, k) + 1
-    s = crandn(T, p)
+    s = _randn(T, p)
     for j = 1:m
       C[i,j] = 0
       for l = 1:p
@@ -518,7 +518,7 @@ function A_mul_B!{T}(C, A::AbstractMatrix{T}, B::SparseRandGauss)
   idx = 0
   for j = 1:k
     p = fld(n - j, k) + 1
-    s = crandn(T, p)
+    s = _randn(T, p)
     for i = 1:m
       C[i,j] = 0
       for l = 1:p
@@ -537,7 +537,7 @@ function Ac_mul_B!{T}(C, A::AbstractMatrix{T}, B::SparseRandGauss)
   idx = 0
   for j = 1:k
     p = fld(m - j, k) + 1
-    s = crandn(T, p)
+    s = _randn(T, p)
     for i = 1:n
       C[i,j] = 0
       for l = 1:p

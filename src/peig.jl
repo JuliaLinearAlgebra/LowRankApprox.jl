@@ -64,45 +64,37 @@ size(A::AbstractPartialEigen) = (size(A.vectors,1), size(A.vectors,1))
 size(A::AbstractPartialEigen, dim::Integer) =
   dim == 1 || dim == 2 ? size(A.vectors,1) : 1
 
-# BLAS/LAPACK multiplication routines
+# BLAS/LAPACK multiplication/division routines
 
 ## left-multiplication
 
-A_mul_B!{T}(y::StridedVector{T}, A::HermPartialEigen{T}, x::StridedVector{T}) =
-  A_mul_B!(y, A[:vectors], scalevec!(A[:values], A[:vectors]'*x))
-A_mul_B!{T}(C::StridedMatrix{T}, A::HermPartialEigen{T}, B::StridedMatrix{T}) =
-  A_mul_B!(C, A[:vectors], scale!(A[:values], A[:vectors]'*B))
+A_mul_B!{T}(
+    C::StridedVecOrMat{T}, A::HermPartialEigen{T}, B::StridedVecOrMat{T}) =
+  A_mul_B!(C, A[:vectors], _scale!(A[:values], A[:vectors]'*B))
 
-function A_mul_Bc!{T}(
-    C::StridedMatrix{T}, A::HermPartialEigen{T}, B::StridedMatrix{T})
-  tmp = A[:vectors]'*B'
-  scale!(A[:values], tmp)
-  A_mul_B!(C, A[:vectors], tmp)
-end
+A_mul_Bc!{T}(C::StridedMatrix{T}, A::HermPartialEigen{T}, B::StridedMatrix{T}) =
+  A_mul_B!(C, A[:vectors], scale!(A[:values], A[:vectors]'*B'))
 A_mul_Bt!{T<:Real}(
     C::StridedMatrix{T}, A::HermPartialEigen{T}, B::StridedMatrix{T}) =
   A_mul_Bc!(C, A, B)
 A_mul_Bt!!{T<:Complex}(
     C::StridedMatrix{T}, A::HermPartialEigen{T}, B::StridedMatrix{T}) =
   A_mul_Bc!(C, A, conj!(B))  # overwrites B
-A_mul_Bt!{T<:Complex}(
-    C::StridedMatrix{T}, A::HermPartialEigen{T}, B::StridedMatrix{T}) =
-  A_mul_Bt!!(C, A, copy(B))
+function A_mul_Bt!{T<:Complex}(
+    C::StridedMatrix{T}, A::HermPartialEigen{T}, B::StridedMatrix{T})
+  size(B, 1) <= A[:k] && return A_mul_Bt!!(C, A, copy(B))
+  tmp = conj(A[:vectors]).'*B.'
+  scale!(A[:values], tmp)
+  A_mul_B!(C, A[:vectors], tmp)
+end
 
 Ac_mul_B!{T}(
     C::StridedVecOrMat{T}, A::HermPartialEigen{T}, B::StridedVecOrMat{T}) =
   A_mul_B!(C, A, B)
 function At_mul_B!{T}(
-    y::StridedVector{T}, A::HermPartialEigen{T}, x::StridedVector{T})
-  tmp = A[:vectors].'*x
-  scalevec!(A[:values], tmp)
-  A_mul_B!(y, A[:vectors], conj!(tmp))
-  conj!(y)
-end
-function At_mul_B!{T}(
-    C::StridedMatrix{T}, A::HermPartialEigen{T}, B::StridedMatrix{T})
+    C::StridedVecOrMat{T}, A::HermPartialEigen{T}, B::StridedVecOrMat{T})
   tmp = A[:vectors].'*B
-  scale!(A[:values], tmp)
+  _scale!(A[:values], tmp)
   A_mul_B!(C, A[:vectors], conj!(tmp))
   conj!(C)
 end
@@ -131,13 +123,19 @@ function A_mul_Bt!!{T}(
   scale!(conj!(tmp), B[:values])
   A_mul_Bt!(C, tmp, B[:vectors])
 end  # overwrites A
-A_mul_Bt!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::HermPartialEigen{T}) =
-  A_mul_Bt!!(C, copy(A), B)
+function A_mul_Bt!{T}(
+    C::StridedMatrix{T}, A::StridedMatrix{T}, B::HermPartialEigen{T})
+  size(A, 1) <= B[:k] && return A_mul_Bt!!(C, copy(A), B)
+  tmp = A*conj(B[:vectors])
+  scale!(tmp, B[:values])
+  A_mul_Bt!(C, tmp, B[:vectors])
+end
 
 for f in (:Ac_mul_B, :At_mul_B)
   f! = symbol(f, "!")
   @eval begin
-    function $f!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::HermPartialEigen{T})
+    function $f!{T}(
+        C::StridedMatrix{T}, A::StridedMatrix{T}, B::HermPartialEigen{T})
       tmp = $f(A, B[:vectors])
       scale!(tmp, B[:values])
       A_mul_Bc!(C, tmp, B[:vectors])
@@ -154,6 +152,11 @@ function At_mul_Bt!{T}(
   scale!(conj!(tmp), B[:values])
   A_mul_Bt!(C, tmp, B[:vectors])
 end
+
+## left-division (pseudoinverse left-multiplication)
+A_ldiv_B!{T}(
+    C::StridedVecOrMat{T}, A::HermPartialEigen{T}, B::StridedVecOrMat{T}) =
+  A_mul_B!(C, A[:vectors], _iscale!(A[:values], A[:vectors]'*B))
 
 # standard operations
 
@@ -208,6 +211,22 @@ for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
       $f!(CT, AT, BT)
     end
   end
+end
+
+## left-division
+function \{TA,TB}(A::HermPartialEigen{TA}, B::StridedVector{TB})
+  T = promote_type(TA, TB)
+  AT = convert(HermPartialEigen{T}, A)
+  BT = (T == TB ? B : convert(Array{T}, B))
+  CT = Array(T, size(A,2))
+  A_ldiv_B!(CT, AT, BT)
+end
+function \{TA,TB}(A::HermPartialEigen{TA}, B::StridedMatrix{TB})
+  T = promote_type(TA, TB)
+  AT = convert(HermPartialEigen{T}, A)
+  BT = (T == TB ? B : convert(Array{T}, B))
+  CT = Array(T, size(A,2), size(B,2))
+  A_ldiv_B!(CT, AT, BT)
 end
 
 # factorization routines
