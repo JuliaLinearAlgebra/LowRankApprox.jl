@@ -22,7 +22,7 @@
       <h1>
 <a id="lowrankapprox" class="anchor" href="#lowrankapprox" aria-hidden="true"><span class="octicon octicon-link"></span></a>LowRankApprox</h1>
 
-<p>This Julia package implements fast low-rank matrix approximation algorithms for BLAS/LAPACK-compatible matrices. The focus is on performance and feature-completeness; we include both deterministic early-termination variants of standard codes as well as those based on some of the latest work in adaptive randomized matrix sketching. All user-level functions accept a number of options specifying, e.g., the rank, estimated absolute precision, and estimated relative precision of approximation.</p>
+<p>This Julia package implements fast low-rank matrix approximation algorithms for BLAS/LAPACK-compatible matrices. The focus is on performance and feature-completeness; we include both deterministic early-termination variants of standard codes as well as those based on some of the latest technology in adaptive randomized matrix sketching. All user-level functions accept a number of options specifying, e.g., the rank, estimated absolute precision, and estimated relative precision of approximation.</p>
 
 <h2>
 <a id="usage" class="anchor" href="#usage" aria-hidden="true"><span class="octicon octicon-link"></span></a>Usage</h2>
@@ -37,7 +37,7 @@
 <pre><code>Q, R, p = LowRankApprox.pqr(A)
 </code></pre>
 
-<p>This computes a factorization using the default options: an early-terminated version of GEQP3 at approximately <code>1e-15</code> relative precision. To request only <code>1e-12</code> relative precision, use</p>
+<p>This computes a factorization using the default options: an approximation to roughly <code>1e-15</code> relative precision accelerated by an adaptive random Gaussian sketch. To request only <code>1e-12</code> relative precision, use</p>
 
 <pre><code>F = LowRankApprox.pqrfact(A, 1e-12)
 </code></pre>
@@ -64,12 +64,15 @@
 <pre><code>opts = LowRankApprox.LRAOptions(atol=1e-9, rank=20, rtol=1e-12)
 </code></pre>
 
-<p>We can also take advantage of matrix sketching (randomized sampling) as follows. For example, to sketch with a random Gaussian matrix, set</p>
+<p>Other matrix sketching methods can also be specified. For example, to sketch with a subsampled random Fourier transform, set</p>
 
-<pre><code>opts = LowRankApprox.LRAOptions(sketch=:randn)
+<pre><code>opts = LowRankApprox.LRAOptions(sketch=:srft)
 </code></pre>
 
-<p>This sketch is used to quickly compress the matrix, which is then run through the deterministic algorithm (at a potentially much lower cost) and post-processed to return the original matrix factors as requested. Sketching is a core component of this package and is completely adaptive based on the accuracy options described above.</p>
+<p>Sketching is a core component of this package and is critical for performance. To disable sketching, use</p>
+
+<pre><code>opts = LowRankApprox.LRAOptions(sketch=:none)
+</code></pre>
 
 <h2>
 <a id="status" class="anchor" href="#status" aria-hidden="true"><span class="octicon octicon-link"></span></a>Status</h2>
@@ -87,13 +90,13 @@
 </ul>
 </li>
 <li>partial range finder</li>
-<li>factorizations:
+<li>partial factorizations:
 
 <ul>
-<li>partial QR decomposition</li>
+<li>QR decomposition</li>
 <li>interpolative decomposition</li>
-<li>partial singular value decomposition</li>
-<li>partial eigendecomposition</li>
+<li>singular value decomposition</li>
+<li>eigendecomposition</li>
 </ul>
 </li>
 </ul>
