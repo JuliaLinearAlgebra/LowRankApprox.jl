@@ -22,7 +22,7 @@ function snorm{T}(A::AbstractLinOp{T}, opts::LRAOptions)
   chkopts(opts)
   m, n      = size(A)
   isherm    = ishermitian(A)
-  xn        = _randn(T, n)
+  xn        = crandn(T, n)
   xm        = Array(T, m)
   xnrm      = vecnorm(xn)
   s         = [real(one(T))]
@@ -31,6 +31,11 @@ function snorm{T}(A::AbstractLinOp{T}, opts::LRAOptions)
   niter     = 0
   converged = true
   while s[end] > 0 && abs(s[end] - t) > max(opts.atol, t*opts.rtol)
+    if niter == opts.snorm_niter
+      warn("maximum number of iterations ($niter) reached")
+      converged = false
+      break
+    end
     niter += 1
     xn /= xnrm
     if isherm
@@ -45,11 +50,6 @@ function snorm{T}(A::AbstractLinOp{T}, opts::LRAOptions)
     xnrm = vecnorm(xn)
     t = s[end]
     push!(s, isherm ? xnrm : sqrt(xnrm))
-    if niter == opts.snorm_niter
-      warn("maximum number of iterations ($niter) reached")
-      converged = false
-      break
-    end
   end
   if opts.snorm_info  ConvergenceInfo(s, neval, niter, converged)
   else                s[end]

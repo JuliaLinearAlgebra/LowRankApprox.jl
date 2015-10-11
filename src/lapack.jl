@@ -8,9 +8,9 @@ import Base.blasfunc
 
 const liblapack = Base.liblapack_name
 
-for (lapmr, lapmt, elty) in ((:slapmr_, :slapmt_, :Float32),
-                             (:dlapmr_, :dlapmt_, :Float64),
-                             (:clapmr_, :clapmt_, :Complex64),
+for (lapmr, lapmt, elty) in ((:slapmr_, :slapmt_, :Float32   ),
+                             (:dlapmr_, :dlapmt_, :Float64   ),
+                             (:clapmr_, :clapmt_, :Complex64 ),
                              (:zlapmr_, :zlapmt_, :Complex128))
   @eval begin
     function lapmr!(
@@ -72,9 +72,9 @@ for (laqps, elty, relty) in ((:slaqps_, :Float32,    :Float32),
   end
 end
 
-for (orgqr, elty) in ((:sorgqr_, :Float32),
-                      (:dorgqr_, :Float64),
-                      (:cungqr_, :Complex64),
+for (orgqr, elty) in ((:sorgqr_, :Float32   ),
+                      (:dorgqr_, :Float64   ),
+                      (:cungqr_, :Complex64 ),
                       (:zungqr_, :Complex128))
   @eval begin
     function orgqr!(A::StridedMatrix{$elty}, tau::StridedVector{$elty})

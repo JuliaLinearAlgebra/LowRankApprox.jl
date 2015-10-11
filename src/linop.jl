@@ -20,11 +20,7 @@ end
 typealias HermLinOp HermitianLinearOperator
 
 function LinOp(A)
-  try
-    if ishermitian(A)
-      return HermLinOp(A)
-    end
-  end
+  try  ishermitian(A) && return HermLinOp(A)  end
   T = eltype(A)
   m, n = size(A)
   mul!  = (y, x) ->  A_mul_B!(y, A, x)
@@ -48,7 +44,30 @@ ctranspose(A::HermLinOp) = A
 
 eltype{T}(A::AbstractLinOp{T}) = T
 
-full(A::AbstractLinOp) = A*eye(size(A, 2))
+full{T}(A::AbstractLinOp{T}) = A*eye(T, size(A,2))
+
+getindex(A::AbstractLinOp, ::Colon, ::Colon) = full(A)
+function getindex{T}(A::AbstractLinOp{T}, ::Colon, cols)
+  k = length(cols)
+  S = zeros(T, size(A,2), k)
+  for i = 1:k
+    S[cols[i],i] = 1
+  end
+  A*S
+end
+function getindex{T}(A::AbstractLinOp{T}, rows, ::Colon)
+  k = length(rows)
+  S = zeros(T, size(A,1), k)
+  for i = 1:k
+    S[rows[i],i] = 1
+  end
+  (A'*S)'
+end
+function getindex{T}(A::AbstractLinOp{T}, rows, cols)
+  if length(rows) > length(cols)  return (A[:,cols])[rows,:]
+  else                            return (A[rows,:])[:,cols]
+  end
+end
 
 ishermitian(A::LinOp) = false
 ishermitian(A::HermLinOp) = true

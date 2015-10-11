@@ -27,9 +27,17 @@ conj(A::AbstractPartialEigen) = conj!(copy(A))
 convert{T}(::Type{PartialEigen{T}}, A::PartialEigen) =
   PartialEigen(convert(Array{T}, A.values), convert(Array{T}, A.vectors))
 function convert{T}(::Type{HermPartialEigen{T}}, A::HermPartialEigen)
-  Tr = eltype(real(one(T)))
+  Tr = real(T)
   HermPartialEigen(convert(Array{Tr}, A.values), convert(Array{T}, A.vectors))
 end
+convert{T}(::Type{AbstractPartialEigen{T}}, A::PartialEigen) =
+  convert(PartialEigen{T}, A)
+convert{T}(::Type{AbstractPartialEigen{T}}, A::HermPartialEigen) =
+  convert(HermPartialEigen{T}, A)
+convert{T}(::Type{Factorization{T}}, A::PartialEigen) =
+  convert(PartialEigen{T}, A)
+convert{T}(::Type{Factorization{T}}, A::HermPartialEigen) =
+  convert(HermPartialEigen{T}, A)
 convert(::Type{Array}, A::HermPartialEigen) = full(A)
 convert{T}(::Type{Array{T}}, A::HermPartialEigen) = convert(Array{T}, full(A))
 
@@ -37,7 +45,7 @@ copy(A::PartialEigen) = PartialEigen(copy(A.values), copy(A.vectors))
 copy(A::HermPartialEigen) = HermPartialEigen(copy(A.values), copy(A.vectors))
 
 ctranspose!(A::HermPartialEigen) = A
-ctranspose(A::HermPartialEigen) = A
+ctranspose(A::HermPartialEigen) = copy(A)
 transpose!(A::HermPartialEigen) = conj!(A.vectors)
 transpose(A::HermPartialEigen) = HermPartialEigen(A.values, conj(A.vectors))
 
@@ -69,8 +77,11 @@ size(A::AbstractPartialEigen, dim::Integer) =
 ## left-multiplication
 
 A_mul_B!{T}(
-    C::StridedVecOrMat{T}, A::HermPartialEigen{T}, B::StridedVecOrMat{T}) =
-  A_mul_B!(C, A[:vectors], _scale!(A[:values], A[:vectors]'*B))
+    y::StridedVector{T}, A::HermPartialEigen{T}, x::StridedVector{T}) =
+  A_mul_B!(y, A[:vectors], scalevec!(A[:values], A[:vectors]'*x))
+A_mul_B!{T}(
+    C::StridedMatrix{T}, A::HermPartialEigen{T}, B::StridedMatrix{T}) =
+  A_mul_B!(C, A[:vectors], scale!(A[:values], A[:vectors]'*B))
 
 A_mul_Bc!{T}(C::StridedMatrix{T}, A::HermPartialEigen{T}, B::StridedMatrix{T}) =
   A_mul_B!(C, A[:vectors], scale!(A[:values], A[:vectors]'*B'))
@@ -83,7 +94,7 @@ A_mul_Bt!!{T<:Complex}(
 function A_mul_Bt!{T<:Complex}(
     C::StridedMatrix{T}, A::HermPartialEigen{T}, B::StridedMatrix{T})
   size(B, 1) <= A[:k] && return A_mul_Bt!!(C, A, copy(B))
-  tmp = conj(A[:vectors]).'*B.'
+  tmp = (A[:vectors]')*B.'
   scale!(A[:values], tmp)
   A_mul_B!(C, A[:vectors], tmp)
 end
@@ -92,9 +103,16 @@ Ac_mul_B!{T}(
     C::StridedVecOrMat{T}, A::HermPartialEigen{T}, B::StridedVecOrMat{T}) =
   A_mul_B!(C, A, B)
 function At_mul_B!{T}(
-    C::StridedVecOrMat{T}, A::HermPartialEigen{T}, B::StridedVecOrMat{T})
+    y::StridedVector{T}, A::HermPartialEigen{T}, x::StridedVector{T})
+  tmp = A[:vectors].'*x
+  scalevec!(A[:values], tmp)
+  A_mul_B!(y, A[:vectors], conj!(tmp))
+  conj!(y)
+end
+function At_mul_B!{T}(
+    C::StridedMatrix{T}, A::HermPartialEigen{T}, B::StridedMatrix{T})
   tmp = A[:vectors].'*B
-  _scale!(A[:values], tmp)
+  scale!(A[:values], tmp)
   A_mul_B!(C, A[:vectors], conj!(tmp))
   conj!(C)
 end
@@ -155,8 +173,11 @@ end
 
 ## left-division (pseudoinverse left-multiplication)
 A_ldiv_B!{T}(
-    C::StridedVecOrMat{T}, A::HermPartialEigen{T}, B::StridedVecOrMat{T}) =
-  A_mul_B!(C, A[:vectors], _iscale!(A[:values], A[:vectors]'*B))
+    y::StridedVector{T}, A::HermPartialEigen{T}, x::StridedVector{T}) =
+  A_mul_B!(y, A[:vectors], iscalevec!(A[:values], A[:vectors]'*x))
+A_ldiv_B!{T}(
+    C::StridedMatrix{T}, A::HermPartialEigen{T}, B::StridedMatrix{T}) =
+  A_mul_B!(C, A[:vectors], iscale!(A[:values], A[:vectors]'*B))
 
 # standard operations
 
@@ -232,25 +253,38 @@ end
 # factorization routines
 
 function peigfact{T}(A::AbstractMatOrLinOp{T}, opts::LRAOptions)
-  chkopts(opts)
+  chksquare(A)
   if ishermitian(A)
-    Q = prange(:n, A, opts)
-    B = Q'*(A*Q)
-    for i = 1:size(B,2)
+    V = idfact(:n, A, opts)
+    F = qrfact!(full(V)')
+    Q = F[:Q]
+    B = F[:R]*(A[V[:sk],V[:sk]]*F[:R]')
+    n = size(B, 2)
+    for i = 1:n
       B[i,i] = real(B[i,i])
     end
     F = eigfact!(Hermitian(B))
+    kn, kp = peigrank_herm(F[:values], opts)
+    if kn + kp < n
+      idx = [1:kn; n-kp+1:n]
+      return HermPartialEigen(F.values[idx], Q*F.vectors[:,idx])
+    end
     return HermPartialEigen(F.values, Q*F.vectors)
   else
-    n = size(A, 2)
-
     # quick return if empty
-    n == 0 && return PartialEigen(zeros(T, 0), zeros(T, 0, 0))
+    size(A,2) == 0 && return PartialEigen(zeros(T, 0), zeros(T, 0, 0))
 
     # compress with uniform basis
-    Q = prange(:nc, A, opts)
+    U = curfact(A, opts)
+    F = CUR(A, U)
+    kc = F[:kc]
+    kr = F[:kr]
+    B = Array(T, size(A,1), kc+kr)
+    copy!(sub(B,:,1:kc), F[:C])
+    ctranspose!(sub(B,:,kc+1:kc+kr), F[:R])
+    Q = pqrfact_lapack!(B, copy(opts, rank=2*opts.rank))[:Q]
     B = Q'*(A*Q)
-    k = size(Q, 2)
+    n = size(B, 2)
 
     # set job options
     if opts.peig_vecs == :left
@@ -262,67 +296,73 @@ function peigfact{T}(A::AbstractMatOrLinOp{T}, opts::LRAOptions)
     end
 
     if T <: Real
-      A, WR, WI, VL, VR, _ = LAPACK.geevx!('B', jobvl, jobvr, 'N', B)
+      WR, WI, VL, VR = LAPACK.geev!(jobvl, jobvr, B)
       V = (jobvl == 'V' ? VL : VR)
 
       # find rank
-      ptol = max(opts.atol, opts.rtol*abs(complex(WR[1], WI[1])))
-      n = k
-      for i = 1:k
-        abs(complex(WR[i], WI[i])) <= ptol && (k = i - 1; break)
-      end
+      k = peigrank(WR, WI, opts)
 
       # real eigenvectors
-      all(WI .== 0) && return PartialEigen(WR[1:k], Q*V[:,1:k])
+      if all(WI .== 0)
+        k < n && return PartialEigen(WR[1:k], Q*sub(V,:,1:k))
+        return PartialEigen(WR, Q*V)
+      end
 
       # complex eigenvectors
       evec = zeros(Complex{T}, n, k)
       j = 1
       while j <= k
         if WI[j] == 0
-          evec[:,j] = V[:,j]
+          copy!(sub(evec,:,j), sub(V,:,j))
         else
-          evec[:,j  ] = V[:,j] + im*V[:,j+1]
-          evec[:,j+1] = V[:,j] - im*V[:,j+1]
+          a = sub(V, :, j  )
+          b = sub(V, :, j+1)
+          evec[:,j  ] = a + b*im
+          evec[:,j+1] = a - b*im
           j += 1
         end
         j += 1
       end
-      return PartialEigen(complex(WR[1:k], WI[1:k]), Q*evec[:,1:k])
+      return PartialEigen(complex(WR[1:k], WI[1:k]), Q*sub(evec,:,1:k))
     else
-      A, W, VL, VR, _ = LAPACK.geevx!('B', jobvl, jobvr, 'N', B)
-
-      # find rank
-      ptol = max(opts.atol, opts.rtol*abs(W[1]))
-      for i = 1:k
-        abs(W[i]) <= ptol && (k = i - 1; break)
-      end
-
-      return PartialEigen(W[1:k], Q*(jobvl == 'V' ? VL : VR)[:,1:k])
+      W, VL, VR = LAPACK.geev!(jobvl, jobvr, B)
+      V = (jobvl == 'V' ? VL : VR)
+      k = peigrank(W, opts)
+      k < n && return PartialEigen(W[1:k], Q*sub(V,:,1:k))
+      return PartialEigen(W, Q*V)
     end
   end
 end
 peig(A, args...) = (F = peigfact(A, args...); (F.values, F.vectors))
 
-function peigvals(A::AbstractMatOrLinOp, opts::LRAOptions)
-  chkopts(opts)
+function peigvals{T}(A::AbstractMatOrLinOp{T}, opts::LRAOptions)
+  chksquare(A)
   if ishermitian(A)
-    Q = prange(:n, A, opts)
-    B = Q'*(A*Q)
-    for i = 1:size(B,2)
+    V = idfact(:n, A, opts)
+    F = qrfact!(full(V)')
+    Q = F[:Q]
+    B = F[:R]*(A[V[:sk],V[:sk]]*F[:R]')
+    n = size(B, 2)
+    for i = 1:n
       B[i,i] = real(B[i,i])
     end
-    return eigvals!(Hermitian(B))
+    v = eigvals!(Hermitian(B))
+    kn, kp = peigrank_herm(v, opts)
+    kn + kp < n && return v[[1:kn; n-kp+1:n]]
   else
-    Q = prange(:nc, A, opts)
-    w = eigvals!(Q'*(A*Q))
-    k = length(w);
-    ptol = max(opts.atol, opts.rtol*abs(w[1]))
-    for i = 1:k
-      abs(w[i]) <= ptol && (k = i - 1; break)
-    end
-    return w[1:k]
+    U = curfact(A, opts)
+    F = CUR(A, U)
+    kc = F[:kc]
+    kr = F[:kr]
+    B = Array(T, size(A,1), kc+kr)
+    copy!(sub(B,:,1:kc), F[:C])
+    ctranspose!(sub(B,:,kc+1:kc+kr), F[:R])
+    Q = pqrfact_lapack!(B, copy(opts, rank=2*opts.rank))[:Q]
+    v = eigvals!(Q'*(A*Q))
+    k = peigrank(v, opts)
+    k < length(v) && return v[1:k]
   end
+  v
 end
 
 for f in (:peigfact, :peigvals)
@@ -335,4 +375,33 @@ for f in (:peigfact, :peigvals)
     $f{T}(A::AbstractMatOrLinOp{T}) = $f(A, default_rtol(T))
     $f(A, args...) = $f(LinOp(A), args...)
   end
+end
+
+function peigrank{T<:Real}(wr::Vector{T}, wi::Vector{T}, opts::LRAOptions)
+  k = length(wr)
+  k = opts.rank >= 0 ? min(opts.rank, k) : k
+  ptol = max(opts.atol, opts.rtol*abs(complex(wr[1], wi[1])))
+  for i = 2:k
+    abs(complex(wr[i], wi[i])) <= ptol && return i - 1
+  end
+  k
+end
+function peigrank{T<:Real}(
+    w::StridedVector, opts::LRAOptions; pivot::T=abs(w[1]))
+  k = length(w)
+  k = opts.rank >= 0 ? min(opts.rank, k) : k
+  ptol = max(opts.atol, opts.rtol*pivot)
+  for i = 2:k
+    abs(w[i]) <= ptol && return i - 1
+  end
+  k
+end
+function peigrank_herm{T<:Real}(w::Vector{T}, opts::LRAOptions)
+  n = length(w)
+  k = opts.rank >= 0 ? min(opts.rank, n) : n
+  pivot = max(abs(w[1]), abs(w[n]))
+  idx = searchsorted(w, 0)
+  kn = peigrank(sub(w,          1:first(idx)-1), opts, pivot=pivot)
+  kp = peigrank(sub(w,last(idx)+1:n)           , opts, pivot=pivot)
+  kn, kp
 end

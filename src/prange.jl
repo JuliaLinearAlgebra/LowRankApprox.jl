@@ -16,68 +16,63 @@ for sfx in ("", "!")
   g = symbol("pqrfact", sfx)
   @eval begin
     function $f{T}(trans::Symbol, A::AbstractMatOrLinOp{T}, opts::LRAOptions)
-      chkopts(opts)
-      opts = prange_chkopts(typeof(A), opts)
-      prange_chkargs(trans)
-      if trans == :nc
+      opts = chkopts(A, opts)
+      prange_chktrans(trans)
+      if trans == :b
         if opts.sketch == :none
-          Fc =  pqrfact(A , opts)
           Fr = pqrfact!(A', opts)
+          Fc =       $g(A , opts)
         else
-          Fc = sketchfact(:right, :n, A, opts)
           Fr = sketchfact(:right, :c, A, opts)
+          Fc = sketchfact(:right, :n, A, opts)
         end
-        kc = Fc[:k]
         kr = Fr[:k]
-        B = Array(T, size(A,1), kc+kr)
-        B[:,   1:kc   ] = Fc[:Q]
-        B[:,kc+1:kc+kr] = Fr[:Q]
-        Rc = sub(Fc.R, 1:kc, 1:kc)
+        kc = Fc[:k]
+        B = Array(T, size(A,1), kr+kc)
+        B[:,   1:kr   ] = Fr[:Q]
+        B[:,kr+1:kr+kc] = Fc[:Q]
         Rr = sub(Fr.R, 1:kr, 1:kr)
-        BLAS.trmm!('R', 'U', 'N', 'N', one(T), Rc, sub(B,:,   1:kc   ))
-        BLAS.trmm!('R', 'U', 'N', 'N', one(T), Rr, sub(B,:,kc+1:kc+kr))
-        Q = pqrfact_lapack!(B, opts)[:Q]
+        Rc = sub(Fc.R, 1:kc, 1:kc)
+        BLAS.trmm!('R', 'U', 'N', 'N', one(T), Rr, sub(B,:,   1:kr   ))
+        BLAS.trmm!('R', 'U', 'N', 'N', one(T), Rc, sub(B,:,kr+1:kr+kc))
+        return pqrfact_lapack!(B, opts)[:Q]
       else
-        if     opts.sketch == :none  Q = $g(trans == :n ? A : A', opts)[:Q]
-        elseif opts.sketch == :subs  Q = prange_subs(trans, A, opts)
-        else                         Q = sketchfact(:right, trans, A, opts)[:Q]
+        if opts.sketch == :none
+          if trans == :n  Q =       $g(A , opts)[:Q]
+          else            Q = pqrfact!(A', opts)[:Q]
+          end
+        elseif opts.sketch == :sub  Q = prange_sub(trans, A, opts)
+        else                        Q = sketchfact(:right, trans, A, opts)[:Q]
         end
+        Q
       end
-      Q
     end
     function $f(trans::Symbol, A::AbstractMatOrLinOp, rank_or_rtol::Real)
-      opts = (rank_or_rtol < 1 ? LRAOptions(rtol=rank_or_rtol, sketch=:randn)
-                               : LRAOptions(rank=rank_or_rtol, sketch=:randn))
+      opts = (rank_or_rtol < 1 ? LRAOptions(rtol=rank_or_rtol)
+                               : LRAOptions(rank=rank_or_rtol))
       $f(trans, A, opts)
     end
     $f{T}(trans::Symbol, A::AbstractMatOrLinOp{T}) =
       $f(trans, A, default_rtol(T))
     $f(trans::Symbol, A, args...) = $f(trans, LinOp(A), args...)
+    $f(A, args...) = $f(:n, A, args...)
   end
 end
 
-function prange_subs{T}(trans::Symbol, A::AbstractMatrix{T}, opts::LRAOptions)
+function prange_sub{T}(trans::Symbol, A::AbstractMatrix{T}, opts::LRAOptions)
   F = sketchfact(:left, trans, A, opts)
-  idx = F[:p][1:F[:k]]
+  k = F[:k]
   if trans == :n
-    B = A[:,idx]
+    B = A[:,F[:p][1:k]]
   else
     n = size(A, 2)
-    B = Array(T, n, F[:k])
-    for j = 1:F[:k], i = 1:n
+    B = Array(T, n, k)
+    for j = 1:k, i = 1:n
       B[i,j] = conj(A[F[:p][j],i])
     end
   end
   orthcols!(B)
 end
 
-function prange_chkopts{T}(::Type{T}, opts::LRAOptions)
-  if T <: AbstractLinOp && opts.sketch != :randn
-    warn("invalid sketch method; using \"randn\"")
-    opts = copy(opts, sketch=:randn)
-  end
-  opts
-end
-
-prange_chkargs(trans::Symbol) =
-  trans in (:n, :c, :nc) || throw(ArgumentError("trans"))
+prange_chktrans(trans::Symbol) =
+  trans in (:n, :c, :b) || throw(ArgumentError("trans"))

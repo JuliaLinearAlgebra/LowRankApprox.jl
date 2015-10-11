@@ -19,6 +19,10 @@ convert{T}(::Type{LowerTrapezoidal{T}}, A::LowerTrapezoidal) =
   LowerTrapezoidal(convert(Array{T}, A.data))
 convert{T}(::Type{UpperTrapezoidal{T}}, A::UpperTrapezoidal) =
   UpperTrapezoidal(convert(Array{T}, A.data))
+convert{T}(::Type{Trapezoidal{T}}, A::LowerTrapezoidal) =
+  convert(LowerTrapezoidal{T}, A)
+convert{T}(::Type{Trapezoidal{T}}, A::UpperTrapezoidal) =
+  convert(UpperTrapezoidal{T}, A)
 convert(::Type{Array}, A::Trapezoidal) = full(A)
 convert{T}(::Type{Array{T}}, A::Trapezoidal) = convert(Array{T}, full(A))
 
@@ -297,15 +301,13 @@ end
 for (f, f!, i) in ((:*,        :A_mul_B!,  1),
                    (:Ac_mul_B, :Ac_mul_B!, 2),
                    (:At_mul_B, :At_mul_B!, 2))
-  for t in (:LowerTrapezoidal, :UpperTrapezoidal)
-    @eval begin
-      function $f{TA,TB}(A::$t{TA}, B::StridedVector{TB})
-        T = promote_type(TA, TB)
-        AT = convert($t{T}, A)
-        BT = (T == TB ? B : convert(Array{T}, B))
-        CT = Array(T, size(A,$i))
-        $f!(CT, AT, BT)
-      end
+  @eval begin
+    function $f{TA,TB}(A::Trapezoidal{TA}, B::StridedVector{TB})
+      T = promote_type(TA, TB)
+      AT = convert(Trapezoidal{T}, A)
+      BT = (T == TB ? B : convert(Array{T}, B))
+      CT = Array(T, size(A,$i))
+      $f!(CT, AT, BT)
     end
   end
 end
@@ -317,15 +319,13 @@ for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
                       (:Ac_mul_Bc, :Ac_mul_Bc!, 2, 1),
                       (:At_mul_B,  :At_mul_B!,  2, 2),
                       (:At_mul_Bt, :At_mul_Bt!, 2, 1))
-  for t in (:LowerTrapezoidal, :UpperTrapezoidal)
-    @eval begin
-      function $f{TA,TB}(A::$t{TA}, B::StridedMatrix{TB})
-        T = promote_type(TA, TB)
-        AT = convert($t{T}, A)
-        BT = (T == TB ? B : convert(Array{T}, B))
-        CT = Array(T, size(A,$i), size(B,$j))
-        $f!(CT, AT, BT)
-      end
+  @eval begin
+    function $f{TA,TB}(A::Trapezoidal{TA}, B::StridedMatrix{TB})
+      T = promote_type(TA, TB)
+      AT = convert(Trapezoidal{T}, A)
+      BT = (T == TB ? B : convert(Array{T}, B))
+      CT = Array(T, size(A,$i), size(B,$j))
+      $f!(CT, AT, BT)
     end
   end
 end
@@ -338,15 +338,13 @@ for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
                       (:Ac_mul_Bc, :Ac_mul_Bc!, 2, 1),
                       (:At_mul_B,  :At_mul_B!,  2, 2),
                       (:At_mul_Bt, :At_mul_Bt!, 2, 1))
-  for t in (:LowerTrapezoidal, :UpperTrapezoidal)
-    @eval begin
-      function $f{TA,TB}(A::StridedMatrix{TA}, B::$t{TB})
-        T = promote_type(TA, TB)
-        AT = (T == TA ? A : convert(Array{T}, A))
-        BT = convert($t{T}, B)
-        CT = Array(T, size(A,$i), size(B,$j))
-        $f!(CT, AT, BT)
-      end
+  @eval begin
+    function $f{TA,TB}(A::StridedMatrix{TA}, B::Trapezoidal{TB})
+      T = promote_type(TA, TB)
+      AT = (T == TA ? A : convert(Array{T}, A))
+      BT = convert(Trapezoidal{T}, B)
+      CT = Array(T, size(A,$i), size(B,$j))
+      $f!(CT, AT, BT)
     end
   end
 end

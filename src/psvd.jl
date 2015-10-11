@@ -17,20 +17,27 @@ conj!(A::PartialSVD) = PartialSVD(conj!(A.U), A.S, conj!(A.Vt))
 conj(A::PartialSVD) = PartialSVD(conj(A.U), A.S, conj(A.Vt))
 
 function convert{T}(::Type{PartialSVD{T}}, A::PartialSVD)
-  Tr = eltype(real(one(T)))
+  Tr = real(T)
   PartialSVD(
     convert(Array{T}, A.U), convert(Array{Tr}, A.S), convert(Array{T}, A.Vt))
 end
+convert{T}(::Type{Factorization{T}}, A::PartialSVD) = convert(PartialSVD{T}, A)
 convert(::Type{Array}, A::PartialSVD) = full(A)
 convert{T}(::Type{Array{T}}, A::PartialSVD) = convert(Array{T}, full(A))
 
 copy(A::PartialSVD) = PartialSVD(copy(A.U), copy(A.S), copy(A.Vt))
+
+ctranspose!(A::PartialSVD) = PartialSVD(A.Vt', A.S, A.U')
+ctranspose(A::PartialSVD) = PartialSVD(A.Vt', copy(A.S), A.U')
+transpose!(A::PartialSVD) = PartialSVD(A.Vt.', A.S, A.U.')
+transpose(A::PartialSVD) = PartialSVD(A.Vt.', copy(A.S), A.U.')
 
 full(A::PartialSVD) = scale(A[:U], A[:S])*A[:Vt]
 
 function getindex(A::PartialSVD, d::Symbol)
   if     d == :S   return A.S
   elseif d == :U   return A.U
+  elseif d == :V   return A.Vt'
   elseif d == :Vt  return A.Vt
   elseif d == :k   return length(A.S)
   else             throw(KeyError(d))
@@ -52,8 +59,10 @@ size(A::PartialSVD, dim::Integer) =
 
 ## left-multiplication
 
-A_mul_B!{T}(C::StridedVecOrMat{T}, A::PartialSVD{T}, B::StridedVecOrMat{T}) =
-  A_mul_B!(C, A[:U], _scale!(A[:S], A[:Vt]*B))
+A_mul_B!{T}(y::StridedVector{T}, A::PartialSVD{T}, x::StridedVector{T}) =
+  A_mul_B!(y, A[:U], scalevec!(A[:S], A[:Vt]*x))
+A_mul_B!{T}(C::StridedMatrix{T}, A::PartialSVD{T}, B::StridedMatrix{T}) =
+  A_mul_B!(C, A[:U], scale!(A[:S], A[:Vt]*B))
 
 for f in (:A_mul_Bc, :A_mul_Bt)
   f! = symbol(f, "!")
@@ -70,9 +79,15 @@ for f in (:Ac_mul_B, :At_mul_B)
   f! = symbol(f, "!")
   @eval begin
     function $f!{T}(
-        C::StridedVecOrMat{T}, A::PartialSVD{T}, B::StridedVecOrMat{T})
+        y::StridedVector{T}, A::PartialSVD{T}, x::StridedVector{T})
+      tmp = $f(A[:U], x)
+      scalevec!(A[:S], tmp)
+      $f!(y, A[:Vt], tmp)
+    end
+    function $f!{T}(
+        C::StridedMatrix{T}, A::PartialSVD{T}, B::StridedMatrix{T})
       tmp = $f(A[:U], B)
-      _scale!(A[:S], tmp)
+      scale!(A[:S], tmp)
       $f!(C, A[:Vt], tmp)
     end
   end
@@ -128,8 +143,10 @@ for (f, g!) in ((:Ac_mul_Bc, :A_mul_Bc!), (:At_mul_Bt, :A_mul_Bt!))
 end
 
 ## left-division (pseudoinverse left-multiplication)
-A_ldiv_B!{T}(C::StridedVecOrMat{T}, A::PartialSVD{T}, B::StridedVecOrMat{T}) =
-  Ac_mul_B!(C, A[:Vt], _iscale!(A[:S], A[:U]'*B))
+A_ldiv_B!{T}(y::StridedVector{T}, A::PartialSVD{T}, x::StridedVector{T}) =
+  Ac_mul_B!(y, A[:Vt], iscalevec!(A[:S], A[:U]'*x))
+A_ldiv_B!{T}(C::StridedMatrix{T}, A::PartialSVD{T}, B::StridedMatrix{T}) =
+  Ac_mul_B!(C, A[:Vt], iscale!(A[:S], A[:U]'*B))
 
 # standard operations
 
@@ -205,40 +222,56 @@ end
 # factorization routines
 
 function psvdfact(A::AbstractMatOrLinOp, opts::LRAOptions)
-  chkopts(opts)
-  if ishermitian(A)
-    Q = prange(:n, A, opts)
-    F = svdfact!(Q'*(A*Q))
-    U  = Q*F.U
-    Vt = U'
-  else
-    m, n = size(A)
-    if m >= n
-      Q = prange(:n, A, opts)
-      F = svdfact!(Q'*A)
-      U  = Q*F.U
-      Vt = F.Vt
+  m, n = size(A)
+  if m >= n
+    V = idfact(:n, A, opts)
+    F = qrfact!(getcols(:n, A, V[:sk]))
+    Q = F[:Q]
+    F = svdfact!(F[:R]*V)
+    k = psvdrank(F[:S], opts)
+    if k < V[:k]
+      U  = Q*sub(F.U,:,1:k)
+      S  = F.S[1:k]
+      Vt = F.Vt[1:k,:]
     else
-      Q = prange(:c, A, opts)
-      F = svdfact!(A*Q)
+      U  = Q*F.U
+      S  = F.S
+      Vt = F.Vt
+    end
+  else
+    V = idfact(:c, A, opts)
+    F = qrfact!(getcols(:c, A, V[:sk]))
+    Q = F[:Q]
+    F = svdfact!(V'*F[:R]')
+    k = psvdrank(F[:S], opts)
+    if k < V[:k]
+      U  = F.U[:,1:k]
+      S  = F.S[1:k]
+      Vt = sub(F.Vt,1:k,:)*Q'
+    else
       U  = F.U
+      S  = F.S
       Vt = F.Vt*Q'
     end
   end
-  PartialSVD(U, F.S, Vt)
+  PartialSVD(U, S, Vt)
 end
 psvd(A, args...) = (F = psvdfact(A, args...); (F.U, F.S, F.Vt'))
 
 function psvdvals(A::AbstractMatOrLinOp, opts::LRAOptions)
-  chkopts(opts)
-  if ishermitian(A)
-    Q = prange(:n, A, opts)
-    return svdvals!(Q'*(A*Q))
-  end
   m, n = size(A)
-  if m >= n  Q = prange(:n, A, opts); return svdvals!(Q'*A  )
-  else       Q = prange(:c, A, opts); return svdvals!(   A*Q)
+  if m >= n
+    V = idfact(:n, A, opts)
+    F = qrfact!(getcols(:n, A, V[:sk]))
+    s = svdvals!(F[:R]*V)
+  else
+    V = idfact(:c, A, opts)
+    F = qrfact!(getcols(:c, A, V[:sk]))
+    s = svdvals!(V'*F[:R]')
   end
+  k = psvdrank(s, opts)
+  k < V[:k] && return s[1:k]
+  s
 end
 
 for f in (:psvdfact, :psvdvals)
@@ -251,4 +284,13 @@ for f in (:psvdfact, :psvdvals)
     $f{T}(A::AbstractMatOrLinOp{T}) = $f(A, default_rtol(T))
     $f(A, args...) = $f(LinOp(A), args...)
   end
+end
+
+function psvdrank{T<:Real}(s::Vector{T}, opts::LRAOptions)
+  k = length(s)
+  ptol = max(opts.atol, opts.rtol*s[1])
+  for i = 2:k
+    s[i] <= ptol && return i - 1
+  end
+  k
 end

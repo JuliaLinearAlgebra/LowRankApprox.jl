@@ -21,6 +21,7 @@ conj(A::PartialQR) = PartialQR(conj(A.Q), conj(A.R), A.p)
 
 convert{T}(::Type{PartialQR{T}}, A::PartialQR) =
   PartialQR(convert(Array{T}, A.Q), convert(Array{T}, A.R), A.p)
+convert{T}(::Factorization{T}, A::PartialQR) = convert(PartialQR{T}, A)
 convert(::Type{Array}, A::PartialQR) = full(A)
 convert{T}(::Type{Array{T}}, A::PartialQR) = convert(Array{T}, full(A))
 
@@ -218,44 +219,46 @@ end
 
 # factorization routines
 
-function pqrfact!(A::AbstractMatOrLinOp, opts::LRAOptions)
-  chkopts(opts)
-  if typeof(A) <: StridedMatrix && opts.sketch == :none
-    return pqrfact_lapack!(A, opts)
-  end
-  Q = prange(:n, A, opts)
-  opts = copy(opts, sketch=:none)
-  F = pqrfact_lapack!(Q'*A, opts)
-  F.Q = Q*F.Q
-  F
-end
-function pqrfact(A::AbstractMatOrLinOp, opts::LRAOptions)
-  if typeof(A) <: StridedMatrix && opts.sketch == :none
-    return pqrfact!(copy(A), opts)
-  end
-  pqrfact!(A, opts)
-end
-
 for sfx in ("", "!")
   f = symbol("pqrfact", sfx)
-  g = symbol("pqr", sfx)
+  g = symbol("pqrfact_none", sfx)
+  h = symbol("pqr", sfx)
   @eval begin
-    function $f(A::AbstractMatOrLinOp, rank_or_rtol::Real)
+    function $f(trans::Symbol, A::AbstractMatOrLinOp, opts::LRAOptions)
+      opts = chkopts(A, opts)
+      chktrans(trans)
+      opts.sketch == :none && return $g(trans, A, opts)
+      V = idfact(trans, A, opts)
+      F = qrfact!(getcols(trans, A, V[:sk]))
+      Q = full(F[:Q])
+      R = [F[:R] UpperTriangular(F[:R])*V[:T]]
+      p = V[:p]
+      PartialQR(Q, R, p)
+    end
+    function $f(trans::Symbol, A::AbstractMatOrLinOp, rank_or_rtol::Real)
       opts = (rank_or_rtol < 1 ? LRAOptions(rtol=rank_or_rtol)
                                : LRAOptions(rank=rank_or_rtol))
-      $f(A, opts)
+      $f(trans, A, opts)
     end
-    $f{T}(A::AbstractMatOrLinOp{T}) = $f(A, default_rtol(T))
-    $f(A, args...) = $f(LinOp(A), args...)
+    $f{T}(trans::Symbol, A::AbstractMatOrLinOp{T}) =
+      $f(trans, A, default_rtol(T))
+    $f(trans::Symbol, A, args...) = $f(trans, LinOp(A), args...)
+    $f(A, args...) = $f(:n, A, args...)
 
-    function $g(A, args...)
-      F = $f(A, args...)
+    function $h(trans::Symbol, A, args...)
+      F = $f(trans, A, args...)
       F.Q, F.R, F.p
     end
+    $h(A, args...) = $h(:n, A, args...)
   end
 end
 
-## core backend routine: GEQP3 with rank termination
+pqrfact_none!(trans::Symbol, A::StridedMatrix, opts::LRAOptions) =
+  pqrfact_lapack!(trans == :n ? A : A', opts)
+pqrfact_none(trans::Symbol, A::StridedMatrix, opts::LRAOptions) =
+  pqrfact_lapack!(trans == :n ? copy(A) : A', opts)
+
+## core backend routine: GEQP3 with adaptive rank termination
 function pqrfact_lapack!{T<:BlasFloat}(A::StridedMatrix{T}, opts::LRAOptions)
   chkstride1(A)
   m, n = size(A)

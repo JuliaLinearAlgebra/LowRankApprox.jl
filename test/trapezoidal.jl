@@ -6,11 +6,11 @@ tic()
 
 m = 20
 n = 10
-data_lo = rand(Complex128, m, n)
-data_up = data_lo'
+data_up = rand(Complex128, m, n)
+data_lo = data_up'
 
-for (t, data, trilu) in ((:LowerTrapezoidal, :data_lo, :tril),
-                         (:UpperTrapezoidal, :data_up, :triu))
+for (t, data, trilu) in ((:LowerTrapezoidal, :data_up, :tril),
+                         (:UpperTrapezoidal, :data_lo, :triu))
   for T in (Float32, Float64, Complex64, Complex128)
     println("  $t/$T")
 

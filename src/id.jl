@@ -23,17 +23,19 @@ conj(A::IDPackedV) = IDPackedV(A.sk, A.rd, conj(A.T))
 
 convert{T}(::Type{IDPackedV{T}}, A::IDPackedV) =
   IDPackedV(A.sk, A.rd, convert(Array{T}, A.T))
+convert{T}(::Type{Factorization{T}}, A::IDPackedV) = convert(IDPackedV{T}, A)
 convert(::Type{Array}, A::IDPackedV) = full(A)
 convert{T}(::Type{Array{T}}, A::IDPackedV) = convert(Array{T}, full(A))
 
 copy(A::IDPackedV) = IDPackedV(copy(A.sk), copy(A.rd), copy(A.T))
 
-full(A::IDPackedV) = A_mul_Bc!([eye(A[:k]) A[:T]], A[:P])
+full{T}(A::IDPackedV{T}) = A_mul_Bc!([eye(T, A[:k]) A[:T]], A[:P])
 
 function getindex(A::IDPackedV, d::Symbol)
-  if     d == :P   return ColumnPermutation([A.sk; A.rd])
+  if     d == :P   return ColumnPermutation(A[:p])
   elseif d == :T   return A.T
   elseif d == :k   return length(A.sk)
+  elseif d == :p   return [A.sk; A.rd]
   elseif d == :rd  return A.rd
   elseif d == :sk  return A.sk
   else             throw(KeyError(d))
@@ -149,40 +151,39 @@ end
 # ID
 
 type ID{S} <: Factorization{S}
-  C::Matrix{S}
   sk::Vector{Int}
   rd::Vector{Int}
+  C::Matrix{S}
   T::Matrix{S}
 end
 
-ID{T}(A::AbstractMatrix{T}, V::IDPackedV{T}) = ID(A[:,V.sk], V.sk, V.rd, V.T)
-function ID{T}(A::AbstractLinOp{T}, V::IDPackedV{T})
-  k = V[:k]
-  S = zeros(size(A,2), k)
-  for i = 1:k
-    S[V.sk[i],i] = 1
-  end
-  ID(A*S, V.sk, V.rd, V.T)
-end
+ID{T}(trans::Symbol, A::AbstractMatOrLinOp{T}, V::IDPackedV{T}) =
+  ID(V.sk, V.rd, getcols(trans, A, V.sk), V.T)
+ID(trans::Symbol, A::AbstractMatOrLinOp, sk, rd, T) =
+  ID(trans, A, IDPackedV(sk, rd, T))
+ID(A::AbstractMatOrLinOp, args...) = ID(:n, A, args...)
+ID(A, args...) = ID(LinOp(A), args...)
 
-conj!(A::ID) = ID(conj!(A.C), A.sk, A.rd, conj!(A.T))
-conj(A::ID) = conj!(copy(A))
+conj!(A::ID) = ID(A.sk, A.rd, conj!(A.C), conj!(A.T))
+conj(A::ID) = ID(A.sk, A.rd, conj(A.C), conj(A.T))
 
 convert{T}(::Type{ID{T}}, A::ID) =
-  ID(convert(Array{T}, A.C), A.sk, A.rd, convert(Array{T}, A.T))
+  ID(A.sk, A.rd, convert(Array{T}, A.C), convert(Array{T}, A.T))
+convert{T}(::Factorization{T}, A::ID) = convert(ID{T}, A)
 convert(::Type{Array}, A::ID) = full(A)
 convert{T}(::Type{Array{T}}, A::ID) = convert(Array{T}, full(A))
 
-copy(A::ID) = ID(copy(A.C), copy(A.sk), copy(A.rd), copy(A.T))
+copy(A::ID) = ID(copy(A.sk), copy(A.rd), copy(A.C), copy(A.T))
 
 full(A::ID) = A[:C]*A[:V]
 
 function getindex{T}(A::ID{T}, d::Symbol)
   if     d == :C   return A.C
-  elseif d == :P   return ColumnPermutation([A.sk; A.rd])
+  elseif d == :P   return ColumnPermutation(A[:p])
   elseif d == :T   return A.T
   elseif d == :V   return IDPackedV(A.sk, A.rd, A.T)
   elseif d == :k   return length(A.sk)
+  elseif d == :p   return [A.sk; A.rd]
   elseif d == :rd  return A.rd
   elseif d == :sk  return A.sk
   else             throw(KeyError(d))
@@ -350,13 +351,13 @@ end
 
 for sfx in ("", "!")
   f = symbol("idfact", sfx)
-  g = symbol("id", sfx)
-  h = symbol("pqrfact", sfx)
+  g = symbol("pqrfact", sfx)
+  h = symbol("id", sfx)
   @eval begin
-    function $f{S}(A::AbstractMatOrLinOp{S}, opts::LRAOptions)
-      chkopts(opts)
-      if opts.sketch in (:none, :subs)  F = $h(A, opts)
-      else                              F = sketchfact(:left, :n, A, opts)
+    function $f{S}(trans::Symbol, A::AbstractMatOrLinOp{S}, opts::LRAOptions)
+      opts = chkopts(A, opts)
+      if opts.sketch == :none  F = $g(trans, A, opts)
+      else                     F = sketchfact(:left, trans, A, opts)
       end
       k, n = size(F.R)
       sk = F.p[1:k]
@@ -365,17 +366,20 @@ for sfx in ("", "!")
       BLAS.trsm!('L', 'U', 'N', 'N', one(S), sub(F.R,1:k,1:k), T)
       IDPackedV(sk, rd, T)
     end
-    function $f(A::AbstractMatOrLinOp, rank_or_rtol::Real)
+    function $f(trans::Symbol, A::AbstractMatOrLinOp, rank_or_rtol::Real)
       opts = (rank_or_rtol < 1 ? LRAOptions(rtol=rank_or_rtol)
                                : LRAOptions(rank=rank_or_rtol))
-      $f(A, opts)
+      $f(trans, A, opts)
     end
-    $f{T}(A::AbstractMatOrLinOp{T}) = $f(A, default_rtol(T))
-    $f(A, args...) = $f(LinOp(A), args...)
+    $f{T}(trans::Symbol, A::AbstractMatOrLinOp{T}) =
+      $f(trans, A, default_rtol(T))
+    $f(trans::Symbol, A, args...) = $f(trans, LinOp(A), args...)
+    $f(A, args...) = $f(:n, A, args...)
 
-    function $g(A, args...)
-      V = $f(A, args...)
+    function $h(trans::Symbol, A, args...)
+      V = $f(trans, A, args...)
       V.sk, V.rd, V.T
     end
+    $h(A, args...) = $h(:n, A, args...)
   end
 end

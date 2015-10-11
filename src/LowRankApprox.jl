@@ -4,23 +4,36 @@
 module LowRankApprox
 
 importall Base
-import Base.LinAlg: BlasComplex, BlasFloat, BlasInt, BlasReal, chkstride1
+import Base.LinAlg: BlasFloat, BlasInt, chksquare, chkstride1
 
 export
 
   # LowRankApprox.jl
   LRAOptions,
 
+  # cur.jl
+  AbstractCURPackedU,
+  CURPackedU,
+  HermitianCURPackedU,
+  AbstractCUR,
+  CUR,
+  HermitianCUR,
+  curfact, curfact!,
+  cur, cur!,
+
   # id.jl
   IDPackedV,
   ID,
-  id, id!,
   idfact, idfact!,
+  id, id!,
 
   # linop.jl
   AbstractLinearOperator,
   LinearOperator,
   HermitianLinearOperator,
+
+  # matrixlib.jl
+  matrixlib,
 
   # peig.jl
   AbstractPartialEigen,
@@ -37,11 +50,11 @@ export
 
   # pqr.jl
   PartialQR,
-  pqr, pqr!,
   pqrfact, pqrfact!,
+  pqr, pqr!,
 
   # prange.jl
-  prange,
+  prange, prange!,
 
   # psvd.jl
   PartialSVD,
@@ -79,7 +92,7 @@ type LRAOptions
   sketch_randn_niter::Int
   sketch_randn_samp::Int
   sketch_srft_samp::Int
-  sketch_subs_samp::Int
+  sketch_sub_samp::Int
   snorm_info::Bool
   snorm_niter::Int
 end
@@ -94,7 +107,7 @@ LRAOptions(;
     sketch_randn_niter::Integer=0,
     sketch_randn_samp::Integer=8,
     sketch_srft_samp::Integer=8,
-    sketch_subs_samp::Integer=6,
+    sketch_sub_samp::Integer=6,
     snorm_info::Bool=false,
     snorm_niter::Integer=32,
     ) =
@@ -108,7 +121,7 @@ LRAOptions(;
     sketch_randn_niter,
     sketch_randn_samp,
     sketch_srft_samp,
-    sketch_subs_samp,
+    sketch_sub_samp,
     snorm_info,
     snorm_niter,
     )
@@ -124,7 +137,7 @@ function copy(opts::LRAOptions; args...)
     opts.sketch_randn_niter,
     opts.sketch_randn_samp,
     opts.sketch_srft_samp,
-    opts.sketch_subs_samp,
+    opts.sketch_sub_samp,
     opts.snorm_info,
     opts.snorm_niter,
     )
@@ -139,24 +152,36 @@ function chkopts(opts)
   opts.nb > 0 || throw(ArgumentError("nb"))
   opts.peig_vecs in (:left, :right) || throw(ArgumentError("peig_vecs"))
   opts.rtol >= 0 || throw(ArgumentError("rtol"))
-  opts.sketch in (:none, :randn, :sprn, :srft, :subs) ||
+  opts.sketch in (:none, :randn, :sprn, :srft, :sub) ||
     throw(ArgumentError("sketch"))
   opts.sketch_randn_samp >= 0 || throw(ArgumentError("sketch_randn_samp"))
   opts.sketch_srft_samp >= 0 || throw(ArgumentError("sketch_srft_samp"))
-  opts.sketch_subs_samp > 0 || throw(ArgumentError("sketch_subs_samp"))
+  opts.sketch_sub_samp > 0 || throw(ArgumentError("sketch_sub_samp"))
+end
+function chkopts(A, opts::LRAOptions)
+  chkopts(opts)
+  if typeof(A) <: AbstractLinOp && opts.sketch != :randn
+    warn("invalid sketch method; using \"randn\"")
+    opts = copy(opts, sketch=:randn)
+  end
+  opts
 end
 
-default_rtol{T}(::Type{T}) = 5*eps(real(one(T)))
+chktrans(trans::Symbol) = trans in (:n, :c) || throw(ArgumentError("trans"))
+
+default_rtol{T}(::Type{T}) = 5*eps(real(T))
 
 # source files
 
 include("lapack.jl")
 include("linop.jl")
+include("matrixlib.jl")
 include("permute.jl")
 include("snorm.jl")
 include("trapezoidal.jl")
 include("util.jl")
 
+include("cur.jl")
 include("id.jl")
 include("peig.jl")
 include("pqr.jl")

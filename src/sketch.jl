@@ -38,13 +38,12 @@ end
 function sketch(
     side::Symbol, trans::Symbol, A::AbstractMatOrLinOp, rank::Integer,
     opts::LRAOptions)
-  chkopts(opts)
-  opts = sketch_chkopts(typeof(A), opts)
+  opts = sketch_chkopts(A, opts)
   sketch_chkargs(side, trans, rank)
   if     opts.sketch == :randn  return sketch_randn(side, trans, A, rank, opts)
   elseif opts.sketch == :sprn   return  sketch_sprn(side, trans, A, rank, opts)
   elseif opts.sketch == :srft   return  sketch_srft(side, trans, A, rank, opts)
-  elseif opts.sketch == :subs   return  sketch_subs(side, trans, A, rank, opts)
+  elseif opts.sketch == :sub    return   sketch_sub(side, trans, A, rank, opts)
   end
 end
 function sketch(
@@ -54,31 +53,33 @@ function sketch(
 end
 sketch(side::Symbol, trans::Symbol, A, rank::Integer, args...) =
   sketch(side, trans, LinOp(A), rank, args...)
+sketch(A, rank::Integer, args...) = sketch(:left, :n, A, rank, args...)
 
 function sketchfact(
     side::Symbol, trans::Symbol, A::AbstractMatOrLinOp, opts::LRAOptions)
-  chkopts(opts)
-  opts = sketch_chkopts(typeof(A), opts)
+  opts = sketch_chkopts(A, opts)
   sketchfact_chkargs(side, trans)
   if     opts.sketch == :randn  return sketchfact_randn(side, trans, A, opts)
   elseif opts.sketch == :sprn   return  sketchfact_sprn(side, trans, A, opts)
   elseif opts.sketch == :srft   return  sketchfact_srft(side, trans, A, opts)
-  elseif opts.sketch == :subs   return  sketchfact_subs(side, trans, A, opts)
+  elseif opts.sketch == :sub    return   sketchfact_sub(side, trans, A, opts)
   end
 end
 function sketchfact(
     side::Symbol, trans::Symbol, A::AbstractMatOrLinOp, rank_or_rtol::Real)
-  opts = (rank_or_rtol < 1 ? LRAOptions(rtol=rank_or_rtol, sketch=:randn)
-                           : LRAOptions(rank=rank_or_rtol, sketch=:randn))
+  opts = (rank_or_rtol < 1 ? LRAOptions(rtol=rank_or_rtol)
+                           : LRAOptions(rank=rank_or_rtol))
   sketchfact(side, trans, A, opts)
 end
 sketchfact{T}(side::Symbol, trans::Symbol, A::AbstractMatOrLinOp{T}) =
   sketchfact(side, trans, A, default_rtol(T))
 sketchfact(side::Symbol, trans::Symbol, A, args...) =
   sketchfact(side, trans, LinOp(A), args...)
+sketchfact(A, args...) = sketchfact(:left, :n, A, args...)
 
-function sketch_chkopts{T}(::Type{T}, opts::LRAOptions)
-  if opts.sketch == :none || T <: AbstractLinOp && opts.sketch != :randn
+function sketch_chkopts(A, opts::LRAOptions)
+  chkopts(opts)
+  if opts.sketch == :none || typeof(A) <: AbstractLinOp && opts.sketch != :randn
     warn("invalid sketch method; using \"randn\"")
     opts = copy(opts, sketch=:randn)
   end
@@ -101,7 +102,7 @@ type RandomGaussian <: SketchMatrix
 end
 
 full{T}(::Type{T}, side::Symbol, A::RandomGaussian, n::Integer) =
-  side == :left ? _randn(T, A.k, n) : _randn(T, n, A.k)
+  side == :left ? crandn(T, A.k, n) : crandn(T, n, A.k)
 
 A_mul_B!{T}(C, A::RandomGaussian, B::AbstractMatOrLinOp{T}) =
   (S = full(T, :left, A, size(B,1)); A_mul_B!(C, S, B))
@@ -238,7 +239,7 @@ end
 
 ## sketch interface
 
-function sketch_subs(
+function sketch_sub(
     side::Symbol, trans::Symbol, A::AbstractMatrix, k::Integer,
     opts::LRAOptions)
   S = RandomSubset(k)
@@ -253,11 +254,11 @@ function sketch_subs(
   end
 end
 
-function sketchfact_subs(
+function sketchfact_sub(
     side::Symbol, trans::Symbol, A::AbstractMatrix, opts::LRAOptions)
   k = opts.nb
   while true
-    B = sketch_subs(side, trans, A, k*opts.sketch_subs_samp, opts)
+    B = sketch_sub(side, trans, A, k*opts.sketch_sub_samp, opts)
     F = pqrfact_lapack!(B, opts)
     F[:k] < k && return F
     k *= 2
@@ -479,7 +480,7 @@ function A_mul_B!{T}(C, A::SparseRandGauss, B::AbstractMatrix{T})
   idx = 0
   for i = 1:k
     p = fld(m - i, k) + 1
-    s = _randn(T, p)
+    s = crandn(T, p)
     for j = 1:n
       C[i,j] = 0
       for l = 1:p
@@ -498,7 +499,7 @@ function A_mul_Bc!{T}(C, A::SparseRandGauss, B::AbstractMatrix{T})
   idx = 0
   for i = 1:k
     p = fld(n - i, k) + 1
-    s = _randn(T, p)
+    s = crandn(T, p)
     for j = 1:m
       C[i,j] = 0
       for l = 1:p
@@ -518,7 +519,7 @@ function A_mul_B!{T}(C, A::AbstractMatrix{T}, B::SparseRandGauss)
   idx = 0
   for j = 1:k
     p = fld(n - j, k) + 1
-    s = _randn(T, p)
+    s = crandn(T, p)
     for i = 1:m
       C[i,j] = 0
       for l = 1:p
@@ -537,11 +538,11 @@ function Ac_mul_B!{T}(C, A::AbstractMatrix{T}, B::SparseRandGauss)
   idx = 0
   for j = 1:k
     p = fld(m - j, k) + 1
-    s = _randn(T, p)
+    s = crandn(T, p)
     for i = 1:n
       C[i,j] = 0
       for l = 1:p
-        C[i,j] += A[r[idx+l],i]*s[l]
+        C[i,j] += conj(A[r[idx+l],i])*s[l]
       end
     end
     idx += p
