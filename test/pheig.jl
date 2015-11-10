@@ -1,11 +1,12 @@
-#= test/peig.jl
+#= test/pheig.jl
 =#
 
-println("peig.jl")
+println("pheig.jl")
 tic()
 
 n = 128
 M = matrixlib(:fourier, rand(n), rand(n))
+M += M'
 rtol = 1e-6
 approx_rtol = 100*rtol
 opts = LRAOptions(rtol=rtol, sketch_randn_niter=1)
@@ -20,33 +21,11 @@ for (t, s) in ((:none,                 :none ),
     println("  $t/$T")
 
     A = convert(Array{T}, T <: Real ? real(M) : M)
-
-    # PartialEigen
-
-    opts.peig_vecs = :left
-    F = peigfact(A, opts)
-    B = F[:vectors]'*A
-    C = broadcast(*, F[:values], F[:vectors]')
-    @test norm(B - C) < approx_rtol*norm(B)
-
-    opts.peig_vecs = :right
-    F = peigfact(A, opts)
-    B = A*F[:vectors]
-    C = broadcast(*, F[:vectors], F[:values].')
-    @test norm(B - C) < approx_rtol*norm(B)
-
-    opts_ = copy(opts, rank=F[:k], rtol=0.)
-    s = peigvals(A, opts_)
-    @test norm(s - F[:values]) < approx_rtol*norm(s)
-
-    # HermPartialEigen
-
-    A += A'
-    F = peigfact(A, opts)
+    F = pheigfact(A, opts)
     @test norm(A - full(F)) < approx_rtol*norm(A)
 
     opts_ = copy(opts, rank=F[:k], rtol=0.)
-    s = peigvals(A, opts_)
+    s = pheigvals(A, opts_)
     @test norm(s - F[:values]) < approx_rtol*norm(s)
 
     x = rand(T, n)

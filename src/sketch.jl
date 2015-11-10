@@ -180,12 +180,18 @@ end
 
 function sketchfact_randn(
     side::Symbol, trans::Symbol, A::AbstractMatOrLinOp, opts::LRAOptions)
-  k = opts.nb
-  while true
-    B = sketch_randn(side, trans, A, k+opts.sketch_randn_samp, opts)
-    F = pqrfact_lapack!(B, opts)
-    F[:k] < k && return F
-    k *= 2
+  if opts.sketchfact_adap || opts.rank < 0
+    k = opts.nb
+    while true
+      B = sketch_randn(side, trans, A, k+opts.sketchfact_randn_samp, opts)
+      F = pqrfact_lapack!(B, opts)
+      F[:k] < k && return F
+      k *= 2
+    end
+  else
+    k = opts.rank + opts.sketchfact_randn_samp
+    B = sketch_randn(side, trans, A, k, opts)
+    return pqrfact_lapack!(B, opts)
   end
 end
 
@@ -256,12 +262,18 @@ end
 
 function sketchfact_sub(
     side::Symbol, trans::Symbol, A::AbstractMatrix, opts::LRAOptions)
-  k = opts.nb
-  while true
-    B = sketch_sub(side, trans, A, k*opts.sketch_sub_samp, opts)
-    F = pqrfact_lapack!(B, opts)
-    F[:k] < k && return F
-    k *= 2
+  if opts.sketchfact_adap || opts.rank < 0
+    k = opts.nb
+    while true
+      B = sketch_sub(side, trans, A, k*opts.sketchfact_sub_samp, opts)
+      F = pqrfact_lapack!(B, opts)
+      F[:k] < k && return F
+      k *= 2
+    end
+  else
+    k = opts.rank*opts.sketchfact_sub_samp
+    B = sketch_sub(side, trans, A, k, opts)
+    return pqrfact_lapack!(B, opts)
   end
 end
 
@@ -456,12 +468,18 @@ end
 
 function sketchfact_srft(
     side::Symbol, trans::Symbol, A::StridedMatrix, opts::LRAOptions)
-  k = opts.nb
-  while true
-    B = sketch_srft(side, trans, A, k+opts.sketch_srft_samp, opts)
-    F = pqrfact_lapack!(B, opts)
-    F[:k] < k && return F
-    k *= 2
+  if opts.sketchfact_adap || opts.rank < 0
+    k = opts.nb
+    while true
+      B = sketch_srft(side, trans, A, k+opts.sketchfact_srft_samp, opts)
+      F = pqrfact_lapack!(B, opts)
+      F[:k] < k && return F
+      k *= 2
+    end
+  else
+    k = opts.rank + opts.sketchfact_srft_samp
+    B = sketch_srft(side, trans, A, k, opts)
+    return pqrfact_lapack!(B, opts)
   end
 end
 
@@ -569,11 +587,17 @@ end
 
 function sketchfact_sprn(
     side::Symbol, trans::Symbol, A::AbstractMatrix, opts::LRAOptions)
-  k = opts.nb
-  while true
+  if opts.sketchfact_adap || opts.rank < 0
+    k = opts.nb
+    while true
+      B = sketch_sprn(side, trans, A, k, opts)
+      F = pqrfact_lapack!(B, opts)
+      F[:k] < k && return F
+      k *= 2
+    end
+  else
+    k = opts.rank
     B = sketch_sprn(side, trans, A, k, opts)
-    F = pqrfact_lapack!(B, opts)
-    F[:k] < k && return F
-    k *= 2
+    return pqrfact_lapack!(B, opts)
   end
 end

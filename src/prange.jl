@@ -19,6 +19,8 @@ for sfx in ("", "!")
       opts = chkopts(A, opts)
       prange_chktrans(trans)
       if trans == :b
+        chksquare(A)
+        opts = copy(opts, pqrfact_retval="qr")
         if opts.sketch == :none
           Fr = pqrfact!(A', opts)
           Fc =       $g(A , opts)
@@ -37,6 +39,7 @@ for sfx in ("", "!")
         BLAS.trmm!('R', 'U', 'N', 'N', one(T), Rc, sub(B,:,kr+1:kr+kc))
         return pqrfact_lapack!(B, opts)[:Q]
       else
+        opts = copy(opts, pqrfact_retval="q")
         if opts.sketch == :none
           if trans == :n  Q =       $g(A , opts)[:Q]
           else            Q = pqrfact!(A', opts)[:Q]

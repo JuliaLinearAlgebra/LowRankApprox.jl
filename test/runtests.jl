@@ -10,7 +10,7 @@ println()
 
 include("cur.jl")
 include("id.jl")
-include("peig.jl")
+include("pheig.jl")
 include("pqr.jl")
 include("prange.jl")
 include("psvd.jl")

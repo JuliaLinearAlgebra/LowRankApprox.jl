@@ -3,7 +3,7 @@
 
 abstract AbstractLinearOperator{T}
 typealias AbstractLinOp AbstractLinearOperator
-typealias AbstractMatOrLinOp{T} Union(AbstractMatrix{T}, AbstractLinOp{T})
+typealias AbstractMatOrLinOp{T} Union{AbstractMatrix{T}, AbstractLinOp{T}}
 
 type LinearOperator{T} <: AbstractLinOp{T}
   m::Int
@@ -20,7 +20,9 @@ end
 typealias HermLinOp HermitianLinearOperator
 
 function LinOp(A)
-  try  ishermitian(A) && return HermLinOp(A)  end
+  try
+    ishermitian(A) && return HermLinOp(A)
+  end
   T = eltype(A)
   m, n = size(A)
   mul!  = (y, x) ->  A_mul_B!(y, A, x)
@@ -42,7 +44,7 @@ convert{T}(::Type{Array{T}}, A::AbstractLinOp) = convert(Array{T}, full(A))
 ctranspose{T}(A::LinOp{T}) = LinOp{T}(A.n, A.m, A.mulc!, A.mul!)
 ctranspose(A::HermLinOp) = A
 
-eltype{T}(A::AbstractLinOp{T}) = T
+eltype{T}(::AbstractLinOp{T}) = T
 
 full{T}(A::AbstractLinOp{T}) = A*eye(T, size(A,2))
 
@@ -69,12 +71,12 @@ function getindex{T}(A::AbstractLinOp{T}, rows, cols)
   end
 end
 
-ishermitian(A::LinOp) = false
-ishermitian(A::HermLinOp) = true
-issym(A::LinOp) = false
+ishermitian(::LinOp) = false
+ishermitian(::HermLinOp) = true
+issym(::LinOp) = false
 issym(A::HermLinOp) = isreal(A)
 
-isreal{T}(A::AbstractLinOp{T}) = T <: Real
+isreal{T}(::AbstractLinOp{T}) = T <: Real
 
 size(A::LinOp) = (A.m, A.n)
 size(A::LinOp, dim::Integer) = dim == 1 ? A.m : (dim == 2 ? A.n : 1)

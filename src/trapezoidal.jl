@@ -91,7 +91,6 @@ for (f, trans) in ((:Ac_mul_B!, 'C'), (:At_mul_B!, 'T'))
       copy!(y, sub(x,1:n))
       BLAS.trmv!('L', $trans, 'N', sub(A.data,1:n,:), y)
       BLAS.gemv!($trans, one(T), sub(A.data,n+1:m,:), sub(x,n+1:m), one(T), y)
-      y
     end
     function $f{T<:BlasFloat}(
         C::StridedMatrix{T}, A::LowerTrapezoidal{T}, B::StridedMatrix{T})
@@ -100,7 +99,6 @@ for (f, trans) in ((:Ac_mul_B!, 'C'), (:At_mul_B!, 'T'))
       BLAS.trmm!('L', 'L', $trans, 'N', one(T), sub(A.data,1:n,:), C)
       BLAS.gemm!(
         $trans, 'N', one(T), sub(A.data,n+1:m,:), sub(B,n+1:m,:), one(T), C)
-      C
     end
   end
 end
@@ -115,7 +113,6 @@ for (f, g, trans) in ((:Ac_mul_Bc!, :ctranspose!, 'C'),
       BLAS.trmm!('L', 'L', $trans, 'N', one(T), sub(A.data,1:n,:), sub(C,1:n,:))
       BLAS.gemm!(
         $trans, $trans, one(T), sub(A.data,n+1:m,:), sub(B,:,n+1:m), one(T), C)
-      C
     end
   end
 end
@@ -128,7 +125,6 @@ function A_mul_B!{T<:BlasFloat}(
   copy!(C, sub(A,:,1:n))
   BLAS.trmm!('R', 'L', 'N', 'N', one(T), sub(B.data,1:n,:), C)
   BLAS.gemm!('N', 'N', one(T), sub(A,:,n+1:m), sub(B.data,n+1:m,:), one(T), C)
-  C
 end
 
 for (f, trans) in ((:A_mul_Bc!, 'C'), (:A_mul_Bt!, 'T'))
@@ -155,7 +151,6 @@ for (f, g, trans) in ((:Ac_mul_B!, :ctranspose!, 'C'),
       BLAS.trmm!('R', 'L', 'N', 'N', one(T), sub(B.data,1:n,:), C)
       BLAS.gemm!(
         $trans, 'N', one(T), sub(A,n+1:m,:), sub(B.data,n+1:m,:), one(T), C)
-      C
     end
   end
 end
@@ -183,7 +178,6 @@ function A_mul_B!{T<:BlasFloat}(
   copy!(y, sub(x,1:m))
   BLAS.trmv!('U', 'N', 'N', sub(A.data,:,1:m), y)
   BLAS.gemv!('N', one(T), sub(A.data,:,m+1:n), sub(x,m+1:n), one(T), y)
-  y
 end
 
 function A_mul_B!{T<:BlasFloat}(
@@ -192,7 +186,6 @@ function A_mul_B!{T<:BlasFloat}(
   copy!(C, sub(B,1:m,:))
   BLAS.trmm!('L', 'U', 'N', 'N', one(T), sub(A.data,:,1:m), C)
   BLAS.gemm!('N', 'N', one(T), sub(A.data,:,m+1:n), sub(B,m+1:n,:), one(T), C)
-  C
 end
 
 for (f, g, trans) in ((:A_mul_Bc!, :ctranspose!, 'C'),
@@ -205,7 +198,6 @@ for (f, g, trans) in ((:A_mul_Bc!, :ctranspose!, 'C'),
       BLAS.trmm!('L', 'U', 'N', 'N', one(T), sub(A.data,:,1:m), C)
       BLAS.gemm!(
         'N', $trans, one(T), sub(A.data,:,m+1:n), sub(B,:,m+1:n), one(T), C)
-      C
     end
   end
 end
@@ -259,7 +251,6 @@ for (f, trans) in ((:A_mul_Bc!, 'C'), (:A_mul_Bt!, 'T'))
       BLAS.trmm!('R', 'U', $trans, 'N', one(T), sub(B.data,:,1:m), C)
       BLAS.gemm!(
         'N', $trans, one(T), sub(A,:,m+1:n), sub(B.data,:,m+1:n), one(T), C)
-      C
     end
   end
 end
@@ -289,7 +280,6 @@ for (f, g, trans) in ((:Ac_mul_Bc!, :ctranspose!, 'C'),
       BLAS.trmm!('R', 'U', $trans, 'N', one(T), sub(B.data,:,1:m), C)
       BLAS.gemm!(
         $trans, $trans, one(T), sub(A,m+1:n,:), sub(B.data,:,m+1:n), one(T), C)
-      C
     end
   end
 end

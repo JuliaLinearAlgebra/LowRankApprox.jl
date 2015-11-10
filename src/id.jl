@@ -29,7 +29,36 @@ convert{T}(::Type{Array{T}}, A::IDPackedV) = convert(Array{T}, full(A))
 
 copy(A::IDPackedV) = IDPackedV(copy(A.sk), copy(A.rd), copy(A.T))
 
-full{T}(A::IDPackedV{T}) = A_mul_Bc!([eye(T, A[:k]) A[:T]], A[:P])
+function full!{T}(trans::Symbol, A::StridedMatrix{T}, V::IDPackedV{T})
+  chktrans(trans)
+  k, n = size(V)
+  if trans == :n
+    size(A) == (k, n) || throw(DimensionMismatch)
+    for j = 1:k, i = 1:k
+      A[i,j] = i == j ? 1 : 0
+    end
+    A[:,k+1:n] = V[:T]
+    A_mul_Bc!(A, V[:P])
+  else
+    size(A) == (n, k) || throw(DimensionMismatch)
+    for j = 1:k, i = 1:k
+      A[i,j] = i == j ? 1 : 0
+    end
+    ctranspose!(sub(A,k+1:n,:), V[:T])
+    A_mul_B!(V[:P], A)
+  end
+  A
+end
+full!{T}(A::StridedMatrix{T}, V::IDPackedV{T}) = full!(:n, A, V)
+function full{T}(trans::Symbol, A::IDPackedV{T})
+  chktrans(trans)
+  k, n = size(A)
+  if trans == :n  B = Array(T, k, n)
+  else            B = Array(T, n, k)
+  end
+  full!(trans, B, A)
+end
+full(A::IDPackedV) = full(:n, A)
 
 function getindex(A::IDPackedV, d::Symbol)
   if     d == :P   return ColumnPermutation(A[:p])
@@ -42,12 +71,12 @@ function getindex(A::IDPackedV, d::Symbol)
   end
 end
 
-ishermitian(A::IDPackedV) = false
-issym(A::IDPackedV) = false
+ishermitian(::IDPackedV) = false
+issym(::IDPackedV) = false
 
-isreal{T}(A::IDPackedV{T}) = T <: Real
+isreal{T}(::IDPackedV{T}) = T <: Real
 
-ndims(A::IDPackedV) = 2
+ndims(::IDPackedV) = 2
 
 size(A::IDPackedV) = (size(A.T,1), sum(size(A.T)))
 size(A::IDPackedV, dim::Integer) =
@@ -190,12 +219,12 @@ function getindex{T}(A::ID{T}, d::Symbol)
   end
 end
 
-ishermitian(A::ID) = false
-issym(A::ID) = false
+ishermitian(::ID) = false
+issym(::ID) = false
 
-isreal{T}(A::ID{T}) = T <: Real
+isreal{T}(::ID{T}) = T <: Real
 
-ndims(A::ID) = 2
+ndims(::ID) = 2
 
 size(A::ID) = (size(A.C,1), sum(size(A.T)))
 size(A::ID, dim::Integer) =
@@ -356,6 +385,7 @@ for sfx in ("", "!")
   @eval begin
     function $f{S}(trans::Symbol, A::AbstractMatOrLinOp{S}, opts::LRAOptions)
       opts = chkopts(A, opts)
+      opts = copy(opts, pqrfact_retval="r")
       if opts.sketch == :none  F = $g(trans, A, opts)
       else                     F = sketchfact(:left, trans, A, opts)
       end

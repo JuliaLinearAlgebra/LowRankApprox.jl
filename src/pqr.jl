@@ -4,11 +4,29 @@ References:
 
   P. Businger, G.H. Golub. Linear least squares solutions by Householder
     transformations. Numer. Math. 7: 269-276, 1965.
-
-  N. Halko, P.G. Martinsson, J.A. Tropp. Finding structure with randomness:
-    Probabilistic algorithms for constructing approximate matrix
-    decompositions. SIAM Rev. 53 (2): 217-288, 2011.
 =#
+
+# PartialQRFactors
+
+type PartialQRFactors
+  Q::Union{Matrix, Void}
+  R::Union{Matrix, Void}
+  p::Vector{Int}
+  k::Int
+end
+typealias PQRFactors PartialQRFactors
+
+function getindex(A::PQRFactors, d::Symbol)
+  if     d == :P  return ColumnPermutation(A.p)
+  elseif d == :Q  return A.Q
+  elseif d == :R  return isa(A.R, Void) ? A.R : UpperTrapezoidal(A.R)
+  elseif d == :k  return A.k
+  elseif d == :p  return A.p
+  else            throw(KeyError(d))
+  end
+end
+
+# PartialQR
 
 type PartialQR{T} <: Factorization{T}
   Q::Matrix{T}
@@ -39,12 +57,12 @@ function getindex(A::PartialQR, d::Symbol)
   end
 end
 
-ishermitian(A::PartialQR) = false
-issym(A::PartialQR) = false
+ishermitian(::PartialQR) = false
+issym(::PartialQR) = false
 
-isreal{T}(A::PartialQR{T}) = T <: Real
+isreal{T}(::PartialQR{T}) = T <: Real
 
-ndims(A::PartialQR) = 2
+ndims(::PartialQR) = 2
 
 size(A::PartialQR) = (size(A.Q,1), size(A.R,2))
 size(A::PartialQR, dim::Integer) =
@@ -297,7 +315,7 @@ function pqrfact_lapack!{T<:BlasFloat}(A::StridedMatrix{T}, opts::LRAOptions)
   j = 1
   fjb = Array(BlasInt, 1)
   while j <= k
-    jb = min(nb, k-j+1)
+    jb = BlasInt(min(nb, k-j+1))
     if is_real
       _LAPACK.laqps!(
         j-1, jb, fjb, sub(A,:,j:n), sub(jpvt,j:n), sub(tau,j:k),
@@ -323,7 +341,9 @@ function pqrfact_lapack!{T<:BlasFloat}(A::StridedMatrix{T}, opts::LRAOptions)
   end
 
   @label ret
-  Q = _LAPACK.orgqr!(A[:,1:k], tau[1:k])
-  R = triu!(A[1:k,:])
+  retval = lowercase(opts.pqrfact_retval)
+  Q = contains(retval, "q") ? _LAPACK.orgqr!(A[:,1:k], tau[1:k]) : nothing
+  R = contains(retval, "r") ? triu!(A[1:k,:]) : nothing
+  (isa(Q, Void) || isa(R, Void)) && return PQRFactors(Q, R, jpvt, k)
   PartialQR(Q, R, jpvt)
 end

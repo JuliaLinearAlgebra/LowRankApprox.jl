@@ -1,10 +1,4 @@
 #= src/psvd.jl
-
-References:
-
-  N. Halko, P.G. Martinsson, J.A. Tropp. Finding structure with randomness:
-    Probabilistic algorithms for constructing approximate matrix
-    decompositions. SIAM Rev. 53 (2): 217-288, 2011.
 =#
 
 type PartialSVD{T,Tr<:Real} <: Factorization{T}
@@ -44,12 +38,12 @@ function getindex(A::PartialSVD, d::Symbol)
   end
 end
 
-ishermitian(A::PartialSVD) = false
-issym(A::PartialSVD) = false
+ishermitian(::PartialSVD) = false
+issym(::PartialSVD) = false
 
-isreal{T}(A::PartialSVD{T}) = T <: Real
+isreal{T}(::PartialSVD{T}) = T <: Real
 
-ndims(A::PartialSVD) = 2
+ndims(::PartialSVD) = 2
 
 size(A::PartialSVD) = (size(A.U,1), size(A.Vt,2))
 size(A::PartialSVD, dim::Integer) =

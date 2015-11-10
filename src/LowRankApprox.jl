@@ -15,9 +15,11 @@ export
   AbstractCURPackedU,
   CURPackedU,
   HermitianCURPackedU,
+  SymmetricCURPackedU,
   AbstractCUR,
   CUR,
   HermitianCUR,
+  SymmetricCUR,
   curfact, curfact!,
   cur, cur!,
 
@@ -35,20 +37,19 @@ export
   # matrixlib.jl
   matrixlib,
 
-  # peig.jl
-  AbstractPartialEigen,
-  PartialEigen,
-  HermitianPartialEigen,
-  peigfact,
-  peig,
-  peigvals,
-
   # permute.jl
   PermutationMatrix,
   RowPermutation,
   ColumnPermutation,
 
+  # pheig.jl
+  HermitianPartialEigen,
+  pheigfact,
+  pheig,
+  pheigvals,
+
   # pqr.jl
+  PartialQRFactors,
   PartialQR,
   pqrfact, pqrfact!,
   pqr, pqr!,
@@ -85,14 +86,15 @@ export
 type LRAOptions
   atol::Float64
   nb::Int
-  peig_vecs::Symbol
+  pqrfact_retval::ASCIIString
   rank::Int
   rtol::Float64
   sketch::Symbol
   sketch_randn_niter::Int
-  sketch_randn_samp::Int
-  sketch_srft_samp::Int
-  sketch_sub_samp::Int
+  sketchfact_adap::Bool
+  sketchfact_randn_samp::Int
+  sketchfact_srft_samp::Int
+  sketchfact_sub_samp::Int
   snorm_info::Bool
   snorm_niter::Int
 end
@@ -100,28 +102,30 @@ end
 LRAOptions(;
     atol::Real=0.,
     nb::Integer=32,
-    peig_vecs::Symbol=:right,
+    pqrfact_retval::ASCIIString="qr",
     rank::Integer=-1,
     rtol::Real=default_rtol(Float64),
     sketch::Symbol=:randn,
     sketch_randn_niter::Integer=0,
-    sketch_randn_samp::Integer=8,
-    sketch_srft_samp::Integer=8,
-    sketch_sub_samp::Integer=6,
+    sketchfact_adap::Bool=true,
+    sketchfact_randn_samp::Integer=8,
+    sketchfact_srft_samp::Integer=8,
+    sketchfact_sub_samp::Integer=6,
     snorm_info::Bool=false,
     snorm_niter::Integer=32,
     ) =
   LRAOptions(
     atol,
     nb,
-    peig_vecs,
+    pqrfact_retval,
     rank,
     rtol,
     sketch,
     sketch_randn_niter,
-    sketch_randn_samp,
-    sketch_srft_samp,
-    sketch_sub_samp,
+    sketchfact_adap,
+    sketchfact_randn_samp,
+    sketchfact_srft_samp,
+    sketchfact_sub_samp,
     snorm_info,
     snorm_niter,
     )
@@ -130,14 +134,15 @@ function copy(opts::LRAOptions; args...)
   opts_ = LRAOptions(
     opts.atol,
     opts.nb,
-    opts.peig_vecs,
+    opts.pqrfact_retval,
     opts.rank,
     opts.rtol,
     opts.sketch,
     opts.sketch_randn_niter,
-    opts.sketch_randn_samp,
-    opts.sketch_srft_samp,
-    opts.sketch_sub_samp,
+    opts.sketchfact_adap,
+    opts.sketchfact_randn_samp,
+    opts.sketchfact_srft_samp,
+    opts.sketchfact_sub_samp,
     opts.snorm_info,
     opts.snorm_niter,
     )
@@ -150,13 +155,12 @@ end
 function chkopts(opts)
   opts.atol >= 0 || throw(ArgumentError("atol"))
   opts.nb > 0 || throw(ArgumentError("nb"))
-  opts.peig_vecs in (:left, :right) || throw(ArgumentError("peig_vecs"))
   opts.rtol >= 0 || throw(ArgumentError("rtol"))
   opts.sketch in (:none, :randn, :sprn, :srft, :sub) ||
     throw(ArgumentError("sketch"))
-  opts.sketch_randn_samp >= 0 || throw(ArgumentError("sketch_randn_samp"))
-  opts.sketch_srft_samp >= 0 || throw(ArgumentError("sketch_srft_samp"))
-  opts.sketch_sub_samp > 0 || throw(ArgumentError("sketch_sub_samp"))
+  opts.sketchfact_randn_samp >= 0 || throw(ArgumentError("sketchfact_randn_samp"))
+  opts.sketchfact_srft_samp >= 0 || throw(ArgumentError("sketchfact_srft_samp"))
+  opts.sketchfact_sub_samp > 0 || throw(ArgumentError("sketchfact_sub_samp"))
 end
 function chkopts(A, opts::LRAOptions)
   chkopts(opts)
@@ -183,7 +187,7 @@ include("util.jl")
 
 include("cur.jl")
 include("id.jl")
-include("peig.jl")
+include("pheig.jl")
 include("pqr.jl")
 include("prange.jl")
 include("psvd.jl")

@@ -23,7 +23,15 @@ type HermitianCURPackedU <: AbstractCURPackedU
 end
 typealias HermCURPackedU HermitianCURPackedU
 
+type SymmetricCURPackedU <: AbstractCURPackedU
+  cols::Vector{Int}
+end
+typealias SymCURPackedU SymmetricCURPackedU
+
+typealias HermOrSymCURPackedU Union{HermCURPackedU, SymCURPackedU}
+
 copy(A::CURPackedU) = CURPackedU(copy(rows), copy(cols))
+copy(A::SymCURPackedU) = SymCURPackedU(copy(cols))
 copy(A::HermCURPackedU) = HermCURPackedU(copy(cols))
 
 function getindex(A::CURPackedU, d::Symbol)
@@ -35,7 +43,7 @@ function getindex(A::CURPackedU, d::Symbol)
   else               throw(KeyError(d))
   end
 end
-function getindex(A::HermCURPackedU, d::Symbol)
+function getindex(A::HermOrSymCURPackedU, d::Symbol)
   if     d in (:cols, :rows)  return A.cols
   elseif d in (:k, :kc, :kr)  return length(A.cols)
   else                        throw(KeyError(d))
@@ -56,19 +64,27 @@ type CUR{T} <: AbstractCUR{T}
   rows::Vector{Int}
   cols::Vector{Int}
   C::Matrix{T}
-  U::Factorization{T}  # factorization of submatrix pseudoinverse
+  U::Factorization{T}
   R::Matrix{T}
 end
 
 type HermitianCUR{T} <: AbstractCUR{T}
   cols::Vector{Int}
   C::Matrix{T}
-  U::Factorization{T}  # factorization of submatrix pseudoinverse
+  U::Factorization{T}
 end
 typealias HermCUR HermitianCUR
 
-function CUR(A::AbstractMatOrLinOp, U::AbstractCURPackedU)
-  ishermitian(A) && return HermCUR(A, U)
+type SymmetricCUR{T} <: AbstractCUR{T}
+  cols::Vector{Int}
+  C::Matrix{T}
+  U::Factorization{T}
+end
+typealias SymCUR SymmetricCUR
+
+typealias HermOrSymCUR{T} Union{HermCUR{T}, SymCUR{T}}
+
+function CUR(A::AbstractMatOrLinOp, U::CURPackedU)
   rows = U[:rows]
   cols = U[:cols]
   C = A[:,cols]
@@ -77,42 +93,61 @@ function CUR(A::AbstractMatOrLinOp, U::AbstractCURPackedU)
   U = PartialSVD(F[:V], 1./F[:S], F[:U]')
   CUR(rows, cols, C, U, R)
 end
+CUR(A::AbstractMatOrLinOp, U::HermCURPackedU) = HermCUR(A, U)
+CUR(A::AbstractMatOrLinOp, U::SymCURPackedU) = SymCUR(A, U)
 CUR(A::AbstractMatOrLinOp, rows, cols) = CUR(A, CURPackedU(rows, cols))
 CUR(A, args...) = CUR(LinOp(A), args...)
 
-function HermCUR(A::AbstractMatOrLinOp, U::AbstractCURPackedU)
+function HermCUR(A::AbstractMatOrLinOp, U::HermCURPackedU)
   cols = U[:cols]
   C = A[:,cols]
   F = eigfact!(C[cols,:])
-  U = HermPartialEigen(1./F[:values], F[:vectors])
+  U = PartialHermEigen(1./F[:values], F[:vectors])
   HermCUR(cols, C, U)
 end
 HermCUR(A::AbstractMatOrLinOp, cols) = HermCUR(A, HermCURPackedU(cols))
-HermCUR(A::AbstractMatOrLinOp, rows, cols) = HermCUR(A, cols)
 HermCUR(A, args...) = HermCUR(LinOp(A), args...)
+
+function SymCUR(A::AbstractMatOrLinOp, U::SymCURPackedU)
+  cols = U[:cols]
+  C = A[:,cols]
+  F = svdfact!(C[cols,:])
+  U = PartialSVD(F[:V], 1./F[:S], F[:U]')
+  SymCUR(cols, C, U)
+end
+SymCUR(A::AbstractMatOrLinOp, cols) = SymCUR(A, SymCURPackedU(cols))
+SymCUR(A, args...) = SymCUR(LinOp(A), args...)
 
 conj!(A::CUR) = CUR(A.rows, A.cols, conj!(A.C), conj!(A.U), conj!(A.R))
 conj(A::CUR) = CUR(A.rows, A.cols, conj(A.C), conj(A.U), conj(A.R))
 conj!(A::HermCUR) = HermCUR(A.cols, conj!(A.C), conj!(A.U))
 conj(A::HermCUR) = HermCUR(A.cols, conj(A.C), conj(A.U))
+conj!(A::SymCUR) = SymCUR(A.cols, conj!(A.C), conj!(A.U))
+conj(A::SymCUR) = SymCUR(A.cols, conj(A.C), conj(A.U))
 
 convert{T}(::Type{CUR{T}}, A::CUR) =
   CUR(A.rows, A.cols, convert(Matrix{T}, A.C), convert(Factorization{T}, A.U),
       convert(Matrix{T}, A.R))
 convert{T}(::Type{HermCUR{T}}, A::HermCUR) =
   HermCUR(A.cols, convert(Matrix{T}, A.C), convert(Factorization{T}, A.U))
+convert{T}(::Type{SymCUR{T}}, A::SymCUR) =
+  SymCUR(A.cols, convert(Matrix{T}, A.C), convert(Factorization{T}, A.U))
 convert{T}(::Type{AbstractCUR{T}}, A::CUR) = convert(CUR{T}, A)
 convert{T}(::Type{AbstractCUR{T}}, A::HermCUR) = convert(HermCUR{T}, A)
+convert{T}(::Type{AbstractCUR{T}}, A::SymCUR) = convert(SymCUR{T}, A)
 convert{T}(::Type{Factorization{T}}, A::CUR) = convert(CUR{T}, A)
 convert{T}(::Type{Factorization{T}}, A::HermCUR) = convert(HermCUR{T}, A)
+convert{T}(::Type{Factorization{T}}, A::SymCUR) = convert(SymCUR{T}, A)
 convert(::Type{Array}, A::AbstractCUR) = full(A)
 convert{T}(::Type{Array{T}}, A::AbstractCUR) = convert(Array{T}, full(A))
 
 copy(A::CUR) = CUR(copy(A.rows), copy(A.cols), copy(A.C), copy(A.U), copy(A.R))
 copy(A::HermCUR) = HermCUR(copy(A.cols), copy(A.C), copy(A.U))
+copy(A::SymCUR) = SymCUR(copy(A.cols), copy(A.C), copy(A.U))
 
 full{T}(A::CUR{T}) = A[:C]*(A[:U]*A[:R])
 full{T}(A::HermCUR{T}) = A[:C]*(A[:U]*A[:C]')
+full{T}(A::SymCUR{T}) = A[:C]*(A[:U]*A[:C].')
 
 function getindex{T}(A::CUR{T}, d::Symbol)
   if     d == :C     return A.C
@@ -135,21 +170,32 @@ function getindex{T}(A::HermCUR{T}, d::Symbol)
   else                        throw(KeyError(d))
   end
 end
+function getindex{T}(A::SymCUR{T}, d::Symbol)
+  if     d == :C              return A.C
+  elseif d == :R              return A.C.'
+  elseif d == :U              return A.U
+  elseif d in (:cols, :rows)  return A.cols
+  elseif d in (:k, :kc, :kr)  return length(A.cols)
+  else                        throw(KeyError(d))
+  end
+end
 
-ishermitian(A::CUR) = false
-issym(A::CUR) = false
-ishermitian(A::HermCUR) = true
-issym{T}(A::HermCUR{T}) = T <: Real
+ishermitian(::CUR) = false
+issym(::CUR) = false
+ishermitian(::HermCUR) = true
+issym{T}(A::HermCUR{T}) = isreal(A)
+ishermitian{T}(A::SymCUR{T}) = isreal(A)
+issym(::SymCUR) = true
 
-isreal{T}(A::AbstractCUR{T}) = T <: Real
+isreal{T}(::AbstractCUR{T}) = T <: Real
 
 ndims(A::AbstractCUR) = 2
 
 size(A::CUR) = (size(A.C,1), size(A.R,2))
 size(A::CUR, dim::Integer) =
   (dim == 1 ? size(A.C,1) : (dim == 2 ? size(A.R,2) : 1))
-size(A::HermCUR) = (size(A.C,1), size(A.C,1))
-size(A::HermCUR, dim::Integer) = dim == 1 || dim == 2 ? size(A.C,1) : 1
+size(A::HermOrSymCUR) = (size(A.C,1), size(A.C,1))
+size(A::HermOrSymCUR, dim::Integer) = dim == 1 || dim == 2 ? size(A.C,1) : 1
 
 # BLAS/LAPACK multiplication routines
 
@@ -295,6 +341,70 @@ Ac_mul_Bc!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::HermCUR{T}) =
 At_mul_Bt!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::HermCUR{T}) =
   A_mul_Bt!(C, conj!(A'*B[:C])*B[:U].', B[:C])
 
+## SymCUR left-multiplication
+
+A_mul_B!{T}(C::StridedVecOrMat{T}, A::SymCUR{T}, B::StridedVecOrMat{T}) =
+  A_mul_B!(C, A[:C], A[:U]*(A[:C].'*B))
+A_mul_Bc!{T<:Real}(C::StridedMatrix{T}, A::SymCUR{T}, B::StridedMatrix{T}) =
+  A_mul_B!(C, A[:C], A[:U]*(A[:C]'*B'))
+A_mul_Bc!!{T<:Complex}(C::StridedMatrix{T}, A::SymCUR{T}, B::StridedMatrix{T}) =
+  A_mul_Bt!(C, A, conj!(B))  # overwrites B
+function A_mul_Bc!{T<:Complex}(
+    C::StridedMatrix{T}, A::SymCUR{T}, B::StridedMatrix{T})
+  size(B, 1) <= A[:k] && return A_mul_Bc!!(C, A, copy(B))
+  A_mul_B!(C, A[:C], A[:U]*((A[:C].')*B'))
+end
+A_mul_Bt!{T}(C::StridedMatrix{T}, A::SymCUR{T}, B::StridedMatrix{T}) =
+  A_mul_B!(C, A[:C], A[:U]*(A[:C].'*B.'))
+
+function Ac_mul_B!{T}(
+    C::StridedVecOrMat{T}, A::SymCUR{T}, B::StridedVecOrMat{T})
+  tmp = A[:U]'*(A[:C]'*B)
+  A_mul_B!(C, A[:C], conj!(tmp))
+  conj!(C)
+end
+At_mul_B!{T}(C::StridedVecOrMat{T}, A::SymCUR{T}, B::StridedVecOrMat{T}) =
+  A_mul_B!(C, A, B)
+
+function Ac_mul_Bc!{T}(C::StridedMatrix{T}, A::SymCUR{T}, B::StridedMatrix{T})
+  tmp = A[:U]'*(A[:C]'*B')
+  A_mul_B!(C, A[:C], conj!(tmp))
+  conj!(C)
+end
+At_mul_Bt!{T}(C::StridedMatrix{T}, A::SymCUR{T}, B::StridedMatrix{T}) =
+  A_mul_Bt!(C, A, B)
+
+## SymCUR right-multiplication
+
+A_mul_B!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T}) =
+  A_mul_Bt!(C, (A*B[:C])*B[:U], B[:C])
+
+function A_mul_Bc!!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T})
+  tmp = conj!(A)*B[:C]
+  A_mul_Bt!(C, conj!(tmp)*B[:U].', B[:C])
+end  # overwrites A
+function A_mul_Bc!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T})
+  size(A, 1) <= B[:k] && return A_mul_Bc!!(C, copy(A), B)
+  A_mul_Bc!(C, (A*conj(B[:C]))*B[:U]', B[:C])
+end
+A_mul_Bt!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T}) =
+  A_mul_B!(C, A, B)
+
+for f in (:Ac_mul_B, :At_mul_B)
+  f! = symbol(f, "!")
+  @eval begin
+    function $f!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T})
+      tmp = $f(A, B[:C])
+      A_mul_Bt!(C, tmp*B[:U], B[:C])
+    end
+  end
+end
+
+Ac_mul_Bc!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T}) =
+  A_mul_Bc!(C, conj!(A.'*B[:C])*B[:U]', B[:C])
+At_mul_Bt!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T}) =
+  At_mul_B!(C, A, B)
+
 # standard operations
 
 ## left-multiplication
@@ -359,10 +469,12 @@ for sfx in ("", "!")
   @eval begin
     function $f(A::AbstractMatOrLinOp, opts::LRAOptions)
       opts = chkopts(A, opts)
+      opts = copy(opts, pqrfact_retval="")
       opts.sketch == :none && return $g(A, opts)
       F = sketchfact(:left, :n, A, opts)
       cols = F[:p][1:F[:k]]
       ishermitian(A) && return HermCURPackedU(cols)
+            issym(A) && return  SymCURPackedU(cols)
       F = sketchfact(:left, :c, A, opts)
       rows = F[:p][1:F[:k]]
       CURPackedU(rows, cols)
@@ -387,6 +499,10 @@ function curfact_none!(A::StridedMatrix, opts::LRAOptions)
     F = pqrfact_lapack!(A, opts)
     cols = F[:p][1:F[:k]]
     return HermCURPackedU(cols)
+  elseif issym(A)
+    F = pqrfact_lapack!(A, opts)
+    cols = F[:p][1:F[:k]]
+    return SymCURPackedU(cols)
   else
     F = pqrfact_lapack!(A', opts)
     rows = F[:p][1:F[:k]]
@@ -396,7 +512,7 @@ function curfact_none!(A::StridedMatrix, opts::LRAOptions)
   end
 end
 function curfact_none(A::StridedMatrix, opts::LRAOptions)
-  ishermitian(A) && return curfact_none!(copy(A), opts)
+  (ishermitian(A) || issym(A)) && return curfact_none!(copy(A), opts)
   F = pqrfact_lapack!(     A', opts)
   rows = F[:p][1:F[:k]]
   F = pqrfact_lapack!(copy(A), opts)
