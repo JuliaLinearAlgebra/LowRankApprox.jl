@@ -285,7 +285,7 @@ values = pheigvals(A, args...)
 
 ### CUR Decomposition
 
-A CUR decomposition is a factorization `A = C*U*R`, where `C = A[:,cols]` and `R = A[rows,:]` consist of columns and rows, respectively, from `A` and `U = pinv(A[rows,cols])`. If `length(cols) = kc` and `length(rows) = kr`, then `C` is `m` by `kc`, `U` is `kc` by `kr`, and `R` is `kr` by `n`, with `k = min(kc, kr)`. The basis rows and columns can be computed with:
+A CUR decomposition is a factorization `A = C*U*R`, where `C = A[:,cols]` and `R = A[rows,:]` consist of `k` columns and rows, respectively, from `A` and `U = inv(A[rows,cols])`. The basis rows and columns can be computed with:
 
 ```julia
 U = curfact(A, args...)
@@ -301,8 +301,6 @@ The former is of type `CURPackedU` (or `HermitianCURPackedU` if `A` is Hermitian
 
 - `U[:cols]`: `cols` columns as type `Vector`
 - `U[:rows]`: `rows` rows as type `Vector`
-- `U[:kc]`: `kc` column rank
-- `U[:kr]`: `kr` row rank
 
 To produce the corresponding CUR decomposition, use:
 

@@ -39,16 +39,14 @@ copy(A::HermCURPackedU) = HermCURPackedU(copy(cols))
 
 function getindex(A::CURPackedU, d::Symbol)
   if     d == :cols  return A.cols
-  elseif d == :k     return min(A[:kc], A[:kr])
-  elseif d == :kc    return length(A.cols)
-  elseif d == :kr    return length(A.rows)
+  elseif d == :k     return length(A.cols)
   elseif d == :rows  return A.rows
   else               throw(KeyError(d))
   end
 end
 function getindex(A::HermOrSymCURPackedU, d::Symbol)
   if     d in (:cols, :rows)  return A.cols
-  elseif d in (:k, :kc, :kr)  return length(A.cols)
+  elseif d == :k              return length(A.cols)
   else                        throw(KeyError(d))
   end
 end
@@ -157,9 +155,7 @@ function getindex{T}(A::CUR{T}, d::Symbol)
   elseif d == :R     return A.R
   elseif d == :U     return A.U
   elseif d == :cols  return A.cols
-  elseif d == :k     return min(A[:kc], A[:kr])
-  elseif d == :kc    return length(A.cols)
-  elseif d == :kr    return length(A.rows)
+  elseif d == :k     return length(A.cols)
   elseif d == :rows  return A.rows
   else               throw(KeyError(d))
   end
@@ -169,7 +165,7 @@ function getindex{T}(A::HermCUR{T}, d::Symbol)
   elseif d == :R              return A.C'
   elseif d == :U              return A.U
   elseif d in (:cols, :rows)  return A.cols
-  elseif d in (:k, :kc, :kr)  return length(A.cols)
+  elseif d == :k              return length(A.cols)
   else                        throw(KeyError(d))
   end
 end
@@ -178,7 +174,7 @@ function getindex{T}(A::SymCUR{T}, d::Symbol)
   elseif d == :R              return A.C.'
   elseif d == :U              return A.U
   elseif d in (:cols, :rows)  return A.cols
-  elseif d in (:k, :kc, :kr)  return length(A.cols)
+  elseif d == :k              return length(A.cols)
   else                        throw(KeyError(d))
   end
 end
@@ -480,6 +476,11 @@ for sfx in ("", "!")
             issym(A) && return  SymCURPackedU(cols)
       F = sketchfact(:left, :c, A, opts)
       rows = F[:p][1:F[:k]]
+      kr = length(rows)
+      kc = length(cols)
+      k = min(kr, kc)
+      rows = k < kr ? rows[1:k] : rows
+      cols = k < kc ? cols[1:k] : cols
       CURPackedU(rows, cols)
     end
     function $f(A::AbstractMatOrLinOp, rank_or_rtol::Real)
@@ -511,6 +512,11 @@ function curfact_none!(A::StridedMatrix, opts::LRAOptions)
     rows = F[:p][1:F[:k]]
     F = pqrfact_lapack!(A , opts)
     cols = F[:p][1:F[:k]]
+    kr = length(rows)
+    kc = length(cols)
+    k = min(kr, kc)
+    rows = k < kr ? rows[1:k] : rows
+    cols = k < kc ? cols[1:k] : cols
     return CURPackedU(rows, cols)
   end
 end
@@ -520,5 +526,10 @@ function curfact_none(A::StridedMatrix, opts::LRAOptions)
   rows = F[:p][1:F[:k]]
   F = pqrfact_lapack!(copy(A), opts)
   cols = F[:p][1:F[:k]]
+  kr = length(rows)
+  kc = length(cols)
+  k = min(kr, kc)
+  rows = k < kr ? rows[1:k] : rows
+  cols = k < kc ? cols[1:k] : cols
   return CURPackedU(rows, cols)
 end
