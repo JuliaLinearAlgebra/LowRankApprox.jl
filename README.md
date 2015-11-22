@@ -49,7 +49,7 @@ LowRankApprox has been fully tested in Julia v0.4.0. The apparent build errors r
   - [Sparse Random Gaussian](#sparse-random-gaussian)
 - [Other Algorithms](#other-algorithms)
   - [Partial Range](#partial-range)
-  - [Spectral Norm](#spectral-norm)
+  - [Spectral Norm Estimation](#spectral-norm-estimation)
 - [Options](#options)
 - [Computational Complexity](#computational-complexity)
 
@@ -453,7 +453,7 @@ and is only implemented for type `AbstractMatrix`. Power iteration is not suppor
 
 ### Partial Range
 
-### Spectral Norm
+### Spectral Norm Estimation
 
 ## Options
 
