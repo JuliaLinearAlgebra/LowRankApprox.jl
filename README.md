@@ -30,7 +30,7 @@ This package has been developed with performance in mind, and early tests have s
 
 This difference can be attributed to Julia's tight integration with Fortran and C as well as to some low-level memory management not available in traditional dynamic languages.
 
-LowRankApprox has been fully tested in Julia v0.4.0. The apparent build errors reported by Travis CI seem to be due to the reference 64-bit Julia installation being built with 32-bit BLAS.
+LowRankApprox has been fully tested in Julia v0.4.0. The apparent build errors reported by Travis CI seem to be due to the reference 64-bit Julia installation being compiled against 32-bit BLAS.
 
 ## Installation
 
@@ -131,7 +131,7 @@ which inherits and stores methods for applying the matrix and its adjoint. (This
 F = pqrfact(L)
 ```
 
-just as in the previous case. Of course, there is no real benefit to doing this in this particular example; the advantage comes when considering complicated matrix products that can be represented implicitly as a single `LinearOperator`. For instance, `A*A` can be represented as `L*L` without ever forming the resultant matrix explicitly, and we can even encapsulate entire factorizations as linear operators to exploit fast multiplication:
+just as in the previous case. Of course, there is no real benefit to doing so in this particular example; the advantage comes when considering complicated matrix products that can be represented implicitly as a single `LinearOperator`. For instance, `A*A` can be represented as `L*L` without ever forming the resultant matrix explicitly, and we can even encapsulate entire factorizations as linear operators to exploit fast multiplication:
 
 ```julia
 L = LinearOperator(F)
@@ -166,7 +166,7 @@ The former returns a `PartialQR` factorization with access methods:
 
 Both `F[:R]` and `F[:P]` are represented as structured matrices, complete with their own arithmetic operations, and together permit the alternate approximation formula `A*F[:P] = F[:Q]*F[:R]`. The factorization form additionally supports least squares solution by left-division.
 
-We can also compute a partial QR decomposition of `A'` (that is, pivoting on rows instead of columns) without constructing the matrix transpose explicitly by writing:
+We can also compute a partial QR decomposition of `A'` (that is, pivoting on rows instead of columns) without necessarily constructing the matrix transpose explicitly by writing:
 
 ```julia
 F = pqrfact(:c, A, args...)
@@ -178,9 +178,9 @@ and similarly with `pqr`. The default interface is equivalent to, e.g.:
 F = pqrfact(:n, A, args...)
 ```
 
-for "no transpose". It is also possible to generate only a subset of the partial QR factors for further efficiency; for details, see the "Options" section.
+for "no transpose". It is also possible to generate only a subset of the partial QR factors for further efficiency; for details, see the *Options* section.
 
-The above methods do not modify the input matrix `A` and may make a copy of the data in order to enforce this (whether this is necessary depends on the type of the input and the sketch method used). Potentially more efficient versions that reserve the right to overwrite `A` are available as `pqrfact!` and `pqr!`, respectively.
+The above methods do not modify the input matrix `A` and may make a copy of the data in order to enforce this (whether this is necessary depends on the type of input and the sketch method used). Potentially more efficient versions that reserve the right to overwrite `A` are available as `pqrfact!` and `pqr!`, respectively.
 
 ### Interpolative Decomposition (ID)
 
@@ -233,7 +233,7 @@ The default interface is equivalent to passing `:n` as the first argument. Moreo
 
 ### Singular Value Decomposition (SVD)
 
-A partial SVD is a factorization `A = U*S*V'`, where `U` and `V` are `m` by `k` and `n` by `k`, respectively, both with orthonormal columns, and `S` is `k` by `k` and diagonal with nonincreasing, nonnegative, real entries. It can be computed with:
+A partial SVD is a factorization `A = U*S*V'`, where `U` and `V` are `m` by `k` and `n` by `k`, respectively, both with orthonormal columns, and `S` is `k` by `k` and diagonal with nonincreasing nonnegative real entries. It can be computed with:
 
 ```julia
 F = psvdfact(A, args...)
@@ -260,7 +260,7 @@ S = psvdvals(A, args...)
 
 ### Hermitian Eigendecomposition
 
-A partial Hermitian eigendecomposition of an `n` by `n` Hermitian matrix `A` is a factorization `A = U*S*U'`, where `U` is `n` by `k` with orthonormal columns and `S` is `k` by `k` and diagonal with nondecreasing, real entries. It is very similar to a partial Hermitian SVD and can be computed by:
+A partial Hermitian eigendecomposition of an `n` by `n` Hermitian matrix `A` is a factorization `A = U*S*U'`, where `U` is `n` by `k` with orthonormal columns and `S` is `k` by `k` and diagonal with nondecreasing real entries. It is very similar to a partial Hermitian SVD and can be computed by:
 
 ```julia
 F = pheigfact(A, args...)
@@ -326,15 +326,113 @@ Modifying versions of the above are available as `curfact!` and `cur!`.
 
 ## Sketch Methods
 
+Matrix sketching is a core component of this package and its proper use is critical for high performance. For an `m` by `n` matrix `A`, a sketch of order `k` takes the form `B = S*A`, where `S` is a `k` by `m` sampling matrix (see below). Sketches can similarly be constructed for sampling from the right or for multiplying against `A'`. The idea is that `B` contains a compressed representation of `A` up to rank approximately `k`, which can then be efficiently processed to recover information about `A`.
+
+The default sketch method defines `S` as a Gaussian random matrix. Other sketch methods can be specified through the "options" interface. For example, setting:
+
+```julia
+opts = LRAOptions(sketch=:srft, args...)
+```
+
+or equivalently:
+
+```julia
+opts = LRAOptions(args...)
+opts.sketch = :srft
+```
+
+then passing to, e.g.:
+
+```julia
+V = idfact(A, opts)
+```
+
+computes an ID with sketching via a subsampled random Fourier transform (SRFT). A list of supported sketch methods is given below. To disable sketching altogether, use:
+
+```julia
+opts.sketch = :none
+```
+
+In addition to its integration with low-rank factorization methods, sketches can also be generated independently by:
+
+```julia
+B = sketch(A, order, opts)
+```
+
+or simply:
+
+```julia
+B = sketch(A, order)
+```
+
+to use the default options. Other interfaces include:
+
+- `B = sketch(:left, :n, A, order, args...)` to compute `B = S*A`
+- `B = sketch(:left, :c, A, order, args...)` to compute `B = S*A'`
+- `B = sketch(:right, :n, A, order, args...)` to compute `B = A*S`
+- `B = sketch(:right, :c, A, order, args...)` to compute `B = A'*S`
+
+We also provide adaptive routines to automatically sketch with increasing orders until a specified error tolerance is met, as detected by early termination of an unaccelerated partial QR decomposition. This adaptive sketching forms the basis for essentially all higher-level algorithms in LowRankApprox and can be called with:
+
+```julia
+F = sketchfact(A, args...)
+```
+
+where `args...` denotes either `rank_or_rtol` or `opts` as previously discussed. Like `sketch`, a more detailed interface is also available as:
+
+```julia
+F = sketchfact(side, trans, A, args...)
+```
+
+where `side in (:left, :right)` and `trans in (:n, :c)`.
+
 ### Random Gaussian
+
+The canonical sampling matrix is a Gaussian random matrix with entries drawn independently from the standard normal distribution (or with real and imaginary parts each drawn independently if `A` is complex). To use this sketch method, set:
+
+```julia
+opts.sketch = :randn
+```
+
+There is also support for power iteration to improve accuracy when the spectral gap is small. This computes, e.g., `B = S*(A*A')^p*A` (or simply `B = S*A^(p + 1)` if `A` is Hermitian) instead of just `B = S*A`, with all intermediate matrix products orthogonalized for stability.
+
+For generic `A`, Gaussian sketching has complexity `O(k*m*n)`. In principle, this makes it the most expensive stage of computing a fast low-rank approximation. There is thus a serious effort to develop sketch methods with lower computational cost, which is addressed in part by the following techniques.
 
 ### Random Subset
 
+Perhaps the simplest matrix sketch is just a random subset of rows or columns, with complexity `O(k*m)` or `O(k*n)` as appropriate. This can be specified with:
+
+```julia
+opts.sketch = :sub
+```
+
+The linear growth in matrix dimension is obviously attractive, but note that this method can fail if the matrix is not sufficiently "regular", e.g., if it contains a few large isolated entries. Random subselection is only implemented for type `AbstractMatrix`.
+
 ### Subsampled Random Fourier Transform (SRFT)
+
+An alternative approach based on imposing structure in the sampling matrix is the SRFT, which has the form `S = R*F*D` (if applying from the left), where `R` is a random permutation matrix of size `k` by `m`, `F` is the discrete Fourier transform (DFT) of order `m`, and `D` is a random diagonal unitary scaling. Due to the DFT structure, this can be applied in only `O(m*n*log(k))` operations. To use this method, set:
+
+```julia
+opts.sketch = :srft
+```
+
+For real `A`, our SRFT implementation uses only real arithmetic by separately computing real and imaginary parts as in a standard real-to-real DFT. Only `AbstractMatrix` types are supported.
 
 ### Sparse Random Gaussian
 
+As a modification of Gaussian sketching, we provide also a "sparse" random Gaussian sampling scheme, wherein `S` is restricted to have only `O(m)` or `O(n)` nonzeros, depending on the dimension to be contracted. Considering the case `B = S*A` for concreteness, each row of `S` is taken to be nonzero in only `O(m/k)` columns, with full coverage of `A` maintained by evenly spreading these nonzero indices among the rows of `S`. The complexity of computing `B` is `O(m*n)`. Sparse Gaussian sketching can be specified with:
+
+```julia
+opts.sketch = :sprn
+```
+
+and is only implemented for type `AbstractMatrix`. Power iteration is not supported since any subsequent matrix application would devolve back to having `O(k*m*n)` cost.
+
 ## Other Algorithms
+
+### Partial Range
+
+### Spectral Norm
 
 ## Options
 

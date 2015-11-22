@@ -36,24 +36,24 @@ for (f, f!, i) in ((:*,        :A_mul_B!,  1),
 end
 
 function sketch(
-    side::Symbol, trans::Symbol, A::AbstractMatOrLinOp, rank::Integer,
+    side::Symbol, trans::Symbol, A::AbstractMatOrLinOp, order::Integer,
     opts::LRAOptions)
   opts = sketch_chkopts(A, opts)
-  sketch_chkargs(side, trans, rank)
-  if     opts.sketch == :randn  return sketch_randn(side, trans, A, rank, opts)
-  elseif opts.sketch == :sprn   return  sketch_sprn(side, trans, A, rank, opts)
-  elseif opts.sketch == :srft   return  sketch_srft(side, trans, A, rank, opts)
-  elseif opts.sketch == :sub    return   sketch_sub(side, trans, A, rank, opts)
+  sketch_chkargs(side, trans, order)
+  if     opts.sketch == :randn  return sketch_randn(side, trans, A, order, opts)
+  elseif opts.sketch == :sprn   return  sketch_sprn(side, trans, A, order, opts)
+  elseif opts.sketch == :srft   return  sketch_srft(side, trans, A, order, opts)
+  elseif opts.sketch == :sub    return   sketch_sub(side, trans, A, order, opts)
   end
 end
 function sketch(
-    side::Symbol, trans::Symbol, A::AbstractMatOrLinOp, rank::Integer)
+    side::Symbol, trans::Symbol, A::AbstractMatOrLinOp, order::Integer)
   opts = LRAOptions(sketch=:randn)
-  sketch(side, trans, A, rank, opts)
+  sketch(side, trans, A, order, opts)
 end
-sketch(side::Symbol, trans::Symbol, A, rank::Integer, args...) =
-  sketch(side, trans, LinOp(A), rank, args...)
-sketch(A, rank::Integer, args...) = sketch(:left, :n, A, rank, args...)
+sketch(side::Symbol, trans::Symbol, A, order::Integer, args...) =
+  sketch(side, trans, LinOp(A), order, args...)
+sketch(A, order::Integer, args...) = sketch(:left, :n, A, order, args...)
 
 function sketchfact(
     side::Symbol, trans::Symbol, A::AbstractMatOrLinOp, opts::LRAOptions)
@@ -86,9 +86,9 @@ function sketch_chkopts(A, opts::LRAOptions)
   opts
 end
 
-function sketch_chkargs(side::Symbol, trans::Symbol, rank::Integer)
+function sketch_chkargs(side::Symbol, trans::Symbol, order::Integer)
   sketchfact_chkargs(side, trans)
-  rank >= 0 || throw(ArgumentError("rank"))
+  order >= 0 || throw(ArgumentError("order"))
 end
 function sketchfact_chkargs(side::Symbol, trans::Symbol)
   side in (:left, :right) || throw(ArgumentError("side"))
@@ -117,15 +117,15 @@ Ac_mul_B!{T}(C, A::AbstractMatOrLinOp{T}, B::RandomGaussian) =
 ## sketch interface
 
 function sketch_randn(
-    side::Symbol, trans::Symbol, A::AbstractMatOrLinOp, k::Integer,
+    side::Symbol, trans::Symbol, A::AbstractMatOrLinOp, order::Integer,
     opts::LRAOptions)
   if side == :left
-    if trans == :n  return sketch_randn_ln(A, k, opts)
-    else            return sketch_randn_lc(A, k, opts)
+    if trans == :n  return sketch_randn_ln(A, order, opts)
+    else            return sketch_randn_lc(A, order, opts)
     end
   else
-    if trans == :n  return sketch_randn_rn(A, k, opts)
-    else            return sketch_randn_rc(A, k, opts)
+    if trans == :n  return sketch_randn_rn(A, order, opts)
+    else            return sketch_randn_rc(A, order, opts)
     end
   end
 end
@@ -134,13 +134,13 @@ for (trans, p, q, g, h) in ((:n, :n, :m, :A_mul_B!,  :A_mul_Bc!),
                             (:c, :m, :n, :A_mul_Bc!, :A_mul_B! ))
   f = symbol("sketch_randn_l", trans)
   @eval begin
-    function $f{T}(A::AbstractMatOrLinOp{T}, k::Integer, opts::LRAOptions)
-      S = RandomGaussian(k)
+    function $f{T}(A::AbstractMatOrLinOp{T}, order::Integer, opts::LRAOptions)
+      S = RandomGaussian(order)
       m, n = size(A)
       isherm = ishermitian(A)
-      Bp = Array(T, k, $p)
+      Bp = Array(T, order, $p)
       if opts.sketch_randn_niter > 0
-        Bq = Array(T, k, $q)
+        Bq = Array(T, order, $q)
       end
       $g(Bp, S, A)
       for i = 1:opts.sketch_randn_niter
@@ -158,13 +158,13 @@ for (trans, p, q, g, h) in ((:n, :m, :n, :A_mul_B!,  :Ac_mul_B!),
                             (:c, :n, :m, :Ac_mul_B!, :A_mul_B! ))
   f = symbol("sketch_randn_r", trans)
   @eval begin
-    function $f{T}(A::AbstractMatOrLinOp{T}, k::Integer, opts::LRAOptions)
-      S = RandomGaussian(k)
+    function $f{T}(A::AbstractMatOrLinOp{T}, order::Integer, opts::LRAOptions)
+      S = RandomGaussian(order)
       m, n = size(A)
       isherm = ishermitian(A)
-      Bp = Array(T, $p, k)
+      Bp = Array(T, $p, order)
       if opts.sketch_randn_niter > 0
-        Bq = Array(T, $q, k)
+        Bq = Array(T, $q, order)
       end
       $g(Bp, A, S)
       for i = 1:opts.sketch_randn_niter
@@ -246,9 +246,9 @@ end
 ## sketch interface
 
 function sketch_sub(
-    side::Symbol, trans::Symbol, A::AbstractMatrix, k::Integer,
+    side::Symbol, trans::Symbol, A::AbstractMatrix, order::Integer,
     opts::LRAOptions)
-  S = RandomSubset(k)
+  S = RandomSubset(order)
   if side == :left
     if trans == :n  return S*A
     else            return S*A'
@@ -404,7 +404,7 @@ function srft_apply!{T<:Complex}(
   end
 end
 
-function A_mul_B!{T}(C, A::SRFT, B::StridedMatrix{T})
+function A_mul_B!{T}(C, A::SRFT, B::AbstractMatrix{T})
   m, n = size(B)
   k = A.k
   size(C) == (k, n) || throw(DimensionMismatch)
@@ -415,7 +415,7 @@ function A_mul_B!{T}(C, A::SRFT, B::StridedMatrix{T})
   end
   C
 end
-function A_mul_Bc!{T}(C, A::SRFT, B::StridedMatrix{T})
+function A_mul_Bc!{T}(C, A::SRFT, B::AbstractMatrix{T})
   m, n = size(B)
   k = A.k
   size(C) == (k, m) || throw(DimensionMismatch)
@@ -427,7 +427,7 @@ function A_mul_Bc!{T}(C, A::SRFT, B::StridedMatrix{T})
   C
 end
 
-function A_mul_B!{T}(C, A::StridedMatrix{T}, B::SRFT)
+function A_mul_B!{T}(C, A::AbstractMatrix{T}, B::SRFT)
   m, n = size(A)
   k = B.k
   size(C) == (m, k) || throw(DimensionMismatch)
@@ -438,7 +438,7 @@ function A_mul_B!{T}(C, A::StridedMatrix{T}, B::SRFT)
   end
   C
 end
-function Ac_mul_B!{T}(C, A::StridedMatrix{T}, B::SRFT)
+function Ac_mul_B!{T}(C, A::AbstractMatrix{T}, B::SRFT)
   m, n = size(A)
   k = B.k
   size(C) == (n, k) || throw(DimensionMismatch)
@@ -453,8 +453,9 @@ end
 ## sketch interface
 
 function sketch_srft(
-    side::Symbol, trans::Symbol, A::StridedMatrix, k::Integer, opts::LRAOptions)
-  S = SRFT(k)
+    side::Symbol, trans::Symbol, A::AbstractMatrix, order::Integer,
+    opts::LRAOptions)
+  S = SRFT(order)
   if side == :left
     if trans == :n  return S*A
     else            return S*A'
@@ -467,7 +468,7 @@ function sketch_srft(
 end
 
 function sketchfact_srft(
-    side::Symbol, trans::Symbol, A::StridedMatrix, opts::LRAOptions)
+    side::Symbol, trans::Symbol, A::AbstractMatrix, opts::LRAOptions)
   if opts.sketchfact_adap || opts.rank < 0
     k = opts.nb
     while true
@@ -571,9 +572,9 @@ end
 ## sketch interface
 
 function sketch_sprn(
-    side::Symbol, trans::Symbol, A::AbstractMatrix, k::Integer,
+    side::Symbol, trans::Symbol, A::AbstractMatrix, order::Integer,
     opts::LRAOptions)
-  S = SparseRandGauss(k)
+  S = SparseRandGauss(order)
   if side == :left
     if trans == :n  return S*A
     else            return S*A'
