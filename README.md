@@ -32,6 +32,22 @@ This difference can be attributed to Julia's tight integration with Fortran and 
 
 LowRankApprox has been fully tested in Julia v0.4.0. The apparent build errors reported by Travis CI seem to be due to the reference 64-bit Julia installation being compiled against 32-bit BLAS.
 
+## Contents
+
+- [Installation](#installation)
+- [Getting Started](#getting-started)
+- [Low-Rank Factorizations](#low-rank-factorizations)
+  - [QR Decomposition](#qr-decomposition)
+  - [Interpolative Decomposition](#interpolative-decomposition-id)
+  - [Singular Value Decomposition](#singular-value-decomposition-svd)
+  - [Hermitian Eigendecomposition](#hermitian-eigendecomposition)
+  - [CUR Decomposition](#cur-decomposition)
+- [Sketch Methods]
+  - [Random Gaussian](#random-gaussian)
+  - [Random Subset](#random-subset)
+  - [Subsampled Random Fourier Transform](#subsampled-random-fourier-transform-srft)
+  - [Sparse Random Gaussian](#sparse-random-gaussian)
+
 ## Installation
 
 To install LowRankApprox, simply type:
