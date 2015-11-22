@@ -22,8 +22,6 @@
       <h1>
 <a id="lowrankapprox" class="anchor" href="#lowrankapprox" aria-hidden="true"><span class="octicon octicon-link"></span></a>LowRankApprox</h1>
 
-<p><a href="https://travis-ci.org/klho/LowRankApprox.jl"><img src="https://travis-ci.org/klho/LowRankApprox.jl.svg?branch=master" alt="Build Status"></a></p>
-
 <p>This Julia package provides fast low-rank approximation algorithms for BLAS/LAPACK-compatible matrices based on some of the latest technology in adaptive randomized matrix sketching. Currently implemented algorithms include:</p>
 
 <ul>
@@ -64,7 +62,7 @@
 
 <p>This difference can be attributed to Julia's tight integration with Fortran and C as well as to some low-level memory management not available in traditional dynamic languages.</p>
 
-<p>LowRankApprox has been fully tested in Julia v0.4.0. The apparent build errors reported by Travis CI seem to be due to the reference 64-bit Julia installation being built with 32-bit BLAS.</p>
+<p>LowRankApprox has been fully tested in Julia v0.4.0. The apparent build errors reported by Travis CI seem to be due to the reference 64-bit Julia installation being compiled against 32-bit BLAS.</p>
 
 <h2>
 <a id="installation" class="anchor" href="#installation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Installation</h2>
@@ -141,7 +139,7 @@ F <span class="pl-k">=</span> <span class="pl-c1">pqrfact</span>(A, opts)</pre><
 
 <div class="highlight highlight-source-julia"><pre>F <span class="pl-k">=</span> <span class="pl-c1">pqrfact</span>(L)</pre></div>
 
-<p>just as in the previous case. Of course, there is no real benefit to doing this in this particular example; the advantage comes when considering complicated matrix products that can be represented implicitly as a single <code>LinearOperator</code>. For instance, <code>A*A</code> can be represented as <code>L*L</code> without ever forming the resultant matrix explicitly, and we can even encapsulate entire factorizations as linear operators to exploit fast multiplication:</p>
+<p>just as in the previous case. Of course, there is no real benefit to doing so in this particular example; the advantage comes when considering complicated matrix products that can be represented implicitly as a single <code>LinearOperator</code>. For instance, <code>A*A</code> can be represented as <code>L*L</code> without ever forming the resultant matrix explicitly, and we can even encapsulate entire factorizations as linear operators to exploit fast multiplication:</p>
 
 <div class="highlight highlight-source-julia"><pre>L <span class="pl-k">=</span> <span class="pl-c1">LinearOperator</span>(F)</pre></div>
 
@@ -182,7 +180,7 @@ F <span class="pl-k">=</span> <span class="pl-c1">pqrfact</span>(A, opts)</pre><
 
 <p>Both <code>F[:R]</code> and <code>F[:P]</code> are represented as structured matrices, complete with their own arithmetic operations, and together permit the alternate approximation formula <code>A*F[:P] = F[:Q]*F[:R]</code>. The factorization form additionally supports least squares solution by left-division.</p>
 
-<p>We can also compute a partial QR decomposition of <code>A'</code> (that is, pivoting on rows instead of columns) without constructing the matrix transpose explicitly by writing:</p>
+<p>We can also compute a partial QR decomposition of <code>A'</code> (that is, pivoting on rows instead of columns) without necessarily constructing the matrix transpose explicitly by writing:</p>
 
 <div class="highlight highlight-source-julia"><pre>F <span class="pl-k">=</span> <span class="pl-c1">pqrfact</span>(<span class="pl-c1">:c</span>, A, args<span class="pl-k">...</span>)</pre></div>
 
@@ -190,9 +188,9 @@ F <span class="pl-k">=</span> <span class="pl-c1">pqrfact</span>(A, opts)</pre><
 
 <div class="highlight highlight-source-julia"><pre>F <span class="pl-k">=</span> <span class="pl-c1">pqrfact</span>(<span class="pl-c1">:n</span>, A, args<span class="pl-k">...</span>)</pre></div>
 
-<p>for "no transpose". It is also possible to generate only a subset of the partial QR factors for further efficiency; for details, see the "Options" section.</p>
+<p>for "no transpose". It is also possible to generate only a subset of the partial QR factors for further efficiency; for details, see the <em>Options</em> section.</p>
 
-<p>The above methods do not modify the input matrix <code>A</code> and may make a copy of the data in order to enforce this (whether this is necessary depends on the type of the input and the sketch method used). Potentially more efficient versions that reserve the right to overwrite <code>A</code> are available as <code>pqrfact!</code> and <code>pqr!</code>, respectively.</p>
+<p>The above methods do not modify the input matrix <code>A</code> and may make a copy of the data in order to enforce this (whether this is necessary depends on the type of input and the sketch method used). Potentially more efficient versions that reserve the right to overwrite <code>A</code> are available as <code>pqrfact!</code> and <code>pqr!</code>, respectively.</p>
 
 <h3>
 <a id="interpolative-decomposition-id" class="anchor" href="#interpolative-decomposition-id" aria-hidden="true"><span class="octicon octicon-link"></span></a>Interpolative Decomposition (ID)</h3>
@@ -255,7 +253,7 @@ F <span class="pl-k">=</span> <span class="pl-c1">pqrfact</span>(A, opts)</pre><
 <h3>
 <a id="singular-value-decomposition-svd" class="anchor" href="#singular-value-decomposition-svd" aria-hidden="true"><span class="octicon octicon-link"></span></a>Singular Value Decomposition (SVD)</h3>
 
-<p>A partial SVD is a factorization <code>A = U*S*V'</code>, where <code>U</code> and <code>V</code> are <code>m</code> by <code>k</code> and <code>n</code> by <code>k</code>, respectively, both with orthonormal columns, and <code>S</code> is <code>k</code> by <code>k</code> and diagonal with nonincreasing, nonnegative, real entries. It can be computed with:</p>
+<p>A partial SVD is a factorization <code>A = U*S*V'</code>, where <code>U</code> and <code>V</code> are <code>m</code> by <code>k</code> and <code>n</code> by <code>k</code>, respectively, both with orthonormal columns, and <code>S</code> is <code>k</code> by <code>k</code> and diagonal with nonincreasing nonnegative real entries. It can be computed with:</p>
 
 <div class="highlight highlight-source-julia"><pre>F <span class="pl-k">=</span> <span class="pl-c1">psvdfact</span>(A, args<span class="pl-k">...</span>)</pre></div>
 
@@ -287,7 +285,7 @@ F <span class="pl-k">=</span> <span class="pl-c1">pqrfact</span>(A, opts)</pre><
 <h3>
 <a id="hermitian-eigendecomposition" class="anchor" href="#hermitian-eigendecomposition" aria-hidden="true"><span class="octicon octicon-link"></span></a>Hermitian Eigendecomposition</h3>
 
-<p>A partial Hermitian eigendecomposition of an <code>n</code> by <code>n</code> Hermitian matrix <code>A</code> is a factorization <code>A = U*S*U'</code>, where <code>U</code> is <code>n</code> by <code>k</code> with orthonormal columns and <code>S</code> is <code>k</code> by <code>k</code> and diagonal with nondecreasing, real entries. It is very similar to a partial Hermitian SVD and can be computed by:</p>
+<p>A partial Hermitian eigendecomposition of an <code>n</code> by <code>n</code> Hermitian matrix <code>A</code> is a factorization <code>A = U*S*U'</code>, where <code>U</code> is <code>n</code> by <code>k</code> with orthonormal columns and <code>S</code> is <code>k</code> by <code>k</code> and diagonal with nondecreasing real entries. It is very similar to a partial Hermitian SVD and can be computed by:</p>
 
 <div class="highlight highlight-source-julia"><pre>F <span class="pl-k">=</span> <span class="pl-c1">pheigfact</span>(A, args<span class="pl-k">...</span>)</pre></div>
 
@@ -313,7 +311,7 @@ F <span class="pl-k">=</span> <span class="pl-c1">pqrfact</span>(A, opts)</pre><
 <h3>
 <a id="cur-decomposition" class="anchor" href="#cur-decomposition" aria-hidden="true"><span class="octicon octicon-link"></span></a>CUR Decomposition</h3>
 
-<p>A CUR decomposition is a factorization <code>A = C*U*R</code>, where <code>C = A[:,cols]</code> and <code>R = A[rows,:]</code> consist of columns and rows, respectively, from <code>A</code> and <code>U = pinv(A[rows,cols])</code>. If <code>length(cols) = kc</code> and <code>length(rows) = kr</code>, then <code>C</code> is <code>m</code> by <code>kc</code>, <code>U</code> is <code>kc</code> by <code>kr</code>, and <code>R</code> is <code>kr</code> by <code>n</code>, with <code>k = min(kc, kr)</code>. The basis rows and columns can be computed with:</p>
+<p>A CUR decomposition is a factorization <code>A = C*U*R</code>, where <code>C = A[:,cols]</code> and <code>R = A[rows,:]</code> consist of <code>k</code> columns and rows, respectively, from <code>A</code> and <code>U = inv(A[rows,cols])</code>. The basis rows and columns can be computed with:</p>
 
 <div class="highlight highlight-source-julia"><pre>U <span class="pl-k">=</span> <span class="pl-c1">curfact</span>(A, args<span class="pl-k">...</span>)</pre></div>
 
@@ -330,10 +328,6 @@ F <span class="pl-k">=</span> <span class="pl-c1">pqrfact</span>(A, opts)</pre><
 <li>
 <code>U[:rows]</code>: <code>rows</code> rows as type <code>Vector</code>
 </li>
-<li>
-<code>U[:kc]</code>: <code>kc</code> column rank</li>
-<li>
-<code>U[:kr]</code>: <code>kr</code> row rank</li>
 </ul>
 
 <p>To produce the corresponding CUR decomposition, use:</p>
@@ -365,20 +359,106 @@ F <span class="pl-k">=</span> <span class="pl-c1">pqrfact</span>(A, opts)</pre><
 <h2>
 <a id="sketch-methods" class="anchor" href="#sketch-methods" aria-hidden="true"><span class="octicon octicon-link"></span></a>Sketch Methods</h2>
 
+<p>Matrix sketching is a core component of this package and its proper use is critical for high performance. For an <code>m</code> by <code>n</code> matrix <code>A</code>, a sketch of order <code>k</code> takes the form <code>B = S*A</code>, where <code>S</code> is a <code>k</code> by <code>m</code> sampling matrix (see below). Sketches can similarly be constructed for sampling from the right or for multiplying against <code>A'</code>. The idea is that <code>B</code> contains a compressed representation of <code>A</code> up to rank approximately <code>k</code>, which can then be efficiently processed to recover information about <code>A</code>.</p>
+
+<p>The default sketch method defines <code>S</code> as a Gaussian random matrix. Other sketch methods can be specified through the "options" interface. For example, setting:</p>
+
+<div class="highlight highlight-source-julia"><pre>opts <span class="pl-k">=</span> <span class="pl-c1">LRAOptions</span>(sketch<span class="pl-k">=</span><span class="pl-c1">:srft</span>, args<span class="pl-k">...</span>)</pre></div>
+
+<p>or equivalently:</p>
+
+<div class="highlight highlight-source-julia"><pre>opts <span class="pl-k">=</span> <span class="pl-c1">LRAOptions</span>(args<span class="pl-k">...</span>)
+opts<span class="pl-k">.</span>sketch <span class="pl-k">=</span> <span class="pl-c1">:srft</span></pre></div>
+
+<p>then passing to, e.g.:</p>
+
+<div class="highlight highlight-source-julia"><pre>V <span class="pl-k">=</span> <span class="pl-c1">idfact</span>(A, opts)</pre></div>
+
+<p>computes an ID with sketching via a subsampled random Fourier transform (SRFT). A list of supported sketch methods is given below. To disable sketching altogether, use:</p>
+
+<div class="highlight highlight-source-julia"><pre>opts<span class="pl-k">.</span>sketch <span class="pl-k">=</span> <span class="pl-c1">:none</span></pre></div>
+
+<p>In addition to its integration with low-rank factorization methods, sketches can also be generated independently by:</p>
+
+<div class="highlight highlight-source-julia"><pre>B <span class="pl-k">=</span> <span class="pl-c1">sketch</span>(A, order, opts)</pre></div>
+
+<p>or simply:</p>
+
+<div class="highlight highlight-source-julia"><pre>B <span class="pl-k">=</span> <span class="pl-c1">sketch</span>(A, order)</pre></div>
+
+<p>to use the default options. Other interfaces include:</p>
+
+<ul>
+<li>
+<code>B = sketch(:left, :n, A, order, args...)</code> to compute <code>B = S*A</code>
+</li>
+<li>
+<code>B = sketch(:left, :c, A, order, args...)</code> to compute <code>B = S*A'</code>
+</li>
+<li>
+<code>B = sketch(:right, :n, A, order, args...)</code> to compute <code>B = A*S</code>
+</li>
+<li>
+<code>B = sketch(:right, :c, A, order, args...)</code> to compute <code>B = A'*S</code>
+</li>
+</ul>
+
+<p>We also provide adaptive routines to automatically sketch with increasing orders until a specified error tolerance is met, as detected by early termination of an unaccelerated partial QR decomposition. This adaptive sketching forms the basis for essentially all higher-level algorithms in LowRankApprox and can be called with:</p>
+
+<div class="highlight highlight-source-julia"><pre>F <span class="pl-k">=</span> <span class="pl-c1">sketchfact</span>(A, args<span class="pl-k">...</span>)</pre></div>
+
+<p>where <code>args...</code> denotes either <code>rank_or_rtol</code> or <code>opts</code> as previously discussed. Like <code>sketch</code>, a more detailed interface is also available as:</p>
+
+<div class="highlight highlight-source-julia"><pre>F <span class="pl-k">=</span> <span class="pl-c1">sketchfact</span>(side, trans, A, args<span class="pl-k">...</span>)</pre></div>
+
+<p>where <code>side in (:left, :right)</code> and <code>trans in (:n, :c)</code>.</p>
+
 <h3>
 <a id="random-gaussian" class="anchor" href="#random-gaussian" aria-hidden="true"><span class="octicon octicon-link"></span></a>Random Gaussian</h3>
+
+<p>The canonical sampling matrix is a Gaussian random matrix with entries drawn independently from the standard normal distribution (or with real and imaginary parts each drawn independently if <code>A</code> is complex). To use this sketch method, set:</p>
+
+<div class="highlight highlight-source-julia"><pre>opts<span class="pl-k">.</span>sketch <span class="pl-k">=</span> <span class="pl-c1">:randn</span></pre></div>
+
+<p>There is also support for power iteration to improve accuracy when the spectral gap is small. This computes, e.g., <code>B = S*(A*A')^p*A</code> (or simply <code>B = S*A^(p + 1)</code> if <code>A</code> is Hermitian) instead of just <code>B = S*A</code>, with all intermediate matrix products orthogonalized for stability.</p>
+
+<p>For generic <code>A</code>, Gaussian sketching has complexity <code>O(k*m*n)</code>. In principle, this makes it the most expensive stage of computing a fast low-rank approximation. There is thus a serious effort to develop sketch methods with lower computational cost, which is addressed in part by the following techniques.</p>
 
 <h3>
 <a id="random-subset" class="anchor" href="#random-subset" aria-hidden="true"><span class="octicon octicon-link"></span></a>Random Subset</h3>
 
+<p>Perhaps the simplest matrix sketch is just a random subset of rows or columns, with complexity <code>O(k*m)</code> or <code>O(k*n)</code> as appropriate. This can be specified with:</p>
+
+<div class="highlight highlight-source-julia"><pre>opts<span class="pl-k">.</span>sketch <span class="pl-k">=</span> <span class="pl-c1">:sub</span></pre></div>
+
+<p>The linear growth in matrix dimension is obviously attractive, but note that this method can fail if the matrix is not sufficiently "regular", e.g., if it contains a few large isolated entries. Random subselection is only implemented for type <code>AbstractMatrix</code>.</p>
+
 <h3>
 <a id="subsampled-random-fourier-transform-srft" class="anchor" href="#subsampled-random-fourier-transform-srft" aria-hidden="true"><span class="octicon octicon-link"></span></a>Subsampled Random Fourier Transform (SRFT)</h3>
+
+<p>An alternative approach based on imposing structure in the sampling matrix is the SRFT, which has the form <code>S = R*F*D</code> (if applying from the left), where <code>R</code> is a random permutation matrix of size <code>k</code> by <code>m</code>, <code>F</code> is the discrete Fourier transform (DFT) of order <code>m</code>, and <code>D</code> is a random diagonal unitary scaling. Due to the DFT structure, this can be applied in only <code>O(m*n*log(k))</code> operations. To use this method, set:</p>
+
+<div class="highlight highlight-source-julia"><pre>opts<span class="pl-k">.</span>sketch <span class="pl-k">=</span> <span class="pl-c1">:srft</span></pre></div>
+
+<p>For real <code>A</code>, our SRFT implementation uses only real arithmetic by separately computing real and imaginary parts as in a standard real-to-real DFT. Only <code>AbstractMatrix</code> types are supported.</p>
 
 <h3>
 <a id="sparse-random-gaussian" class="anchor" href="#sparse-random-gaussian" aria-hidden="true"><span class="octicon octicon-link"></span></a>Sparse Random Gaussian</h3>
 
+<p>As a modification of Gaussian sketching, we provide also a "sparse" random Gaussian sampling scheme, wherein <code>S</code> is restricted to have only <code>O(m)</code> or <code>O(n)</code> nonzeros, depending on the dimension to be contracted. Considering the case <code>B = S*A</code> for concreteness, each row of <code>S</code> is taken to be nonzero in only <code>O(m/k)</code> columns, with full coverage of <code>A</code> maintained by evenly spreading these nonzero indices among the rows of <code>S</code>. The complexity of computing <code>B</code> is <code>O(m*n)</code>. Sparse Gaussian sketching can be specified with:</p>
+
+<div class="highlight highlight-source-julia"><pre>opts<span class="pl-k">.</span>sketch <span class="pl-k">=</span> <span class="pl-c1">:sprn</span></pre></div>
+
+<p>and is only implemented for type <code>AbstractMatrix</code>. Power iteration is not supported since any subsequent matrix application would devolve back to having <code>O(k*m*n)</code> cost.</p>
+
 <h2>
 <a id="other-algorithms" class="anchor" href="#other-algorithms" aria-hidden="true"><span class="octicon octicon-link"></span></a>Other Algorithms</h2>
+
+<h3>
+<a id="partial-range" class="anchor" href="#partial-range" aria-hidden="true"><span class="octicon octicon-link"></span></a>Partial Range</h3>
+
+<h3>
+<a id="spectral-norm" class="anchor" href="#spectral-norm" aria-hidden="true"><span class="octicon octicon-link"></span></a>Spectral Norm</h3>
 
 <h2>
 <a id="options" class="anchor" href="#options" aria-hidden="true"><span class="octicon octicon-link"></span></a>Options</h2>
