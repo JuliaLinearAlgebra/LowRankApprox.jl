@@ -42,11 +42,16 @@ LowRankApprox has been fully tested in Julia v0.4.0. The apparent build errors r
   - [Singular Value Decomposition](#singular-value-decomposition-svd)
   - [Hermitian Eigendecomposition](#hermitian-eigendecomposition)
   - [CUR Decomposition](#cur-decomposition)
-- [Sketch Methods]
+- [Sketch Methods](#sketch-methods)
   - [Random Gaussian](#random-gaussian)
   - [Random Subset](#random-subset)
   - [Subsampled Random Fourier Transform](#subsampled-random-fourier-transform-srft)
   - [Sparse Random Gaussian](#sparse-random-gaussian)
+- [Other Algorithms](#other-algorithms)
+  - [Partial Range](#partial-range)
+  - [Spectral Norm](#spectral-norm)
+- [Options](#options)
+- [Computational Complexity](#computational-complexity)
 
 ## Installation
 
@@ -194,7 +199,7 @@ and similarly with `pqr`. The default interface is equivalent to, e.g.:
 F = pqrfact(:n, A, args...)
 ```
 
-for "no transpose". It is also possible to generate only a subset of the partial QR factors for further efficiency; for details, see the *Options* section.
+for "no transpose". It is also possible to generate only a subset of the partial QR factors for further efficiency; for details, see the [Options](#options) section.
 
 The above methods do not modify the input matrix `A` and may make a copy of the data in order to enforce this (whether this is necessary depends on the type of input and the sketch method used). Potentially more efficient versions that reserve the right to overwrite `A` are available as `pqrfact!` and `pqr!`, respectively.
 
