@@ -80,6 +80,38 @@
 
 <ul>
 <li><a href="#installation">Installation</a></li>
+<li><a href="#getting-started">Getting Started</a></li>
+<li>
+<a href="#low-rank-factorizations">Low-Rank Factorizations</a>
+
+<ul>
+<li><a href="#qr-decomposition">QR Decomposition</a></li>
+<li><a href="#interpolative-decomposition-id">Interpolative Decomposition</a></li>
+<li><a href="#singular-value-decomposition-svd">Singular Value Decomposition</a></li>
+<li><a href="#hermitian-eigendecomposition">Hermitian Eigendecomposition</a></li>
+<li><a href="#cur-decomposition">CUR Decomposition</a></li>
+</ul>
+</li>
+<li>
+<a href="#sketch-methods">Sketch Methods</a>
+
+<ul>
+<li><a href="#random-gaussian">Random Gaussian</a></li>
+<li><a href="#random-subset">Random Subset</a></li>
+<li><a href="#subsampled-random-fourier-transform-srft">Subsampled Random Fourier Transform</a></li>
+<li><a href="#sparse-random-gaussian">Sparse Random Gaussian</a></li>
+</ul>
+</li>
+<li>
+<a href="#other-algorithms">Other Algorithms</a>
+
+<ul>
+<li><a href="#partial-range">Partial Range</a></li>
+<li><a href="#spectral-norm-estimation">Spectral Norm Estimation</a></li>
+</ul>
+</li>
+<li><a href="#options">Options</a></li>
+<li><a href="#computational-complexity">Computational Complexity</a></li>
 </ul>
 
 <h2>
@@ -206,7 +238,7 @@ F <span class="pl-k">=</span> <span class="pl-c1">pqrfact</span>(A, opts)</pre><
 
 <div class="highlight highlight-source-julia"><pre>F <span class="pl-k">=</span> <span class="pl-c1">pqrfact</span>(<span class="pl-c1">:n</span>, A, args<span class="pl-k">...</span>)</pre></div>
 
-<p>for "no transpose". It is also possible to generate only a subset of the partial QR factors for further efficiency; for details, see the <em>Options</em> section.</p>
+<p>for "no transpose". It is also possible to generate only a subset of the partial QR factors for further efficiency; for details, see the <a href="#options">Options</a> section.</p>
 
 <p>The above methods do not modify the input matrix <code>A</code> and may make a copy of the data in order to enforce this (whether this is necessary depends on the type of input and the sketch method used). Potentially more efficient versions that reserve the right to overwrite <code>A</code> are available as <code>pqrfact!</code> and <code>pqr!</code>, respectively.</p>
 
@@ -476,7 +508,7 @@ opts<span class="pl-k">.</span>sketch <span class="pl-k">=</span> <span class="p
 <a id="partial-range" class="anchor" href="#partial-range" aria-hidden="true"><span class="octicon octicon-link"></span></a>Partial Range</h3>
 
 <h3>
-<a id="spectral-norm" class="anchor" href="#spectral-norm" aria-hidden="true"><span class="octicon octicon-link"></span></a>Spectral Norm</h3>
+<a id="spectral-norm-estimation" class="anchor" href="#spectral-norm-estimation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Spectral Norm Estimation</h3>
 
 <h2>
 <a id="options" class="anchor" href="#options" aria-hidden="true"><span class="octicon octicon-link"></span></a>Options</h2>
