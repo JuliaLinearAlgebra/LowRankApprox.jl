@@ -2,9 +2,6 @@
 
 References:
 
-  J. Chiu, L. Demanet. Sublinear randomized algorithms for skeleton
-    decompositions. SIAM J. Matrix Anal. Appl. 34 (3): 1361-1383, 2013.
-
   S.A. Goreinov, E.E. Tyrtyshnikov, N.L. Zamarashkin. A theory of pseudoskeleton
     approximations. Linear Algebra Appl. 261: 1-21, 1997.
 
