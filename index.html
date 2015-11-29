@@ -160,28 +160,22 @@ rerr <span class="pl-k">=</span> aerr <span class="pl-k">/</span> <span class="p
 
 <p>The default interface requests ~1e-15 estimated relative precision. To request, say, only 1e-12 relative precision, use:</p>
 
-<div class="highlight highlight-source-julia"><pre>rtol <span class="pl-k">=</span> <span class="pl-c1">1e-12</span>
-F <span class="pl-k">=</span> <span class="pl-c1">pqrfact</span>(A, rtol)</pre></div>
+<div class="highlight highlight-source-julia"><pre>F <span class="pl-k">=</span> <span class="pl-c1">pqrfact</span>(A, rtol<span class="pl-k">=</span><span class="pl-c1">1e-12</span>)</pre></div>
 
 <p>which returns a factorization of rank ~22. We can also directly control the rank instead with, e.g.:</p>
 
-<div class="highlight highlight-source-julia"><pre>rank <span class="pl-k">=</span> <span class="pl-c1">20</span>
-F <span class="pl-k">=</span> <span class="pl-c1">pqrfact</span>(A, rank)</pre></div>
+<div class="highlight highlight-source-julia"><pre>F <span class="pl-k">=</span> <span class="pl-c1">pqrfact</span>(A, rank<span class="pl-k">=</span><span class="pl-c1">20</span>)</pre></div>
 
-<p>Both of these are variants of a single unified interface of the form:</p>
+<p>Using both together as in:</p>
 
-<div class="highlight highlight-source-julia"><pre>F <span class="pl-k">=</span> <span class="pl-c1">pqrfact</span>(A, rank_or_rtol)</pre></div>
+<div class="highlight highlight-source-julia"><pre>F <span class="pl-k">=</span> <span class="pl-c1">pqrfact</span>(A, rank<span class="pl-k">=</span><span class="pl-c1">20</span>, rtol<span class="pl-k">=</span><span class="pl-c1">1e-12</span>)</pre></div>
 
-<p>which interprets <code>rank_or_rtol</code> as a relative precision if <code>rank_or_rtol &lt; 1</code> and as a rank otherwise.</p>
+<p>sets two separate termination criteria: one on reaching rank 20 and the other on achieving estimated relative precision 1e-12---with the computation completing upon either of these being fulfilled. Many other options are available as well. All keyword arguments can also be encapsulated into an <code>LRAOptions</code> type for convenience. For example, we can equivalently write the above as:</p>
 
-<p>The most general accuracy setting considers both the relative precision and the rank together, in addition to the absolute precision. For example, the code:</p>
-
-<div class="highlight highlight-source-julia"><pre>opts <span class="pl-k">=</span> <span class="pl-c1">LRAOptions</span>(atol<span class="pl-k">=</span><span class="pl-c1">1e-9</span>, rank<span class="pl-k">=</span><span class="pl-c1">20</span>, rtol<span class="pl-k">=</span><span class="pl-c1">1e-12</span>)
+<div class="highlight highlight-source-julia"><pre>opts <span class="pl-k">=</span> <span class="pl-c1">LRAOptions</span>(rank<span class="pl-k">=</span><span class="pl-c1">20</span>, rtol<span class="pl-k">=</span><span class="pl-c1">1e-12</span>)
 F <span class="pl-k">=</span> <span class="pl-c1">pqrfact</span>(A, opts)</pre></div>
 
-<p>sets three separate termination criteria: one on achieving estimated absolute precision 1e-9, another on achieving estimated relative precision 1e-12, and the last on reaching rank 20---with the computation completing upon any of these being fulfilled. Many other settings can also be specified through this "options" interface; we will discuss this in more detail later.</p>
-
-<p>All of the above considerations also apply when the input is a linear operator, i.e., when the matrix is described not by its entries but by its action on vectors. To demonstrate, we can convert <code>A</code> to type <code>LinearOperator</code> as follows:</p>
+<p>All aforementioned considerations also apply when the input is a linear operator, i.e., when the matrix is described not by its entries but by its action on vectors. To demonstrate, we can convert <code>A</code> to type <code>LinearOperator</code> as follows:</p>
 
 <div class="highlight highlight-source-julia"><pre>L <span class="pl-k">=</span> <span class="pl-c1">LinearOperator</span>(A)</pre></div>
 
@@ -411,7 +405,7 @@ F <span class="pl-k">=</span> <span class="pl-c1">pqrfact</span>(A, opts)</pre><
 
 <p>Matrix sketching is a core component of this package and its proper use is critical for high performance. For an <code>m</code> by <code>n</code> matrix <code>A</code>, a sketch of order <code>k</code> takes the form <code>B = S*A</code>, where <code>S</code> is a <code>k</code> by <code>m</code> sampling matrix (see below). Sketches can similarly be constructed for sampling from the right or for multiplying against <code>A'</code>. The idea is that <code>B</code> contains a compressed representation of <code>A</code> up to rank approximately <code>k</code>, which can then be efficiently processed to recover information about <code>A</code>.</p>
 
-<p>The default sketch method defines <code>S</code> as a Gaussian random matrix. Other sketch methods can be specified through the "options" interface. For example, setting:</p>
+<p>The default sketch method defines <code>S</code> as a Gaussian random matrix. Other sketch methods can be specified using the keyword <code>sketch</code>. For example, setting:</p>
 
 <div class="highlight highlight-source-julia"><pre>opts <span class="pl-k">=</span> <span class="pl-c1">LRAOptions</span>(sketch<span class="pl-k">=</span><span class="pl-c1">:srft</span>, args<span class="pl-k">...</span>)</pre></div>
 
