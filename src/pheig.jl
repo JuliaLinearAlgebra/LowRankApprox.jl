@@ -227,9 +227,10 @@ end
 
 # factorization routines
 
-function pheigfact{T}(A::AbstractMatOrLinOp{T}, opts::LRAOptions)
+function pheigfact{T}(A::AbstractMatOrLinOp{T}, opts::LRAOptions; args...)
   chksquare(A)
   !ishermitian(A) && error("matrix must be Hermitian")
+  opts = isempty(args) ? opts : copy(opts; args...)
   V = idfact(:n, A, opts)
   F = qrfact!(full(:c, V))
   Q = F[:Q]
@@ -246,11 +247,11 @@ function pheigfact{T}(A::AbstractMatOrLinOp{T}, opts::LRAOptions)
   end
   PartialHermEigen(F.values, Q*F.vectors)
 end
-pheig(A, args...) = (F = pheigfact(A, args...); (F.values, F.vectors))
 
-function pheigvals{T}(A::AbstractMatOrLinOp{T}, opts::LRAOptions)
+function pheigvals{T}(A::AbstractMatOrLinOp{T}, opts::LRAOptions; args...)
   chksquare(A)
   !ishermitian(A) && error("matrix must be Hermitian")
+  opts = isempty(args) ? opts : copy(opts; args...)
   V = idfact(:n, A, opts)
   F = qrfact!(full(:c, V))
   B = F[:R]*(A[V[:sk],V[:sk]]*F[:R]')
@@ -266,14 +267,14 @@ end
 
 for f in (:pheigfact, :pheigvals)
   @eval begin
-    function $f(A::AbstractMatOrLinOp, rank_or_rtol::Real)
-      opts = (rank_or_rtol < 1 ? LRAOptions(rtol=rank_or_rtol)
-                               : LRAOptions(rank=rank_or_rtol))
-      $f(A, opts)
-    end
-    $f{T}(A::AbstractMatOrLinOp{T}) = $f(A, default_rtol(T))
-    $f(A, args...) = $f(LinOp(A), args...)
+    $f(A::AbstractMatOrLinOp; args...) = $f(A, LRAOptions(; args...))
+    $f(A, args...; kwargs...) = $f(LinOp(A), args...; kwargs...)
   end
+end
+
+function pheig(A, args...; kwargs...)
+  F = pheigfact(A, args...; kwargs...)
+  F.values, F.vectors
 end
 
 function pheigrank{T<:Real}(w::Vector{T}, opts::LRAOptions)

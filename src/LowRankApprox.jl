@@ -4,7 +4,7 @@
 module LowRankApprox
 
 importall Base
-import Base.LinAlg: BlasFloat, BlasInt, chksquare, chkstride1
+import Base.LinAlg: BlasFloat, BlasInt, QRCompactWY, chksquare, chkstride1
 
 export
 
@@ -88,6 +88,8 @@ type LRAOptions
   nb::Int
   pqrfact_retval::ASCIIString
   rank::Int
+  rrqr_delta::Float64
+  rrqr_niter::Int
   rtol::Float64
   sketch::Symbol
   sketch_randn_niter::Int
@@ -95,7 +97,6 @@ type LRAOptions
   sketchfact_randn_samp::Int
   sketchfact_srft_samp::Int
   sketchfact_sub_samp::Int
-  snorm_info::Bool
   snorm_niter::Int
 end
 
@@ -104,6 +105,8 @@ LRAOptions(;
     nb::Integer=32,
     pqrfact_retval::ASCIIString="qr",
     rank::Integer=-1,
+    rrqr_delta::Real=-1,
+    rrqr_niter::Integer=-1,
     rtol::Real=default_rtol(Float64),
     sketch::Symbol=:randn,
     sketch_randn_niter::Integer=0,
@@ -111,7 +114,6 @@ LRAOptions(;
     sketchfact_randn_samp::Integer=8,
     sketchfact_srft_samp::Integer=8,
     sketchfact_sub_samp::Integer=6,
-    snorm_info::Bool=false,
     snorm_niter::Integer=32,
     ) =
   LRAOptions(
@@ -119,6 +121,8 @@ LRAOptions(;
     nb,
     pqrfact_retval,
     rank,
+    rrqr_delta,
+    rrqr_niter,
     rtol,
     sketch,
     sketch_randn_niter,
@@ -126,7 +130,6 @@ LRAOptions(;
     sketchfact_randn_samp,
     sketchfact_srft_samp,
     sketchfact_sub_samp,
-    snorm_info,
     snorm_niter,
     )
 
@@ -136,6 +139,8 @@ function copy(opts::LRAOptions; args...)
     opts.nb,
     opts.pqrfact_retval,
     opts.rank,
+    opts.rrqr_delta,
+    opts.rrqr_niter,
     opts.rtol,
     opts.sketch,
     opts.sketch_randn_niter,
@@ -143,7 +148,6 @@ function copy(opts::LRAOptions; args...)
     opts.sketchfact_randn_samp,
     opts.sketchfact_srft_samp,
     opts.sketchfact_sub_samp,
-    opts.snorm_info,
     opts.snorm_niter,
     )
   for (key, value) in args

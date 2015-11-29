@@ -4,6 +4,9 @@ References:
 
   P. Businger, G.H. Golub. Linear least squares solutions by Householder
     transformations. Numer. Math. 7: 269-276, 1965.
+
+  M. Gu, S.C. Eisenstat. Efficient algorithms for computing a strong
+    rank-revealing QR factorization. SIAM J. Sci. Comput. 17 (4): 848-869, 1996.
 =#
 
 # PartialQRFactors
@@ -13,6 +16,7 @@ type PartialQRFactors
   R::Union{Matrix, Void}
   p::Vector{Int}
   k::Int
+  T::Union{Matrix, Void}
 end
 typealias PQRFactors PartialQRFactors
 
@@ -20,6 +24,7 @@ function getindex(A::PQRFactors, d::Symbol)
   if     d == :P  return ColumnPermutation(A.p)
   elseif d == :Q  return A.Q
   elseif d == :R  return isa(A.R, Void) ? A.R : UpperTrapezoidal(A.R)
+  elseif d == :T  return A.T
   elseif d == :k  return A.k
   elseif d == :p  return A.p
   else            throw(KeyError(d))
@@ -242,32 +247,40 @@ for sfx in ("", "!")
   g = symbol("pqrfact_none", sfx)
   h = symbol("pqr", sfx)
   @eval begin
-    function $f(trans::Symbol, A::AbstractMatOrLinOp, opts::LRAOptions)
+    function $f(trans::Symbol, A::AbstractMatOrLinOp, opts::LRAOptions; args...)
+      opts = isempty(args) ? opts : copy(opts; args...)
       opts = chkopts(A, opts)
       chktrans(trans)
       opts.sketch == :none && return $g(trans, A, opts)
       V = idfact(trans, A, opts)
       F = qrfact!(getcols(trans, A, V[:sk]))
-      Q = full(F[:Q])
-      R = [F[:R] UpperTriangular(F[:R])*V[:T]]
+      retq = contains(opts.pqrfact_retval, "q")
+      retr = contains(opts.pqrfact_retval, "r")
+      rett = contains(opts.pqrfact_retval, "t")
+      Q = retq ? full(F[:Q]) : nothing
+      R = retr || rett ? [F[:R] UpperTriangular(F[:R])*V[:T]] : nothing
       p = V[:p]
-      PartialQR(Q, R, p)
+      T = rett ? rrqrt(R) : nothing
+      retq && retr && !rett && return PartialQR(Q, R, p)
+      PQRFactors(Q, R, p, V[:k], T)
     end
-    function $f(trans::Symbol, A::AbstractMatOrLinOp, rank_or_rtol::Real)
-      opts = (rank_or_rtol < 1 ? LRAOptions(rtol=rank_or_rtol)
-                               : LRAOptions(rank=rank_or_rtol))
-      $f(trans, A, opts)
-    end
-    $f{T}(trans::Symbol, A::AbstractMatOrLinOp{T}) =
-      $f(trans, A, default_rtol(T))
-    $f(trans::Symbol, A, args...) = $f(trans, LinOp(A), args...)
-    $f(A, args...) = $f(:n, A, args...)
+    $f(trans::Symbol, A::AbstractMatOrLinOp; args...) =
+      $f(trans, A, LRAOptions(; args...))
+    $f(trans::Symbol, A, args...; kwargs...) =
+      $f(trans, LinOp(A), args...; kwargs...)
+    $f(A, args...; kwargs...) = $f(:n, A, args...; kwargs...)
 
-    function $h(trans::Symbol, A, args...)
-      F = $f(trans, A, args...)
+    function $h(trans::Symbol, A, args...; kwargs...)
+      for (index, (key, value)) in enumerate(kwargs)
+        if key == :pqrfact_retval && value != "qr"
+          warn("keyword \"pqrfact_retval\" ignored")
+          kwargs[index] = (key, "qr")
+        end
+      end
+      F = $f(trans, A, args...; kwargs...)
       F.Q, F.R, F.p
     end
-    $h(A, args...) = $h(:n, A, args...)
+    $h(A, args...; kwargs...) = $h(:n, A, args...; kwargs...)
   end
 end
 
@@ -276,24 +289,24 @@ pqrfact_none!(trans::Symbol, A::StridedMatrix, opts::LRAOptions) =
 pqrfact_none(trans::Symbol, A::StridedMatrix, opts::LRAOptions) =
   pqrfact_lapack!(trans == :n ? copy(A) : A', opts)
 
-## core backend routine: GEQP3 with adaptive rank termination
-function pqrfact_lapack!{T<:BlasFloat}(A::StridedMatrix{T}, opts::LRAOptions)
+## core backend routine: rank-adaptive GEQP3 with RRQR postprocessing
+function pqrfact_lapack!{S<:BlasFloat}(A::StridedMatrix{S}, opts::LRAOptions)
   chkstride1(A)
   m, n = size(A)
   lda  = stride(A, 2)
   jpvt = collect(1:n)
   l    = min(m, n)
   k    = (opts.rank < 0 || opts.rank > l) ? l : opts.rank
-  tau  = Array(T, k)
+  tau  = Array(S, k)
 
   # quick return if empty
-  isempty(A) && @goto ret
+  k == 0 && @goto ret
 
   # set block size and allocate work array
   nb      = min(opts.nb, k)
-  is_real = T <: Real
+  is_real = S <: Real
   lwork   = 2*n*is_real + (n + 1)*nb
-  work    = Array(T, lwork)
+  work    = Array(S, lwork)
 
   # initialize column norms
   if is_real
@@ -301,7 +314,7 @@ function pqrfact_lapack!{T<:BlasFloat}(A::StridedMatrix{T}, opts::LRAOptions)
       work[j] = work[n+j] = norm(sub(A,:,j))
     end
   else
-    rwork = Array(eltype(real(zero(T))), 2*n)
+    rwork = Array(eltype(real(zero(S))), 2*n)
     for j = 1:n
       rwork[j] = rwork[n+j] = norm(sub(A,:,j))
     end
@@ -342,8 +355,48 @@ function pqrfact_lapack!{T<:BlasFloat}(A::StridedMatrix{T}, opts::LRAOptions)
 
   @label ret
   retval = lowercase(opts.pqrfact_retval)
-  Q = contains(retval, "q") ? _LAPACK.orgqr!(A[:,1:k], tau[1:k]) : nothing
-  R = contains(retval, "r") ? triu!(A[1:k,:]) : nothing
-  (isa(Q, Void) || isa(R, Void)) && return PQRFactors(Q, R, jpvt, k)
-  PartialQR(Q, R, jpvt)
+  retq = contains(retval, "q")
+  retr = contains(retval, "r")
+  rett = contains(retval, "t")
+  rrqr = k > 0 && opts.rrqr_delta >= 0
+  Q = retq ? _LAPACK.orgqr!(A[:,1:k], tau[1:k]) : nothing
+  R = retr || rett || rrqr ? triu!(A[1:k,:]) : nothing
+  T = rett || rrqr ? rrqrt(R) : nothing
+
+  # RRQR postprocessing
+  if rrqr
+    qrT, qrwork = _LAPACK.geqrt_init(R, opts)
+    niter = 0
+    while true
+      Tmax, idx = findmax(abs(T))
+      Tmax <= 1 + opts.rrqr_delta && break
+      if niter == opts.rrqr_niter
+        warn("iteration limit ($niter) reached in RRQR postprocessing")
+        break
+      end
+      niter += 1
+      i, j = ind2sub((k, n-k), idx)
+      swapcols!(R, i, k+j)
+      jpvt[i], jpvt[k+j] = jpvt[k+j], jpvt[i]
+      F = QRCompactWY(_LAPACK.geqrt!(R, qrT, qrwork)...)
+      Q = retq ? Q*F[:Q] : Q
+      R = triu!(F.factors)
+      rrqrt!(T, R)
+    end
+  end
+  retq && retr && !rett && return PartialQR(Q, R, jpvt)
+  PQRFactors(Q, R, jpvt, k, T)
+end
+
+function rrqrt!{S}(T::StridedMatrix{S}, R::StridedMatrix{S})
+  k, n = size(R)
+  size(T) == (k, n-k) || throw(DimensionMismatch)
+  copy!(T, sub(R,1:k,k+1:n))
+  BLAS.trsm!('L', 'U', 'N', 'N', one(S), sub(R,1:k,1:k), T)
+end
+
+function rrqrt{S}(R::StridedMatrix{S})
+  k, n = size(R)
+  T = Array(S, (k, n-k))
+  rrqrt!(T, R)
 end

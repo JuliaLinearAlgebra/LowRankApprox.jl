@@ -73,3 +73,10 @@ function iscalevec!(s::AbstractVector, x::AbstractVector)
   end
   x
 end
+
+function swapcols!(A::AbstractMatrix, i::Integer, j::Integer)
+  for k = 1:size(A,1)
+    A[k,i], A[k,j] = A[k,j], A[k,i]
+  end
+  A
+end

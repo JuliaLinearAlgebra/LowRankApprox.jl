@@ -37,7 +37,8 @@ end
 
 function sketch(
     side::Symbol, trans::Symbol, A::AbstractMatOrLinOp, order::Integer,
-    opts::LRAOptions)
+    opts::LRAOptions; args...)
+  opts = isempty(args) ? opts : copy(opts; args...)
   opts = sketch_chkopts(A, opts)
   sketch_chkargs(side, trans, order)
   if     opts.sketch == :randn  return sketch_randn(side, trans, A, order, opts)
@@ -46,17 +47,19 @@ function sketch(
   elseif opts.sketch == :sub    return   sketch_sub(side, trans, A, order, opts)
   end
 end
-function sketch(
-    side::Symbol, trans::Symbol, A::AbstractMatOrLinOp, order::Integer)
-  opts = LRAOptions(sketch=:randn)
-  sketch(side, trans, A, order, opts)
-end
-sketch(side::Symbol, trans::Symbol, A, order::Integer, args...) =
-  sketch(side, trans, LinOp(A), order, args...)
-sketch(A, order::Integer, args...) = sketch(:left, :n, A, order, args...)
+sketch(
+    side::Symbol, trans::Symbol, A::AbstractMatOrLinOp, order::Integer;
+    args...) =
+  sketch(side, trans, A, order, LRAOptions(; args...))
+sketch(side::Symbol, trans::Symbol, A, order::Integer, args...; kwargs...) =
+  sketch(side, trans, LinOp(A), order, args...; kwargs...)
+sketch(A, order::Integer, args...; kwargs...) =
+  sketch(:left, :n, A, order, args...; kwargs...)
 
 function sketchfact(
-    side::Symbol, trans::Symbol, A::AbstractMatOrLinOp, opts::LRAOptions)
+    side::Symbol, trans::Symbol, A::AbstractMatOrLinOp, opts::LRAOptions;
+    args...)
+  opts = isempty(args) ? opts : copy(opts; args...)
   opts = sketch_chkopts(A, opts)
   sketchfact_chkargs(side, trans)
   if     opts.sketch == :randn  return sketchfact_randn(side, trans, A, opts)
@@ -65,17 +68,11 @@ function sketchfact(
   elseif opts.sketch == :sub    return   sketchfact_sub(side, trans, A, opts)
   end
 end
-function sketchfact(
-    side::Symbol, trans::Symbol, A::AbstractMatOrLinOp, rank_or_rtol::Real)
-  opts = (rank_or_rtol < 1 ? LRAOptions(rtol=rank_or_rtol)
-                           : LRAOptions(rank=rank_or_rtol))
-  sketchfact(side, trans, A, opts)
-end
-sketchfact{T}(side::Symbol, trans::Symbol, A::AbstractMatOrLinOp{T}) =
-  sketchfact(side, trans, A, default_rtol(T))
-sketchfact(side::Symbol, trans::Symbol, A, args...) =
-  sketchfact(side, trans, LinOp(A), args...)
-sketchfact(A, args...) = sketchfact(:left, :n, A, args...)
+sketchfact(side::Symbol, trans::Symbol, A::AbstractMatOrLinOp; args...) =
+  sketchfact(side, trans, A, LRAOptions(; args...))
+sketchfact(side::Symbol, trans::Symbol, A, args...; kwargs...) =
+  sketchfact(side, trans, LinOp(A), args...; kwargs...)
+sketchfact(A, args...; kwargs...) = sketchfact(:left, :n, A, args...; kwargs...)
 
 function sketch_chkopts(A, opts::LRAOptions)
   chkopts(opts)

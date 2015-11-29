@@ -3,10 +3,42 @@
 
 module _LAPACK
 
-import Base.LinAlg: BlasInt, chkstride1
+import Base.LinAlg: BlasFloat, BlasInt, chkstride1
 import Base.blasfunc
+import ...LowRankApprox.LRAOptions
 
 const liblapack = Base.liblapack_name
+
+# LAPACK routines
+
+for (geqrt, elty) in ((:sgeqrt_, :Float32   ),
+                      (:dgeqrt_, :Float64   ),
+                      (:cgeqrt_, :Complex64 ),
+                      (:zgeqrt_, :Complex128))
+  @eval begin
+    function geqrt!(
+          A::StridedMatrix{$elty}, T::StridedMatrix{$elty},
+          work::StridedArray{$elty})
+        chkstride1(A)
+        m, n = size(A)
+        nb = size(T, 1)
+        (nb <= min(m,n) && length(work) == nb*n) || throw(DimensionMismatch)
+        lda = max(1, stride(A,2))
+        ldt = max(1, stride(T,2))
+        if n > 0
+            info = Array(BlasInt, 1)
+            ccall(($(blasfunc(geqrt)), liblapack), Void,
+                (Ptr{BlasInt}, Ptr{BlasInt}, Ptr{BlasInt}, Ptr{$elty},
+                 Ptr{BlasInt}, Ptr{$elty}, Ptr{BlasInt}, Ptr{$elty},
+                 Ptr{BlasInt}),
+                 &m, &n, &nb, A,
+                 &lda, T, &ldt, work,
+                 info)
+        end
+        A, T
+    end
+  end
+end
 
 for (lapmr, lapmt, elty) in ((:slapmr_, :slapmt_, :Float32   ),
                              (:dlapmr_, :dlapmt_, :Float64   ),
@@ -100,6 +132,17 @@ for (orgqr, elty) in ((:sorgqr_, :Float32   ),
       A
     end
   end
+end
+
+# supporting routines
+
+function geqrt_init{S<:BlasFloat}(A::StridedMatrix{S}, opts::LRAOptions)
+  m, n = size(A)
+  k    = min(m, n)
+  nb   = min(opts.nb, k)
+  T    = Array(S, nb, k)
+  work = Array(S, nb*n)
+  T, work
 end
 
 end  # module

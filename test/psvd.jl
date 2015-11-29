@@ -25,7 +25,7 @@ for (t, s) in ((:none,                 :none ),
     F = psvdfact(A, opts)
     @test norm(A - full(F)) < approx_rtol*norm(A)
 
-    s = psvdvals(A, copy(opts, rank=F[:k], rtol=0.))
+    s = psvdvals(A, opts, rank=F[:k], rtol=0.)
     @test norm(s - F[:S]) < approx_rtol*norm(s)
 
     xm = rand(T, m)

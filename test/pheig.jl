@@ -24,8 +24,7 @@ for (t, s) in ((:none,                 :none ),
     F = pheigfact(A, opts)
     @test norm(A - full(F)) < approx_rtol*norm(A)
 
-    opts_ = copy(opts, rank=F[:k], rtol=0.)
-    s = pheigvals(A, opts_)
+    s = pheigvals(A, opts, rank=F[:k], rtol=0.)
     @test norm(s - F[:values]) < approx_rtol*norm(s)
 
     x = rand(T, n)

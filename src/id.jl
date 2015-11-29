@@ -383,33 +383,26 @@ for sfx in ("", "!")
   g = symbol("pqrfact", sfx)
   h = symbol("id", sfx)
   @eval begin
-    function $f{S}(trans::Symbol, A::AbstractMatOrLinOp{S}, opts::LRAOptions)
+    function $f(trans::Symbol, A::AbstractMatOrLinOp, opts::LRAOptions; args...)
+      opts = isempty(args) ? opts : copy(opts; args...)
       opts = chkopts(A, opts)
-      opts = copy(opts, pqrfact_retval="r")
+      opts = copy(opts, pqrfact_retval="t")
       if opts.sketch == :none  F = $g(trans, A, opts)
       else                     F = sketchfact(:left, trans, A, opts)
       end
-      k, n = size(F.R)
-      sk = F.p[1:k]
-      rd = F.p[k+1:n]
-      T = F.R[1:k,k+1:n]
-      BLAS.trsm!('L', 'U', 'N', 'N', one(S), sub(F.R,1:k,1:k), T)
-      IDPackedV(sk, rd, T)
+      k = F[:k]
+      IDPackedV(F.p[1:k], F.p[k+1:end], F.T)
     end
-    function $f(trans::Symbol, A::AbstractMatOrLinOp, rank_or_rtol::Real)
-      opts = (rank_or_rtol < 1 ? LRAOptions(rtol=rank_or_rtol)
-                               : LRAOptions(rank=rank_or_rtol))
-      $f(trans, A, opts)
-    end
-    $f{T}(trans::Symbol, A::AbstractMatOrLinOp{T}) =
-      $f(trans, A, default_rtol(T))
-    $f(trans::Symbol, A, args...) = $f(trans, LinOp(A), args...)
-    $f(A, args...) = $f(:n, A, args...)
+    $f(trans::Symbol, A::AbstractMatOrLinOp; args...) =
+      $f(trans, A, LRAOptions(; args...))
+    $f(trans::Symbol, A, args...; kwargs...) =
+      $f(trans, LinOp(A), args...; kwargs...)
+    $f(A, args...; kwargs...) = $f(:n, A, args...; kwargs...)
 
-    function $h(trans::Symbol, A, args...)
-      V = $f(trans, A, args...)
+    function $h(trans::Symbol, A, args...; kwargs...)
+      V = $f(trans, A, args...; kwargs...)
       V.sk, V.rd, V.T
     end
-    $h(A, args...) = $h(:n, A, args...)
+    $h(A, args...; kwargs...) = $h(:n, A, args...; kwargs...)
   end
 end

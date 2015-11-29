@@ -10,30 +10,21 @@ References:
     (4), 1094-1122, 1992.
 =#
 
-type ConvergenceInfo{T<:Real}
-  iterates::Vector{T}
-  neval::Int
-  niter::Int
-  converged::Bool
-end
-
 # spectral norm
-function snorm{T}(A::AbstractLinOp{T}, opts::LRAOptions)
+function snorm{T}(A::AbstractLinOp{T}, opts::LRAOptions; args...)
+  opts = isempty(args) ? opts : copy(opts; args...)
   chkopts(opts)
-  m, n      = size(A)
-  isherm    = ishermitian(A)
-  xn        = crandn(T, n)
-  xm        = Array(T, m)
-  xnrm      = vecnorm(xn)
-  s         = [real(one(T))]
-  t         = 0
-  neval     = 0
-  niter     = 0
-  converged = true
-  while s[end] > 0 && abs(s[end] - t) > max(opts.atol, t*opts.rtol)
+  m, n   = size(A)
+  isherm = ishermitian(A)
+  xn     = crandn(T, n)
+  xm     = Array(T, m)
+  xnrm   = vecnorm(xn)
+  s      = real(one(T))
+  t      = 0
+  niter  = 0
+  while s > 0 && abs(s - t) > max(opts.atol, t*opts.rtol)
     if niter == opts.snorm_niter
-      warn("maximum number of iterations ($niter) reached")
-      converged = false
+      warn("iteration limit ($niter) reached in spectral norm estimation")
       break
     end
     niter += 1
@@ -41,29 +32,21 @@ function snorm{T}(A::AbstractLinOp{T}, opts::LRAOptions)
     if isherm
       A_mul_B!(xm, A, xn)
       copy!(xn, xm)
-      neval += 1
     else
        A_mul_B!(xm, A, xn)
       Ac_mul_B!(xn, A, xm)
-      neval += 2
     end
     xnrm = vecnorm(xn)
-    t = s[end]
-    push!(s, isherm ? xnrm : sqrt(xnrm))
+    t = s
+    s = isherm ? xnrm : sqrt(xnrm)
   end
-  if opts.snorm_info  ConvergenceInfo(s, neval, niter, converged)
-  else                s[end]
-  end
+  s
 end
-function snorm(A::AbstractLinOp, niter_or_rtol::Real)
-  opts = (niter_or_rtol < 1 ? LRAOptions(       rtol=niter_or_rtol)
-                            : LRAOptions(snorm_niter=niter_or_rtol))
-  snorm(A, opts)
-end
-snorm{T}(A::AbstractLinOp{T}) = snorm(A, default_rtol(T))
-snorm(A, args...) = snorm(LinOp(A), args...)
+snorm(A::AbstractLinOp; args...) = snorm(A, LRAOptions(; args...))
+snorm(A, args...; kwargs...) = snorm(LinOp(A), args...; kwargs...)
 
 # spectral norm difference
-snormdiff{T}(A::AbstractLinOp{T}, B::AbstractLinOp{T}, args...) =
-  snorm(A - B, args...)
-snormdiff(A, B, args...) = snormdiff(LinOp(A), LinOp(B), args...)
+snormdiff{T}(A::AbstractLinOp{T}, B::AbstractLinOp{T}, args...; kwargs...) =
+  snorm(A - B, args...; kwargs...)
+snormdiff(A, B, args...; kwargs...) =
+  snormdiff(LinOp(A), LinOp(B), args...; kwargs...)

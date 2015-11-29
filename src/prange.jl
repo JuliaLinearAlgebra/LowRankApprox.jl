@@ -15,11 +15,14 @@ for sfx in ("", "!")
   f = symbol("prange", sfx)
   g = symbol("pqrfact", sfx)
   @eval begin
-    function $f{T}(trans::Symbol, A::AbstractMatOrLinOp{T}, opts::LRAOptions)
+    function $f{T}(
+        trans::Symbol, A::AbstractMatOrLinOp{T}, opts::LRAOptions; args...)
+      opts = isempty(args) ? opts : copy(opts; args...)
       opts = chkopts(A, opts)
       prange_chktrans(trans)
       if trans == :b
         chksquare(A)
+        ishermitian(A) && return $f(:n, A, opts)
         opts = copy(opts, pqrfact_retval="qr")
         if opts.sketch == :none
           Fr = pqrfact!(A', opts)
@@ -37,6 +40,7 @@ for sfx in ("", "!")
         Rc = sub(Fc.R, 1:kc, 1:kc)
         BLAS.trmm!('R', 'U', 'N', 'N', one(T), Rr, sub(B,:,   1:kr   ))
         BLAS.trmm!('R', 'U', 'N', 'N', one(T), Rc, sub(B,:,kr+1:kr+kc))
+        opts.pqrfact_retval="q"
         return pqrfact_lapack!(B, opts)[:Q]
       else
         opts = copy(opts, pqrfact_retval="q")
@@ -50,15 +54,11 @@ for sfx in ("", "!")
         Q
       end
     end
-    function $f(trans::Symbol, A::AbstractMatOrLinOp, rank_or_rtol::Real)
-      opts = (rank_or_rtol < 1 ? LRAOptions(rtol=rank_or_rtol)
-                               : LRAOptions(rank=rank_or_rtol))
-      $f(trans, A, opts)
-    end
-    $f{T}(trans::Symbol, A::AbstractMatOrLinOp{T}) =
-      $f(trans, A, default_rtol(T))
-    $f(trans::Symbol, A, args...) = $f(trans, LinOp(A), args...)
-    $f(A, args...) = $f(:n, A, args...)
+    $f(trans::Symbol, A::AbstractMatOrLinOp; args...) =
+      $f(trans, A, LRAOptions(; args...))
+    $f(trans::Symbol, A, args...; kwargs...) =
+      $f(trans, LinOp(A), args...; kwargs...)
+    $f(A, args...; kwargs...) = $f(:n, A, args...; kwargs...)
   end
 end
 

@@ -112,35 +112,29 @@ This computes the absolute and relative errors in the spectral norm using power 
 The default interface requests ~1e-15 estimated relative precision. To request, say, only 1e-12 relative precision, use:
 
 ```julia
-rtol = 1e-12
-F = pqrfact(A, rtol)
+F = pqrfact(A, rtol=1e-12)
 ```
 
 which returns a factorization of rank ~22. We can also directly control the rank instead with, e.g.:
 
 ```julia
-rank = 20
-F = pqrfact(A, rank)
+F = pqrfact(A, rank=20)
 ```
 
-Both of these are variants of a single unified interface of the form:
+Using both together as in:
 
 ```julia
-F = pqrfact(A, rank_or_rtol)
+F = pqrfact(A, rank=20, rtol=1e-12)
 ```
 
-which interprets `rank_or_rtol` as a relative precision if `rank_or_rtol < 1` and as a rank otherwise.
-
-The most general accuracy setting considers both the relative precision and the rank together, in addition to the absolute precision. For example, the code:
+sets two separate termination criteria: one on reaching rank 20 and the other on achieving estimated relative precision 1e-12---with the computation completing upon either of these being fulfilled. Many other options are available as well. All keyword arguments can also be encapsulated into an `LRAOptions` type for convenience. For example, we can equivalently write the above as:
 
 ```julia
-opts = LRAOptions(atol=1e-9, rank=20, rtol=1e-12)
+opts = LRAOptions(rank=20, rtol=1e-12)
 F = pqrfact(A, opts)
 ```
 
-sets three separate termination criteria: one on achieving estimated absolute precision 1e-9, another on achieving estimated relative precision 1e-12, and the last on reaching rank 20---with the computation completing upon any of these being fulfilled. Many other settings can also be specified through this "options" interface; we will discuss this in more detail later.
-
-All of the above considerations also apply when the input is a linear operator, i.e., when the matrix is described not by its entries but by its action on vectors. To demonstrate, we can convert `A` to type `LinearOperator` as follows:
+All aforementioned considerations also apply when the input is a linear operator, i.e., when the matrix is described not by its entries but by its action on vectors. To demonstrate, we can convert `A` to type `LinearOperator` as follows:
 
 ```julia
 L = LinearOperator(A)
@@ -349,7 +343,7 @@ Modifying versions of the above are available as `curfact!` and `cur!`.
 
 Matrix sketching is a core component of this package and its proper use is critical for high performance. For an `m` by `n` matrix `A`, a sketch of order `k` takes the form `B = S*A`, where `S` is a `k` by `m` sampling matrix (see below). Sketches can similarly be constructed for sampling from the right or for multiplying against `A'`. The idea is that `B` contains a compressed representation of `A` up to rank approximately `k`, which can then be efficiently processed to recover information about `A`.
 
-The default sketch method defines `S` as a Gaussian random matrix. Other sketch methods can be specified through the "options" interface. For example, setting:
+The default sketch method defines `S` as a Gaussian random matrix. Other sketch methods can be specified using the keyword `sketch`. For example, setting:
 
 ```julia
 opts = LRAOptions(sketch=:srft, args...)

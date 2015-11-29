@@ -463,7 +463,8 @@ for sfx in ("", "!")
   g = symbol("curfact_none", sfx)
   h = symbol("cur", sfx)
   @eval begin
-    function $f(A::AbstractMatOrLinOp, opts::LRAOptions)
+    function $f(A::AbstractMatOrLinOp, opts::LRAOptions; args...)
+      opts = isempty(args) ? opts : copy(opts; args...)
       opts = chkopts(A, opts)
       opts = copy(opts, pqrfact_retval="")
       opts.sketch == :none && return $g(A, opts)
@@ -480,16 +481,11 @@ for sfx in ("", "!")
       cols = k < kc ? cols[1:k] : cols
       CURPackedU(rows, cols)
     end
-    function $f(A::AbstractMatOrLinOp, rank_or_rtol::Real)
-      opts = (rank_or_rtol < 1 ? LRAOptions(rtol=rank_or_rtol)
-                               : LRAOptions(rank=rank_or_rtol))
-      $f(A, opts)
-    end
-    $f{T}(A::AbstractMatOrLinOp{T}) = curfact(A, default_rtol(T))
-    $f(A, args...) = curfact(LinOp(A), args...)
+    $f(A::AbstractMatOrLinOp; args...) = $f(A, LRAOptions(; args...))
+    $f(A, args...; kwargs...) = $f(LinOp(A), args...; kwargs...)
 
-    function $h(A, args...)
-      U = $f(A, args...)
+    function $h(A, args...; kwargs...)
+      U = $f(A, args...; kwargs...)
       U[:rows], U[:cols]
     end
   end
