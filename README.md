@@ -107,7 +107,7 @@ aerr = snormdiff(A, F)
 rerr = aerr / snorm(A)
 ```
 
-This computes the absolute and relative errors in the spectral norm using power iteration. Here, the relative error achieved should be on the order of machine epsilon. (You may see a warning about exceeding the maximum number of iterations, but this is harmless in this case.)
+This computes the absolute and relative errors in the spectral norm using power iteration. Here, the relative error achieved should be on the order of machine epsilon. (You may see a warning about exceeding the iteration limit, but this is harmless in this case.)
 
 The default interface requests ~1e-15 estimated relative precision. To request, say, only 1e-12 relative precision, use:
 
