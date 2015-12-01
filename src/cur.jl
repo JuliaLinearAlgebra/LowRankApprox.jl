@@ -468,12 +468,27 @@ for sfx in ("", "!")
       opts = chkopts(A, opts)
       opts = copy(opts, pqrfact_retval="")
       opts.sketch == :none && return $g(A, opts)
-      F = sketchfact(:left, :n, A, opts)
-      cols = F[:p][1:F[:k]]
-      ishermitian(A) && return HermCURPackedU(cols)
-            issym(A) && return  SymCURPackedU(cols)
-      F = sketchfact(:left, :c, A, opts)
-      rows = F[:p][1:F[:k]]
+      if ishermitian(A)
+        F = sketchfact(:left, :n, A, opts)
+        cols = F[:p][1:F[:k]]
+        return HermCURPackedU(cols)
+      elseif issym(A)
+        F = sketchfact(:left, :n, A, opts)
+        cols = F[:p][1:F[:k]]
+        return SymCURPackedU(cols)
+      end
+      m, n = size(A)
+      if m >= n
+        F = sketchfact(:left, :c, A, opts)
+        rows = F[:p][1:F[:k]]
+        F = sketchfact(:left, :n, A[rows,:], opts)
+        cols = F[:p][1:F[:k]]
+      else
+        F = sketchfact(:left, :n, A, opts)
+        cols = F[:p][1:F[:k]]
+        F = sketchfact(:left, :c, A[:,cols], opts)
+        rows = F[:p][1:F[:k]]
+      end
       kr = length(rows)
       kc = length(cols)
       k = min(kr, kc)
@@ -500,25 +515,23 @@ function curfact_none!(A::StridedMatrix, opts::LRAOptions)
     F = pqrfact_lapack!(A, opts)
     cols = F[:p][1:F[:k]]
     return SymCURPackedU(cols)
-  else
-    F = pqrfact_lapack!(A', opts)
-    rows = F[:p][1:F[:k]]
-    F = pqrfact_lapack!(A , opts)
-    cols = F[:p][1:F[:k]]
-    kr = length(rows)
-    kc = length(cols)
-    k = min(kr, kc)
-    rows = k < kr ? rows[1:k] : rows
-    cols = k < kc ? cols[1:k] : cols
-    return CURPackedU(rows, cols)
   end
+  curfact_none(A, opts)
 end
 function curfact_none(A::StridedMatrix, opts::LRAOptions)
   (ishermitian(A) || issym(A)) && return curfact_none!(copy(A), opts)
-  F = pqrfact_lapack!(     A', opts)
-  rows = F[:p][1:F[:k]]
-  F = pqrfact_lapack!(copy(A), opts)
-  cols = F[:p][1:F[:k]]
+  m, n = size(A)
+  if m >= n
+    F = pqrfact_lapack!(A', opts)
+    rows = F[:p][1:F[:k]]
+    F = pqrfact_lapack!(A[rows,:], opts)
+    cols = F[:p][1:F[:k]]
+  else
+    F = pqrfact_lapack!(copy(A), opts)
+    cols = F[:p][1:F[:k]]
+    F = pqrfact_lapack!(A[:,cols]', opts)
+    rows = F[:p][1:F[:k]]
+  end
   kr = length(rows)
   kc = length(cols)
   k = min(kr, kc)
