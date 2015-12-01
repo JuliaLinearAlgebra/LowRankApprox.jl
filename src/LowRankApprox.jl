@@ -94,9 +94,9 @@ type LRAOptions
   sketch::Symbol
   sketch_randn_niter::Int
   sketchfact_adap::Bool
-  sketchfact_randn_samp::Int
-  sketchfact_srft_samp::Int
-  sketchfact_sub_samp::Int
+  sketchfact_randn_samp::Function
+  sketchfact_srft_samp::Function
+  sketchfact_sub_samp::Function
   snorm_niter::Int
 end
 
@@ -111,9 +111,9 @@ LRAOptions(;
     sketch::Symbol=:randn,
     sketch_randn_niter::Integer=0,
     sketchfact_adap::Bool=true,
-    sketchfact_randn_samp::Integer=8,
-    sketchfact_srft_samp::Integer=8,
-    sketchfact_sub_samp::Integer=6,
+    sketchfact_randn_samp::Function=(n -> n + 8),
+    sketchfact_srft_samp::Function=(n -> n + 8),
+    sketchfact_sub_samp::Function=(n -> 4*n + 8),
     snorm_niter::Integer=32,
     ) =
   LRAOptions(
@@ -162,9 +162,6 @@ function chkopts(opts)
   opts.rtol >= 0 || throw(ArgumentError("rtol"))
   opts.sketch in (:none, :randn, :sprn, :srft, :sub) ||
     throw(ArgumentError("sketch"))
-  opts.sketchfact_randn_samp >= 0 || throw(ArgumentError("sketchfact_randn_samp"))
-  opts.sketchfact_srft_samp >= 0 || throw(ArgumentError("sketchfact_srft_samp"))
-  opts.sketchfact_sub_samp > 0 || throw(ArgumentError("sketchfact_sub_samp"))
 end
 function chkopts(A, opts::LRAOptions)
   chkopts(opts)

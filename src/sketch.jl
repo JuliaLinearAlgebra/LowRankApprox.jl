@@ -180,13 +180,13 @@ function sketchfact_randn(
   if opts.sketchfact_adap || opts.rank < 0
     k = opts.nb
     while true
-      B = sketch_randn(side, trans, A, k+opts.sketchfact_randn_samp, opts)
+      B = sketch_randn(side, trans, A, opts.sketchfact_randn_samp(k), opts)
       F = pqrfact_lapack!(B, opts)
       F[:k] < k && return F
       k *= 2
     end
   else
-    k = opts.rank + opts.sketchfact_randn_samp
+    k = opts.sketchfact_randn_samp(opts.rank)
     B = sketch_randn(side, trans, A, k, opts)
     return pqrfact_lapack!(B, opts)
   end
@@ -262,13 +262,13 @@ function sketchfact_sub(
   if opts.sketchfact_adap || opts.rank < 0
     k = opts.nb
     while true
-      B = sketch_sub(side, trans, A, k*opts.sketchfact_sub_samp, opts)
+      B = sketch_sub(side, trans, A, opts.sketchfact_sub_samp(k), opts)
       F = pqrfact_lapack!(B, opts)
       F[:k] < k && return F
       k *= 2
     end
   else
-    k = opts.rank*opts.sketchfact_sub_samp
+    k = opts.sketchfact_sub_samp(opts.rank)
     B = sketch_sub(side, trans, A, k, opts)
     return pqrfact_lapack!(B, opts)
   end
@@ -469,13 +469,13 @@ function sketchfact_srft(
   if opts.sketchfact_adap || opts.rank < 0
     k = opts.nb
     while true
-      B = sketch_srft(side, trans, A, k+opts.sketchfact_srft_samp, opts)
+      B = sketch_srft(side, trans, A, opts.sketchfact_srft_samp(k), opts)
       F = pqrfact_lapack!(B, opts)
       F[:k] < k && return F
       k *= 2
     end
   else
-    k = opts.rank + opts.sketchfact_srft_samp
+    k = opts.sketchfact_srft_samp(opts.rank)
     B = sketch_srft(side, trans, A, k, opts)
     return pqrfact_lapack!(B, opts)
   end
