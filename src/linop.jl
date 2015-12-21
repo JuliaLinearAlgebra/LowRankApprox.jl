@@ -66,8 +66,8 @@ function getindex{T}(A::AbstractLinOp{T}, rows, ::Colon)
   (A'*S)'
 end
 function getindex{T}(A::AbstractLinOp{T}, rows, cols)
-  if length(rows) > length(cols)  return (A[:,cols])[rows,:]
-  else                            return (A[rows,:])[:,cols]
+  if length(rows) >= length(cols)  return A[:,cols][rows,:]
+  else                             return A[rows,:][:,cols]
   end
 end
 

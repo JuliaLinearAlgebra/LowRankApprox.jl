@@ -463,7 +463,8 @@ for sfx in ("", "!")
   g = symbol("curfact_none", sfx)
   h = symbol("cur", sfx)
   @eval begin
-    function $f(A::AbstractMatOrLinOp, opts::LRAOptions; args...)
+    function $f{T}(
+        A::AbstractMatOrLinOp{T}, opts::LRAOptions=LRAOptions(T); args...)
       opts = isempty(args) ? opts : copy(opts; args...)
       opts = chkopts(A, opts)
       opts = copy(opts, pqrfact_retval="")
@@ -496,7 +497,6 @@ for sfx in ("", "!")
       cols = k < kc ? cols[1:k] : cols
       CURPackedU(rows, cols)
     end
-    $f(A::AbstractMatOrLinOp; args...) = $f(A, LRAOptions(; args...))
     $f(A, args...; kwargs...) = $f(LinOp(A), args...; kwargs...)
 
     function $h(A, args...; kwargs...)

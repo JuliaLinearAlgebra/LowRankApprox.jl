@@ -28,12 +28,12 @@ for (geqrt, elty) in ((:sgeqrt_, :Float32   ),
         if n > 0
             info = Array(BlasInt, 1)
             ccall(($(blasfunc(geqrt)), liblapack), Void,
-                (Ptr{BlasInt}, Ptr{BlasInt}, Ptr{BlasInt}, Ptr{$elty},
-                 Ptr{BlasInt}, Ptr{$elty}, Ptr{BlasInt}, Ptr{$elty},
-                 Ptr{BlasInt}),
-                 &m, &n, &nb, A,
-                 &lda, T, &ldt, work,
-                 info)
+                  (Ptr{BlasInt}, Ptr{BlasInt}, Ptr{BlasInt}, Ptr{$elty},
+                   Ptr{BlasInt}, Ptr{$elty}, Ptr{BlasInt}, Ptr{$elty},
+                   Ptr{BlasInt}),
+                  &m, &n, &nb, A,
+                  &lda, T, &ldt, work,
+                  info)
         end
         A, T
     end
@@ -100,36 +100,6 @@ for (laqps, elty, relty) in ((:slaqps_, :Float32,    :Float32),
         &m, &n, &offset, &nb, kb,
         A, &lda, jpvt, tau,
         vn1, vn2, auxv, F, &ldf)
-    end
-  end
-end
-
-for (orgqr, elty) in ((:sorgqr_, :Float32   ),
-                      (:dorgqr_, :Float64   ),
-                      (:cungqr_, :Complex64 ),
-                      (:zungqr_, :Complex128))
-  @eval begin
-    function orgqr!(A::StridedMatrix{$elty}, tau::StridedVector{$elty})
-      chkstride1(A, tau)
-      m, n  = size(A)
-      k     = n
-      lda   = max(1,m)
-      lwork = BlasInt(-1)
-      work  = Array($elty, 1)
-      info  = Array(BlasInt, 1)
-      for i = 1:2
-        ccall(
-          ($(blasfunc(orgqr)), liblapack), Void,
-          (Ptr{BlasInt}, Ptr{BlasInt}, Ptr{BlasInt}, Ptr{$elty}, Ptr{BlasInt},
-           Ptr{$elty}, Ptr{$elty}, Ptr{BlasInt}, Ptr{BlasInt}),
-          &m, &n, &k, A, &lda,
-          tau, work, &lwork, info)
-        if lwork < 0
-          lwork = BlasInt(real(work[1]))
-          work = Array($elty, lwork)
-        end
-      end
-      A
     end
   end
 end

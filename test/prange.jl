@@ -6,9 +6,7 @@ tic()
 
 n = 128
 M = matrixlib(:fourier, rand(n), rand(n))
-rtol = 1e-6
-approx_rtol = 100*rtol
-opts = LRAOptions(rtol=rtol, sketch_randn_niter=1)
+opts = LRAOptions(sketch_randn_niter=1)
 
 for (t, s) in ((:none,                 :none ),
                (:RandomGaussian,       :randn),
@@ -18,6 +16,10 @@ for (t, s) in ((:none,                 :none ),
   opts.sketch = s
   for T in (Float32, Float64, Complex64, Complex128)
     println("  $t/$T")
+
+    rtol = 5*eps(real(T))
+    approx_rtol = 100*rtol
+    opts.rtol = rtol
 
     A = convert(Array{T}, T <: Real ? real(M) : M)
     nrm = norm(A)

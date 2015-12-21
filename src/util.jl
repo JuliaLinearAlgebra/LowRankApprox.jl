@@ -10,42 +10,16 @@ for (elty, relty) in ((:Complex64, :Float32), (:Complex128, :Float64))
 end
 
 function getcols(trans::Symbol, A::AbstractMatrix, cols)
-  chktrans(trans)
-  return (trans == :n ? A[:,cols] : A[cols,:]')
+  if     trans == :n  return A[:,cols]
+  elseif trans == :c  return A[cols,:]'
+  end
 end
 function getcols{T}(trans::Symbol, A::AbstractLinOp{T}, cols)
-  chktrans(trans)
-  return (trans == :n ? A[:,cols] : A'[:, cols])
-end
-
-function orthcols!{T<:BlasFloat}(A::StridedMatrix{T}; thin::Bool=true)
-  k = minimum(size(A))
-  tau = Array(T, k)
-  LAPACK.geqrf!(A, tau)
-  Q = LAPACK.orgqr!(A, tau)
-  if thin  return Q
-  else     (A[:,k+1:end] = 0; return A)
+  if     trans == :n  return A[:,cols]
+  elseif trans == :c  return A'[:, cols]
   end
 end
 
-function orthrows!{T<:BlasFloat}(A::StridedMatrix{T}; thin::Bool=true)
-  k = minimum(size(A))
-  tau = Array(T, k)
-  LAPACK.gelqf!(A, tau)
-  Q = LAPACK.orglq!(A, tau)
-  if thin  return Q
-  else     (A[k+1:end,:] = 0; return A)
-  end
-end
-
-function scalevec!(s::AbstractVector, x::AbstractVector)
-  n = length(x)
-  length(s) == n || throw(DimensionMismatch)
-  for i = 1:n
-    x[i] *= s[i]
-  end
-  x
-end
 function iscale!(A::AbstractMatrix, b::AbstractVector)
   m, n = size(A)
   length(b) == n || throw(DimensionMismatch)
@@ -64,6 +38,35 @@ function iscale!(b::AbstractVector, A::AbstractMatrix)
     A[i,j] /= b[i]
   end
   A
+end
+
+function orthcols!{T<:BlasFloat}(A::StridedMatrix{T}; thin::Bool=true)
+  k = minimum(size(A))
+  tau = Array(T, k)
+  LAPACK.geqrf!(A, tau)
+  Q = LAPACK.orgqr!(A, tau)
+  thin && return Q
+  A[:,k+1:end] = 0
+  A
+end
+
+function orthrows!{T<:BlasFloat}(A::StridedMatrix{T}; thin::Bool=true)
+  k = minimum(size(A))
+  tau = Array(T, k)
+  LAPACK.gelqf!(A, tau)
+  Q = LAPACK.orglq!(A, tau)
+  thin && return Q
+  A[k+1:end,:] = 0
+  A
+end
+
+function scalevec!(s::AbstractVector, x::AbstractVector)
+  n = length(x)
+  length(s) == n || throw(DimensionMismatch)
+  for i = 1:n
+    x[i] *= s[i]
+  end
+  x
 end
 function iscalevec!(s::AbstractVector, x::AbstractVector)
   n = length(x)

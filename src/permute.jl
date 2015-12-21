@@ -49,10 +49,7 @@ getindex(A::ColPerm, i::Integer, j::Integer) = A.p[j] == i ? 1 : 0
 ishermitian(A::PermMat) = issym(A)
 function issym(A::PermMat)
   for i = 1:length(A.p)
-    j = A.p[i]
-    if i != A.p[j]
-      return false
-    end
+    i != A.p[A.p[i]] && return false
   end
   true
 end

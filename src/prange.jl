@@ -16,10 +16,11 @@ for sfx in ("", "!")
   g = symbol("pqrfact", sfx)
   @eval begin
     function $f{T}(
-        trans::Symbol, A::AbstractMatOrLinOp{T}, opts::LRAOptions; args...)
+        trans::Symbol, A::AbstractMatOrLinOp{T}, opts::LRAOptions=LRAOptions(T);
+        args...)
+      prange_chktrans(trans)
       opts = isempty(args) ? opts : copy(opts; args...)
       opts = chkopts(A, opts)
-      prange_chktrans(trans)
       if trans == :b
         chksquare(A)
         ishermitian(A) && return $f(:n, A, opts)
@@ -54,8 +55,6 @@ for sfx in ("", "!")
         Q
       end
     end
-    $f(trans::Symbol, A::AbstractMatOrLinOp; args...) =
-      $f(trans, A, LRAOptions(; args...))
     $f(trans::Symbol, A, args...; kwargs...) =
       $f(trans, LinOp(A), args...; kwargs...)
     $f(A, args...; kwargs...) = $f(:n, A, args...; kwargs...)

@@ -227,7 +227,8 @@ end
 
 # factorization routines
 
-function pheigfact{T}(A::AbstractMatOrLinOp{T}, opts::LRAOptions; args...)
+function pheigfact{T}(
+    A::AbstractMatOrLinOp{T}, opts::LRAOptions=LRAOptions(T); args...)
   chksquare(A)
   !ishermitian(A) && error("matrix must be Hermitian")
   opts = isempty(args) ? opts : copy(opts; args...)
@@ -248,7 +249,8 @@ function pheigfact{T}(A::AbstractMatOrLinOp{T}, opts::LRAOptions; args...)
   PartialHermEigen(F.values, Q*F.vectors)
 end
 
-function pheigvals{T}(A::AbstractMatOrLinOp{T}, opts::LRAOptions; args...)
+function pheigvals{T}(
+    A::AbstractMatOrLinOp{T}, opts::LRAOptions=LRAOptions(T); args...)
   chksquare(A)
   !ishermitian(A) && error("matrix must be Hermitian")
   opts = isempty(args) ? opts : copy(opts; args...)
@@ -266,10 +268,7 @@ function pheigvals{T}(A::AbstractMatOrLinOp{T}, opts::LRAOptions; args...)
 end
 
 for f in (:pheigfact, :pheigvals)
-  @eval begin
-    $f(A::AbstractMatOrLinOp; args...) = $f(A, LRAOptions(; args...))
-    $f(A, args...; kwargs...) = $f(LinOp(A), args...; kwargs...)
-  end
+  @eval $f(A, args...; kwargs...) = $f(LinOp(A), args...; kwargs...)
 end
 
 function pheig(A, args...; kwargs...)

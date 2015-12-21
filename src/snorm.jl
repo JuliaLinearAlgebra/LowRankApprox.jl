@@ -11,7 +11,7 @@ References:
 =#
 
 # spectral norm
-function snorm{T}(A::AbstractLinOp{T}, opts::LRAOptions; args...)
+function snorm{T}(A::AbstractLinOp{T}, opts::LRAOptions=LRAOptions(T); args...)
   opts = isempty(args) ? opts : copy(opts; args...)
   chkopts(opts)
   m, n   = size(A)
@@ -19,7 +19,7 @@ function snorm{T}(A::AbstractLinOp{T}, opts::LRAOptions; args...)
   xn     = crandn(T, n)
   xm     = Array(T, m)
   xnrm   = vecnorm(xn)
-  s      = real(one(T))
+  s      = one(real(T))
   t      = 0
   niter  = 0
   while s > 0 && abs(s - t) > max(opts.atol, t*opts.rtol)
@@ -28,7 +28,7 @@ function snorm{T}(A::AbstractLinOp{T}, opts::LRAOptions; args...)
       break
     end
     niter += 1
-    xn /= xnrm
+    scale!(xn, 1/xnrm)
     if isherm
       A_mul_B!(xm, A, xn)
       copy!(xn, xm)
@@ -42,7 +42,6 @@ function snorm{T}(A::AbstractLinOp{T}, opts::LRAOptions; args...)
   end
   s
 end
-snorm(A::AbstractLinOp; args...) = snorm(A, LRAOptions(; args...))
 snorm(A, args...; kwargs...) = snorm(LinOp(A), args...; kwargs...)
 
 # spectral norm difference

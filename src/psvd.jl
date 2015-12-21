@@ -215,7 +215,8 @@ end
 
 # factorization routines
 
-function psvdfact(A::AbstractMatOrLinOp, opts::LRAOptions; args...)
+function psvdfact{T}(
+    A::AbstractMatOrLinOp{T}, opts::LRAOptions=LRAOptions(T); args...)
   opts = isempty(args) ? opts : copy(opts; args...)
   m, n = size(A)
   if m >= n
@@ -252,7 +253,8 @@ function psvdfact(A::AbstractMatOrLinOp, opts::LRAOptions; args...)
   PartialSVD(U, S, Vt)
 end
 
-function psvdvals(A::AbstractMatOrLinOp, opts::LRAOptions; args...)
+function psvdvals{T}(
+    A::AbstractMatOrLinOp{T}, opts::LRAOptions=LRAOptions(T); args...)
   opts = isempty(args) ? opts : copy(opts; args...)
   m, n = size(A)
   if m >= n
@@ -270,10 +272,7 @@ function psvdvals(A::AbstractMatOrLinOp, opts::LRAOptions; args...)
 end
 
 for f in (:psvdfact, :psvdvals)
-  @eval begin
-    $f(A::AbstractMatOrLinOp; args...) = $f(A, LRAOptions(; args...))
-    $f(A, args...; kwargs...) = $f(LinOp(A), args...; kwargs...)
-  end
+  @eval $f(A, args...; kwargs...) = $f(LinOp(A), args...; kwargs...)
 end
 
 function psvd(A, args...; kwargs...)

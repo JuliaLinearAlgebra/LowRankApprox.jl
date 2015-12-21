@@ -60,7 +60,15 @@ size(A::Trapezoidal, args...) = size(A.data, args...)
 ## LowerTrapezoidal left-multiplication
 
 function A_mul_B!{T<:BlasFloat}(
-    C::StridedVecOrMat{T}, A::LowerTrapezoidal{T}, B::StridedVecOrMat{T})
+    y::StridedVector{T}, A::LowerTrapezoidal{T}, x::StridedVector{T})
+  m, n = size(A)
+  y[1:n] = x
+  BLAS.trmv!('L', 'N', 'N', sub(A.data,1:n,:), sub(y,1:n))
+  BLAS.gemv!('N', one(T), sub(A.data,n+1:m,:), x, zero(T), sub(y,n+1:m))
+  y
+end
+function A_mul_B!{T<:BlasFloat}(
+    C::StridedMatrix{T}, A::LowerTrapezoidal{T}, B::StridedMatrix{T})
   m, n = size(A)
   C[1:n,:] = B
   BLAS.trmm!('L', 'L', 'N', 'N', one(T), sub(A.data,1:n,:), sub(C,1:n,:))
@@ -179,9 +187,8 @@ function A_mul_B!{T<:BlasFloat}(
   BLAS.trmv!('U', 'N', 'N', sub(A.data,:,1:m), y)
   BLAS.gemv!('N', one(T), sub(A.data,:,m+1:n), sub(x,m+1:n), one(T), y)
 end
-
 function A_mul_B!{T<:BlasFloat}(
-    C::StridedVecOrMat{T}, A::UpperTrapezoidal{T}, B::StridedVecOrMat{T})
+    C::StridedMatrix{T}, A::UpperTrapezoidal{T}, B::StridedMatrix{T})
   m, n = size(A)
   copy!(C, sub(B,1:m,:))
   BLAS.trmm!('L', 'U', 'N', 'N', one(T), sub(A.data,:,1:m), C)
@@ -205,7 +212,15 @@ end
 for (f, trans) in ((:Ac_mul_B!, 'C'), (:At_mul_B!, 'T'))
   @eval begin
     function $f{T<:BlasFloat}(
-        C::StridedVecOrMat{T}, A::UpperTrapezoidal{T}, B::StridedVecOrMat{T})
+        y::StridedVector{T}, A::UpperTrapezoidal{T}, x::StridedVector{T})
+      m, n = size(A)
+      y[1:m] = x
+      BLAS.trmv!('U', $trans, 'N', sub(A.data,:,1:m), sub(y,1:m))
+      BLAS.gemv!($trans, one(T), sub(A.data,:,m+1:n), x, zero(T), sub(y,m+1:n))
+      y
+    end
+    function $f{T<:BlasFloat}(
+        C::StridedMatrix{T}, A::UpperTrapezoidal{T}, B::StridedMatrix{T})
       m, n = size(A)
       C[1:m,:] = B
       BLAS.trmm!('L', 'U', $trans, 'N', one(T), sub(A.data,:,1:m), sub(C,1:m,:))

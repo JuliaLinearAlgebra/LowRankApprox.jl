@@ -9,9 +9,7 @@ n =  64
 M = matrixlib(:fourier, rand(m), rand(n))
 Mh = M[1:n,1:n]; Mh += Mh';
 Ms = M[1:n,1:n]; Ms += Ms.';
-rtol = 1e-6
-approx_rtol = 100*rtol
-opts = LRAOptions(rtol=rtol, sketch_randn_niter=1)
+opts = LRAOptions(sketch_randn_niter=1)
 
 for (t, s) in ((:none,                 :none ),
                (:RandomGaussian,       :randn),
@@ -21,6 +19,10 @@ for (t, s) in ((:none,                 :none ),
   opts.sketch = s
   for T in (Float32, Float64, Complex64, Complex128)
     println("  $t/$T")
+
+    rtol = 5*eps(real(T))
+    approx_rtol = 1000*rtol
+    opts.rtol = rtol
 
     for (N, p, q) in ((M, m, n), (Mh, n, n), (Ms, n, n))
       A = convert(Array{T}, T <: Real ? real(N) : N)

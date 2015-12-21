@@ -6,10 +6,11 @@ tic()
 
 m = 20
 n = 10
-rtol = 1e-6
 
 for T in (Float32, Float64, Complex64, Complex128)
   println("  $T")
+
+  rtol = 100*eps(real(T))
 
   A = rand(T, m, n)
   nrm = norm(A)

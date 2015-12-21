@@ -12,19 +12,19 @@ References:
 # PartialQRFactors
 
 type PartialQRFactors
-  Q::Union{Matrix, Void}
-  R::Union{Matrix, Void}
+  Q::Nullable{Matrix}
+  R::Nullable{Matrix}
   p::Vector{Int}
   k::Int
-  T::Union{Matrix, Void}
+  T::Nullable{Matrix}
 end
 typealias PQRFactors PartialQRFactors
 
 function getindex(A::PQRFactors, d::Symbol)
   if     d == :P  return ColumnPermutation(A.p)
-  elseif d == :Q  return A.Q
-  elseif d == :R  return isa(A.R, Void) ? A.R : UpperTrapezoidal(A.R)
-  elseif d == :T  return A.T
+  elseif d == :Q  return get(A.Q)
+  elseif d == :R  return UpperTrapezoidal(get(A.R))
+  elseif d == :T  return get(A.T)
   elseif d == :k  return A.k
   elseif d == :p  return A.p
   else            throw(KeyError(d))
@@ -247,10 +247,12 @@ for sfx in ("", "!")
   g = symbol("pqrfact_none", sfx)
   h = symbol("pqr", sfx)
   @eval begin
-    function $f(trans::Symbol, A::AbstractMatOrLinOp, opts::LRAOptions; args...)
+    function $f{S}(
+        trans::Symbol, A::AbstractMatOrLinOp{S}, opts::LRAOptions=LRAOptions(S);
+        args...)
+      chktrans(trans)
       opts = isempty(args) ? opts : copy(opts; args...)
       opts = chkopts(A, opts)
-      chktrans(trans)
       opts.sketch == :none && return $g(trans, A, opts)
       V = idfact(trans, A, opts)
       F = qrfact!(getcols(trans, A, V[:sk]))
@@ -264,19 +266,12 @@ for sfx in ("", "!")
       retq && retr && !rett && return PartialQR(Q, R, p)
       PQRFactors(Q, R, p, V[:k], T)
     end
-    $f(trans::Symbol, A::AbstractMatOrLinOp; args...) =
-      $f(trans, A, LRAOptions(; args...))
     $f(trans::Symbol, A, args...; kwargs...) =
       $f(trans, LinOp(A), args...; kwargs...)
     $f(A, args...; kwargs...) = $f(:n, A, args...; kwargs...)
 
     function $h(trans::Symbol, A, args...; kwargs...)
-      for (index, (key, value)) in enumerate(kwargs)
-        if key == :pqrfact_retval && value != "qr"
-          warn("keyword \"pqrfact_retval\" ignored")
-          kwargs[index] = (key, "qr")
-        end
-      end
+      push!(kwargs, (:pqrfact_retval, "qr"))
       F = $f(trans, A, args...; kwargs...)
       F.Q, F.R, F.p
     end
@@ -359,7 +354,7 @@ function pqrfact_lapack!{S<:BlasFloat}(A::StridedMatrix{S}, opts::LRAOptions)
   retr = contains(retval, "r")
   rett = contains(retval, "t")
   rrqr = k > 0 && opts.rrqr_delta >= 0
-  Q = retq ? _LAPACK.orgqr!(A[:,1:k], tau[1:k]) : nothing
+  Q = retq ? LAPACK.orgqr!(A[:,1:k], tau, k) : nothing
   R = retr || rett || rrqr ? triu!(A[1:k,:]) : nothing
   T = rett || rrqr ? rrqrt(R) : nothing
 

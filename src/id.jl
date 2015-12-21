@@ -86,8 +86,15 @@ size(A::IDPackedV, dim::Integer) =
 
 ### left-multiplication
 
-function A_mul_B!!{T}(
-    C::StridedVecOrMat{T}, A::IDPackedV{T}, B::StridedVecOrMat{T})
+function A_mul_B!!{T<:BlasFloat}(
+    y::StridedVector{T}, A::IDPackedV{T}, x::StridedVector{T})
+  k, n = size(A)
+  Ac_mul_B!(A[:P], x)
+  copy!(y, sub(x,1:k))
+  BLAS.gemv!('N', one(T), A[:T], sub(x,k+1:n), one(T), y)
+end  # overwrites x
+function A_mul_B!!{T<:BlasFloat}(
+    C::StridedMatrix{T}, A::IDPackedV{T}, B::StridedMatrix{T})
   k, n = size(A)
   Ac_mul_B!(A[:P], B)
   copy!(C, sub(B,1:k,:))
@@ -98,7 +105,8 @@ A_mul_B!{T}(C::StridedVecOrMat{T}, A::IDPackedV{T}, B::StridedVecOrMat{T}) =
 
 for (f!, g) in ((:A_mul_Bc!, :Ac_mul_Bc), (:A_mul_Bt!, :At_mul_Bt))
   @eval begin
-    function $f!{T}(C::StridedMatrix{T}, A::IDPackedV{T}, B::StridedMatrix{T})
+    function $f!{T<:BlasFloat}(
+        C::StridedMatrix{T}, A::IDPackedV{T}, B::StridedMatrix{T})
       k, n = size(A)
       tmp = $g(A[:P], B)
       copy!(C, sub(tmp,1:k,:))
@@ -142,7 +150,8 @@ end
 for (f!, trans) in ((:A_mul_Bc!, 'C'), (:A_mul_Bt!, 'T'))
   f!! = symbol(f!, "!")
   @eval begin
-    function $f!!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T})
+    function $f!!{T<:BlasFloat}(
+        C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T})
       k, n = size(B)
       A_mul_B!(A, B[:P])
       copy!(C, sub(A,:,1:k))
@@ -168,7 +177,8 @@ end
 for (f!, g, trans) in ((:Ac_mul_Bc!, :Ac_mul_B, 'C'),
                        (:At_mul_Bt!, :At_mul_B, 'T'))
   @eval begin
-    function $f!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T})
+    function $f!{T<:BlasFloat}(
+        C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T})
       k, n = size(B)
       tmp = $g(A, B[:P])
       copy!(C, sub(tmp,:,1:k))
@@ -186,8 +196,10 @@ type ID{S} <: Factorization{S}
   T::Matrix{S}
 end
 
-ID{T}(trans::Symbol, A::AbstractMatOrLinOp{T}, V::IDPackedV{T}) =
+function ID{T}(trans::Symbol, A::AbstractMatOrLinOp{T}, V::IDPackedV{T})
+  chktrans(trans)
   ID(V.sk, V.rd, getcols(trans, A, V.sk), V.T)
+end
 ID(trans::Symbol, A::AbstractMatOrLinOp, sk, rd, T) =
   ID(trans, A, IDPackedV(sk, rd, T))
 ID(A::AbstractMatOrLinOp, args...) = ID(:n, A, args...)
@@ -383,18 +395,18 @@ for sfx in ("", "!")
   g = symbol("pqrfact", sfx)
   h = symbol("id", sfx)
   @eval begin
-    function $f(trans::Symbol, A::AbstractMatOrLinOp, opts::LRAOptions; args...)
-      opts = isempty(args) ? opts : copy(opts; args...)
+    function $f{T}(
+        trans::Symbol, A::AbstractMatOrLinOp{T}, opts::LRAOptions=LRAOptions(T);
+        args...)
+      push!(args, (:pqrfact_retval, "t"))
+      opts = copy(opts; args...)
       opts = chkopts(A, opts)
-      opts = copy(opts, pqrfact_retval="t")
       if opts.sketch == :none  F = $g(trans, A, opts)
       else                     F = sketchfact(:left, trans, A, opts)
       end
       k = F[:k]
-      IDPackedV(F.p[1:k], F.p[k+1:end], F.T)
+      IDPackedV(F.p[1:k], F.p[k+1:end], get(F.T))
     end
-    $f(trans::Symbol, A::AbstractMatOrLinOp; args...) =
-      $f(trans, A, LRAOptions(; args...))
     $f(trans::Symbol, A, args...; kwargs...) =
       $f(trans, LinOp(A), args...; kwargs...)
     $f(A, args...; kwargs...) = $f(:n, A, args...; kwargs...)
