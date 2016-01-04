@@ -39,8 +39,8 @@ function sketch{T}(
     side::Symbol, trans::Symbol, A::AbstractMatOrLinOp{T}, order::Integer,
     opts::LRAOptions=LRAOptions(T); args...)
   sketch_chkargs(side, trans, order)
-  opts = isempty(args) ? opts : copy(opts; args...)
-  opts = sketch_chkopts(A, opts)
+  opts = copy(opts; args...)
+  sketch_chkopts!(opts, A)
   if     opts.sketch == :randn  return sketch_randn(side, trans, A, order, opts)
   elseif opts.sketch == :sprn   return  sketch_sprn(side, trans, A, order, opts)
   elseif opts.sketch == :srft   return  sketch_srft(side, trans, A, order, opts)
@@ -56,8 +56,8 @@ function sketchfact{T}(
     side::Symbol, trans::Symbol, A::AbstractMatOrLinOp{T},
     opts::LRAOptions=LRAOptions(T); args...)
   sketchfact_chkargs(side, trans)
-  opts = isempty(args) ? opts : copy(opts; args...)
-  opts = sketch_chkopts(A, opts)
+  opts = copy(opts; args...)
+  sketch_chkopts!(opts, A)
   if     opts.sketch == :randn  return sketchfact_randn(side, trans, A, opts)
   elseif opts.sketch == :sprn   return  sketchfact_sprn(side, trans, A, opts)
   elseif opts.sketch == :srft   return  sketchfact_srft(side, trans, A, opts)
@@ -68,13 +68,12 @@ sketchfact(side::Symbol, trans::Symbol, A, args...; kwargs...) =
   sketchfact(side, trans, LinOp(A), args...; kwargs...)
 sketchfact(A, args...; kwargs...) = sketchfact(:left, :n, A, args...; kwargs...)
 
-function sketch_chkopts(A, opts::LRAOptions)
-  chkopts(opts)
-  if opts.sketch == :none || typeof(A) <: AbstractLinOp && opts.sketch != :randn
+function sketch_chkopts!(opts::LRAOptions, A)
+  chkopts!(opts)
+  if opts.sketch == :none
     warn("invalid sketch method; using \"randn\"")
-    opts = copy(opts, sketch=:randn)
+    opts.sketch = :randn
   end
-  opts
 end
 
 function sketch_chkargs(side::Symbol, trans::Symbol, order::Integer)
@@ -175,14 +174,14 @@ function sketchfact_randn(
     k = opts.nb
     while true
       B = sketch_randn(side, trans, A, opts.sketchfact_randn_samp(k), opts)
-      F = pqrfact_lapack!(B, opts)
+      F = pqrfact_backend!(B, opts)
       F[:k] < k && return F
       k *= 2
     end
   else
     k = opts.sketchfact_randn_samp(opts.rank)
     B = sketch_randn(side, trans, A, k, opts)
-    return pqrfact_lapack!(B, opts)
+    return pqrfact_backend!(B, opts)
   end
 end
 
@@ -257,14 +256,14 @@ function sketchfact_sub(
     k = opts.nb
     while true
       B = sketch_sub(side, trans, A, opts.sketchfact_sub_samp(k), opts)
-      F = pqrfact_lapack!(B, opts)
+      F = pqrfact_backend!(B, opts)
       F[:k] < k && return F
       k *= 2
     end
   else
     k = opts.sketchfact_sub_samp(opts.rank)
     B = sketch_sub(side, trans, A, k, opts)
-    return pqrfact_lapack!(B, opts)
+    return pqrfact_backend!(B, opts)
   end
 end
 
@@ -464,14 +463,14 @@ function sketchfact_srft(
     k = opts.nb
     while true
       B = sketch_srft(side, trans, A, opts.sketchfact_srft_samp(k), opts)
-      F = pqrfact_lapack!(B, opts)
+      F = pqrfact_backend!(B, opts)
       F[:k] < k && return F
       k *= 2
     end
   else
     k = opts.sketchfact_srft_samp(opts.rank)
     B = sketch_srft(side, trans, A, k, opts)
-    return pqrfact_lapack!(B, opts)
+    return pqrfact_backend!(B, opts)
   end
 end
 
@@ -583,13 +582,13 @@ function sketchfact_sprn(
     k = opts.nb
     while true
       B = sketch_sprn(side, trans, A, k, opts)
-      F = pqrfact_lapack!(B, opts)
+      F = pqrfact_backend!(B, opts)
       F[:k] < k && return F
       k *= 2
     end
   else
     k = opts.rank
     B = sketch_sprn(side, trans, A, k, opts)
-    return pqrfact_lapack!(B, opts)
+    return pqrfact_backend!(B, opts)
   end
 end

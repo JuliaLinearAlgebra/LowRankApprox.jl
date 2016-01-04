@@ -465,9 +465,9 @@ for sfx in ("", "!")
   @eval begin
     function $f{T}(
         A::AbstractMatOrLinOp{T}, opts::LRAOptions=LRAOptions(T); args...)
-      opts = isempty(args) ? opts : copy(opts; args...)
-      opts = chkopts(A, opts)
-      opts = copy(opts, pqrfact_retval="")
+      push!(args, (:pqrfact_retval, ""))
+      opts = copy(opts; args...)
+      chkopts!(opts, A)
       opts.sketch == :none && return $g(A, opts)
       if ishermitian(A)
         F = sketchfact(:left, :n, A, opts)
@@ -508,11 +508,11 @@ end
 
 function curfact_none!(A::StridedMatrix, opts::LRAOptions)
   if ishermitian(A)
-    F = pqrfact_lapack!(A, opts)
+    F = pqrfact_backend!(A, opts)
     cols = F[:p][1:F[:k]]
     return HermCURPackedU(cols)
   elseif issym(A)
-    F = pqrfact_lapack!(A, opts)
+    F = pqrfact_backend!(A, opts)
     cols = F[:p][1:F[:k]]
     return SymCURPackedU(cols)
   end
@@ -522,14 +522,14 @@ function curfact_none(A::StridedMatrix, opts::LRAOptions)
   (ishermitian(A) || issym(A)) && return curfact_none!(copy(A), opts)
   m, n = size(A)
   if m >= n
-    F = pqrfact_lapack!(A', opts)
+    F = pqrfact_backend!(A', opts)
     rows = F[:p][1:F[:k]]
-    F = pqrfact_lapack!(A[rows,:], opts)
+    F = pqrfact_backend!(A[rows,:], opts)
     cols = F[:p][1:F[:k]]
   else
-    F = pqrfact_lapack!(copy(A), opts)
+    F = pqrfact_backend!(copy(A), opts)
     cols = F[:p][1:F[:k]]
-    F = pqrfact_lapack!(A[:,cols]', opts)
+    F = pqrfact_backend!(A[:,cols]', opts)
     rows = F[:p][1:F[:k]]
   end
   kr = length(rows)

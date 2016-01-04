@@ -9,6 +9,18 @@ for (elty, relty) in ((:Complex64, :Float32), (:Complex128, :Float64))
   end
 end
 
+function findmaxabs{T}(x::AbstractVecOrMat{T})
+  m  = zero(real(T))
+  mi = 0
+  for i = 1:length(x)
+    t = abs(x[i])
+    t < m && continue
+    m  = t
+    mi = i
+  end
+  (m, mi)
+end
+
 function getcols(trans::Symbol, A::AbstractMatrix, cols)
   if     trans == :n  return A[:,cols]
   elseif trans == :c  return A[cols,:]'

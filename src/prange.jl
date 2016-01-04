@@ -19,8 +19,8 @@ for sfx in ("", "!")
         trans::Symbol, A::AbstractMatOrLinOp{T}, opts::LRAOptions=LRAOptions(T);
         args...)
       prange_chktrans(trans)
-      opts = isempty(args) ? opts : copy(opts; args...)
-      opts = chkopts(A, opts)
+      opts = copy(opts; args...)
+      chkopts!(opts, A)
       if trans == :b
         chksquare(A)
         ishermitian(A) && return $f(:n, A, opts)
@@ -42,7 +42,7 @@ for sfx in ("", "!")
         BLAS.trmm!('R', 'U', 'N', 'N', one(T), Rr, sub(B,:,   1:kr   ))
         BLAS.trmm!('R', 'U', 'N', 'N', one(T), Rc, sub(B,:,kr+1:kr+kc))
         opts.pqrfact_retval="q"
-        return pqrfact_lapack!(B, opts)[:Q]
+        return pqrfact_backend!(B, opts)[:Q]
       else
         opts = copy(opts, pqrfact_retval="q")
         if opts.sketch == :none

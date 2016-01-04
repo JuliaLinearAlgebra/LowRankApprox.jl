@@ -4,7 +4,7 @@
 module LowRankApprox
 
 importall Base
-using Base.LinAlg: BlasFloat, BlasInt, QRCompactWY, chksquare, chkstride1
+using Base.LinAlg: BlasFloat, BlasInt, chksquare, chkstride1
 
 export
 
@@ -135,20 +135,20 @@ function copy(opts::LRAOptions; args...)
   opts_
 end
 
-function chkopts(opts::LRAOptions)
+function chkopts!(opts::LRAOptions)
   opts.atol >= 0 || throw(ArgumentError("atol"))
   opts.nb > 0 || throw(ArgumentError("nb"))
   opts.rtol >= 0 || throw(ArgumentError("rtol"))
   opts.sketch in (:none, :randn, :sprn, :srft, :sub) ||
     throw(ArgumentError("sketch"))
+  opts.pqrfact_retval = lowercase(opts.pqrfact_retval)
 end
-function chkopts(A, opts::LRAOptions)
-  chkopts(opts)
+function chkopts!(opts::LRAOptions, A)
+  chkopts!(opts)
   if typeof(A) <: AbstractLinOp && opts.sketch != :randn
     warn("invalid sketch method; using \"randn\"")
     opts.sketch = :randn
   end
-  opts
 end
 
 chktrans(trans::Symbol) = trans in (:n, :c) || throw(ArgumentError("trans"))

@@ -400,7 +400,7 @@ for sfx in ("", "!")
         args...)
       push!(args, (:pqrfact_retval, "t"))
       opts = copy(opts; args...)
-      opts = chkopts(A, opts)
+      chkopts!(opts, A)
       if opts.sketch == :none  F = $g(trans, A, opts)
       else                     F = sketchfact(:left, trans, A, opts)
       end

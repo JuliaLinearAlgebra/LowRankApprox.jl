@@ -12,8 +12,8 @@ References:
 
 # spectral norm
 function snorm{T}(A::AbstractLinOp{T}, opts::LRAOptions=LRAOptions(T); args...)
-  opts = isempty(args) ? opts : copy(opts; args...)
-  chkopts(opts)
+  opts = copy(opts; args...)
+  chkopts!(opts)
   m, n   = size(A)
   isherm = ishermitian(A)
   xn     = crandn(T, n)

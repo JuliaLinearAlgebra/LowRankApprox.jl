@@ -9,7 +9,7 @@ n =  64
 M = matrixlib(:fourier, rand(m), rand(n))
 Mh = M[1:n,1:n]; Mh += Mh';
 Ms = M[1:n,1:n]; Ms += Ms.';
-opts = LRAOptions(sketch_randn_niter=1)
+opts = LRAOptions(rrqr_delta=0., sketch_randn_niter=1)
 
 for (t, s) in ((:none,                 :none ),
                (:RandomGaussian,       :randn),

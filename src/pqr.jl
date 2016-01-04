@@ -5,6 +5,11 @@ References:
   P. Businger, G.H. Golub. Linear least squares solutions by Householder
     transformations. Numer. Math. 7: 269-276, 1965.
 
+  S.A. Goreinov, I.V. Oseledets, D.V. Savostyanov, E.E. Tyrtyshnikov, N.L.
+    Zamarashkin. How to find a good submatrix. In Matrix Methods: Theory,
+    Algorithms, Applications, V. Olshevsky and E. Tyrtyshnikov, eds., World
+    Scientific, Hackensack, NY: 247-256, 2010.
+
   M. Gu, S.C. Eisenstat. Efficient algorithms for computing a strong
     rank-revealing QR factorization. SIAM J. Sci. Comput. 17 (4): 848-869, 1996.
 =#
@@ -251,8 +256,8 @@ for sfx in ("", "!")
         trans::Symbol, A::AbstractMatOrLinOp{S}, opts::LRAOptions=LRAOptions(S);
         args...)
       chktrans(trans)
-      opts = isempty(args) ? opts : copy(opts; args...)
-      opts = chkopts(A, opts)
+      opts = copy(opts; args...)
+      chkopts!(opts, A)
       opts.sketch == :none && return $g(trans, A, opts)
       V = idfact(trans, A, opts)
       F = qrfact!(getcols(trans, A, V[:sk]))
@@ -261,10 +266,9 @@ for sfx in ("", "!")
       rett = contains(opts.pqrfact_retval, "t")
       Q = retq ? full(F[:Q]) : nothing
       R = retr || rett ? [F[:R] UpperTriangular(F[:R])*V[:T]] : nothing
-      p = V[:p]
-      T = rett ? rrqrt(R) : nothing
-      retq && retr && !rett && return PartialQR(Q, R, p)
-      PQRFactors(Q, R, p, V[:k], T)
+      T = rett ? rrqr_t(R) : nothing
+      retq && retr && !rett && return PartialQR(Q, R, V[:p])
+      PQRFactors(Q, R, V[:p], V[:k], T)
     end
     $f(trans::Symbol, A, args...; kwargs...) =
       $f(trans, LinOp(A), args...; kwargs...)
@@ -280,28 +284,45 @@ for sfx in ("", "!")
 end
 
 pqrfact_none!(trans::Symbol, A::StridedMatrix, opts::LRAOptions) =
-  pqrfact_lapack!(trans == :n ? A : A', opts)
+  pqrfact_backend!(trans == :n ? A : A', opts)
 pqrfact_none(trans::Symbol, A::StridedMatrix, opts::LRAOptions) =
-  pqrfact_lapack!(trans == :n ? copy(A) : A', opts)
+  pqrfact_backend!(trans == :n ? copy(A) : A', opts)
 
 ## core backend routine: rank-adaptive GEQP3 with RRQR postprocessing
-function pqrfact_lapack!{S<:BlasFloat}(A::StridedMatrix{S}, opts::LRAOptions)
+function pqrfact_backend!(A::StridedMatrix, opts::LRAOptions)
+  p, tau, k = geqp3_adap!(A, opts)
+  retq = contains(opts.pqrfact_retval, "q")
+  retr = contains(opts.pqrfact_retval, "r")
+  rett = contains(opts.pqrfact_retval, "t")
+  rrqr = 0 < k < size(A,2) && opts.rrqr_delta >= 0
+  Q = retq ? LAPACK.orgqr!(A[:,1:k], tau, k) : nothing
+  R = retr || rett || rrqr ? triu!(A[1:k,:]) : nothing
+  T = rett || rrqr ? rrqr_t(R) : nothing
+  if rrqr
+    rrqr_swapcols!(Q, R, p, T, opts)
+    R = retr ? R : nothing
+  end
+  retq && retr && !rett && return PartialQR(Q, R, p)
+  PQRFactors(Q, R, p, k, T)
+end
+
+function geqp3_adap!{T<:BlasFloat}(A::StridedMatrix{T}, opts::LRAOptions)
   chkstride1(A)
   m, n = size(A)
   lda  = stride(A, 2)
   jpvt = collect(1:n)
   l    = min(m, n)
   k    = (opts.rank < 0 || opts.rank > l) ? l : opts.rank
-  tau  = Array(S, k)
+  tau  = Array(T, k)
 
   # quick return if empty
   k == 0 && @goto ret
 
   # set block size and allocate work array
   nb      = min(opts.nb, k)
-  is_real = S <: Real
+  is_real = T <: Real
   lwork   = 2*n*is_real + (n + 1)*nb
-  work    = Array(S, lwork)
+  work    = Array(T, lwork)
 
   # initialize column norms
   if is_real
@@ -309,7 +330,7 @@ function pqrfact_lapack!{S<:BlasFloat}(A::StridedMatrix{S}, opts::LRAOptions)
       work[j] = work[n+j] = norm(sub(A,:,j))
     end
   else
-    rwork = Array(eltype(real(zero(S))), 2*n)
+    rwork = Array(eltype(real(zero(T))), 2*n)
     for j = 1:n
       rwork[j] = rwork[n+j] = norm(sub(A,:,j))
     end
@@ -349,49 +370,66 @@ function pqrfact_lapack!{S<:BlasFloat}(A::StridedMatrix{S}, opts::LRAOptions)
   end
 
   @label ret
-  retval = lowercase(opts.pqrfact_retval)
-  retq = contains(retval, "q")
-  retr = contains(retval, "r")
-  rett = contains(retval, "t")
-  rrqr = k > 0 && opts.rrqr_delta >= 0
-  Q = retq ? LAPACK.orgqr!(A[:,1:k], tau, k) : nothing
-  R = retr || rett || rrqr ? triu!(A[1:k,:]) : nothing
-  T = rett || rrqr ? rrqrt(R) : nothing
-
-  # RRQR postprocessing
-  if rrqr
-    qrT, qrwork = _LAPACK.geqrt_init(R, opts)
-    niter = 0
-    while true
-      Tmax, idx = findmax(abs(T))
-      Tmax <= 1 + opts.rrqr_delta && break
-      if niter == opts.rrqr_niter
-        warn("iteration limit ($niter) reached in RRQR postprocessing")
-        break
-      end
-      niter += 1
-      i, j = ind2sub((k, n-k), idx)
-      swapcols!(R, i, k+j)
-      jpvt[i], jpvt[k+j] = jpvt[k+j], jpvt[i]
-      F = QRCompactWY(_LAPACK.geqrt!(R, qrT, qrwork)...)
-      Q = retq ? Q*F[:Q] : Q
-      R = triu!(F.factors)
-      rrqrt!(T, R)
-    end
-  end
-  retq && retr && !rett && return PartialQR(Q, R, jpvt)
-  PQRFactors(Q, R, jpvt, k, T)
+  jpvt, tau, k
 end
 
-function rrqrt!{S}(T::StridedMatrix{S}, R::StridedMatrix{S})
+function rrqr_t{S}(R::StridedMatrix{S})
   k, n = size(R)
-  size(T) == (k, n-k) || throw(DimensionMismatch)
-  copy!(T, sub(R,1:k,k+1:n))
+  T = R[:,k+1:n]
   BLAS.trsm!('L', 'U', 'N', 'N', one(S), sub(R,1:k,1:k), T)
 end
 
-function rrqrt{S}(R::StridedMatrix{S})
-  k, n = size(R)
-  T = Array(S, (k, n-k))
-  rrqrt!(T, R)
+function rrqr_swapcols!{S}(
+    Q::Union{Matrix{S}, Void}, R::Matrix{S}, p::Vector{Int}, T::Matrix{S},
+    opts::LRAOptions)
+  k, n  = size(R)
+  R1    = sub(R, :, 1:k)
+  work  = Array(S, max(n, 2*k))
+  retq  = contains(opts.pqrfact_retval, "q")
+  retr  = contains(opts.pqrfact_retval, "r")
+  niter = 0
+  while true
+    Tmax, idx = findmaxabs(T)
+    Tmax <= 1 + opts.rrqr_delta && break
+    if niter == opts.rrqr_niter
+      warn("iteration limit ($niter) reached in RRQR postprocessing")
+      break
+    end
+    niter += 1
+    i, j = ind2sub((k, n-k), idx)
+    rrqr_update!(R1, p, T, work, i, j, retr)
+  end
+  niter == 0 && return
+  F = qrfact!(R1)
+  retq && LAPACK.gemqrt!('R', 'N', F.factors, F.T, Q)
+  if retr
+    triu!(R1)
+    R2 = sub(R, :, k+1:n)
+    copy!(R2, T)
+    BLAS.trmm!('L', 'U', 'N', 'N', one(S), R1, R2)
+  end
+end
+
+function rrqr_update!{S}(
+    R1::StridedMatrix{S}, p::Vector{Int}, T::Matrix{S}, work::Vector{S},
+    i::Integer, j::Integer, retr::Bool)
+  k = size(R1, 2)
+  n = length(p)
+  p[i], p[k+j] = p[k+j], p[i]
+  for l = 1:k
+    work[l] = T[l,j]
+    T[l,j] = 0
+  end
+  work[i] -= 1
+  T[i,j] = 1
+  for l = 1:n-k
+    work[k+l] = conj(T[i,l])
+  end
+  BLAS.ger!(-1/(1 + work[i]), sub(work,1:k), sub(work,k+1:n), T)
+  if retr
+    BLAS.gemv!('N', one(S), R1, sub(work,1:k), zero(S), sub(work,k+1:2*k))
+    for l = 1:k
+      R1[l,i] += work[k+l]
+    end
+  end
 end
