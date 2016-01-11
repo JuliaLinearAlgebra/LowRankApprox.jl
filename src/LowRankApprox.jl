@@ -98,6 +98,7 @@ type LRAOptions
   sketchfact_srft_samp::Function
   sketchfact_sub_samp::Function
   snorm_niter::Int
+  verb::Bool
 end
 
 function LRAOptions{T}(::Type{T}; args...)
@@ -116,6 +117,7 @@ function LRAOptions{T}(::Type{T}; args...)
     n -> n + 8,     # sketchfact_srft_samp
     n -> 4*n + 8,   # sketchfact_sub_samp
     32,             # snorm_niter
+    true,           # verb
   )
   for (key, value) in args
     setfield!(opts, key, value)

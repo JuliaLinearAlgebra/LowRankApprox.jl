@@ -24,7 +24,8 @@ function snorm{T}(A::AbstractLinOp{T}, opts::LRAOptions=LRAOptions(T); args...)
   niter  = 0
   while s > 0 && abs(s - t) > max(opts.atol, t*opts.rtol)
     if niter == opts.snorm_niter
-      warn("iteration limit ($niter) reached in spectral norm estimation")
+      opts.verb &&
+        warn("iteration limit ($niter) reached in spectral norm estimation")
       break
     end
     niter += 1

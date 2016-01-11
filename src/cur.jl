@@ -465,8 +465,8 @@ for sfx in ("", "!")
   @eval begin
     function $f{T}(
         A::AbstractMatOrLinOp{T}, opts::LRAOptions=LRAOptions(T); args...)
-      push!(args, (:pqrfact_retval, ""))
       opts = copy(opts; args...)
+      opts.pqrfact_retval = ""
       chkopts!(opts, A)
       opts.sketch == :none && return $g(A, opts)
       if ishermitian(A)

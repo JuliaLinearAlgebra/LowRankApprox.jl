@@ -18,7 +18,7 @@ function findmaxabs{T}(x::AbstractVecOrMat{T})
     m  = t
     mi = i
   end
-  (m, mi)
+  m, mi
 end
 
 function getcols(trans::Symbol, A::AbstractMatrix, cols)
@@ -52,23 +52,39 @@ function iscale!(b::AbstractVector, A::AbstractMatrix)
   A
 end
 
-function orthcols!{T<:BlasFloat}(A::StridedMatrix{T}; thin::Bool=true)
-  k = minimum(size(A))
-  tau = Array(T, k)
-  LAPACK.geqrf!(A, tau)
-  Q = LAPACK.orgqr!(A, tau)
-  thin && return Q
-  A[:,k+1:end] = 0
+function orthcols!{T<:BlasFloat}(
+    A::StridedMatrix{T}, tau::Vector{T}, work::Vector{T}; thin::Bool=true)
+  m, n = size(A)
+  k = min(m, n)
+  A, tau, work = _LAPACK.geqrf!(A, tau, work)
+  A, tau, work = _LAPACK.orgqr!(A, tau, k, work)
+  if thin  A = k < n ? A[:,1:k] : A
+  else     A[:,k+1:end] = 0
+  end
+  A, tau, work
+end
+function orthcols!{T}(A::StridedMatrix{T}; thin::Bool=true)
+  tau  = Array(T, 1)
+  work = Array(T, 1)
+  A, tau, work = orthcols!(A, tau, work, thin=thin)
   A
 end
 
-function orthrows!{T<:BlasFloat}(A::StridedMatrix{T}; thin::Bool=true)
-  k = minimum(size(A))
-  tau = Array(T, k)
-  LAPACK.gelqf!(A, tau)
-  Q = LAPACK.orglq!(A, tau)
-  thin && return Q
-  A[k+1:end,:] = 0
+function orthrows!{T<:BlasFloat}(
+    A::StridedMatrix{T}, tau::Vector{T}, work::Vector{T}; thin::Bool=true)
+  m, n = size(A)
+  k = min(m, n)
+  A, tau, work = _LAPACK.gelqf!(A, tau, work)
+  A, tau, work = _LAPACK.orglq!(A, tau, k, work)
+  if thin  A = k < m ? A[1:k,:] : A
+  else     A[k+1:end,:] = 0
+  end
+  A, tau, work
+end
+function orthrows!{T}(A::StridedMatrix{T}; thin::Bool=true)
+  tau  = Array(T, 1)
+  work = Array(T, 1)
+  A, tau, work = orthrows!(A, tau, work, thin=thin)
   A
 end
 
@@ -87,11 +103,4 @@ function iscalevec!(s::AbstractVector, x::AbstractVector)
     x[i] /= s[i]
   end
   x
-end
-
-function swapcols!(A::AbstractMatrix, i::Integer, j::Integer)
-  for k = 1:size(A,1)
-    A[k,i], A[k,j] = A[k,j], A[k,i]
-  end
-  A
 end

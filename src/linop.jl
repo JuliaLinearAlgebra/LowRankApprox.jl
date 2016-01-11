@@ -142,20 +142,20 @@ end
 \(c::Number, A::AbstractLinOp) = (1/c)*A
 
 # operator addition/subtraction
-for f in (:+, :-)
+for (f, alpha) in ((:+, 1), (:-, -1))
   @eval begin
     function $f{T}(A::AbstractLinOp{T}, B::AbstractLinOp{T})
       size(A) == size(B) || throw(DimensionMismatch)
       m, n = size(A)
-      mul!  = (y, x) -> ( A_mul_B!(y, A, x); copy!(y, $f(y, B *x)))
-      mulc! = (y, x) -> (Ac_mul_B!(y, A, x); copy!(y, $f(y, B'*x)))
+      mul!  = (y, x) -> ( A_mul_B!(y, A, x); BLAS.axpy!($alpha*one(T), B *x, y))
+      mulc! = (y, x) -> (Ac_mul_B!(y, A, x); BLAS.axpy!($alpha*one(T), B'*x, y))
       LinOp{T}(m, n, mul!, mulc!)
     end
 
     function $f{T}(A::HermLinOp{T}, B::HermLinOp{T})
       size(A) == size(B) || throw(DimensionMismatch)
       n = size(A, 1)
-      mul! = (y, x) -> (A_mul_B!(y, A, x); copy!(y, $f(y, B*x)))
+      mul! = (y, x) -> (A_mul_B!(y, A, x); BLAS.axpy!($alpha*one(T), B*x, y))
       HermLinOp{T}(n, mul!)
     end
   end

@@ -265,8 +265,8 @@ for sfx in ("", "!")
       retr = contains(opts.pqrfact_retval, "r")
       rett = contains(opts.pqrfact_retval, "t")
       Q = retq ? full(F[:Q]) : nothing
-      R = retr || rett ? [F[:R] UpperTriangular(F[:R])*V[:T]] : nothing
-      T = rett ? rrqr_t(R) : nothing
+      R = retr ? pqrr(F[:R], V[:T]) : nothing
+      T = rett ? V[:T] : nothing
       retq && retr && !rett && return PartialQR(Q, R, V[:p])
       PQRFactors(Q, R, V[:p], V[:k], T)
     end
@@ -288,6 +288,18 @@ pqrfact_none!(trans::Symbol, A::StridedMatrix, opts::LRAOptions) =
 pqrfact_none(trans::Symbol, A::StridedMatrix, opts::LRAOptions) =
   pqrfact_backend!(trans == :n ? copy(A) : A', opts)
 
+function pqrr{S}(R::Matrix{S}, T::Matrix{S})
+  k, n = size(T)
+  n += k
+  R_ = Array(S, k, n)
+  R1 = sub(R_, :,   1:k)
+  R2 = sub(R_, :, k+1:n)
+  copy!(R1, R)
+  copy!(R2, T)
+  A_mul_B!(UpperTriangular(R1), R2)
+  R_
+end
+
 ## core backend routine: rank-adaptive GEQP3 with RRQR postprocessing
 function pqrfact_backend!(A::StridedMatrix, opts::LRAOptions)
   p, tau, k = geqp3_adap!(A, opts)
@@ -297,7 +309,7 @@ function pqrfact_backend!(A::StridedMatrix, opts::LRAOptions)
   rrqr = 0 < k < size(A,2) && opts.rrqr_delta >= 0
   Q = retq ? LAPACK.orgqr!(A[:,1:k], tau, k) : nothing
   R = retr || rett || rrqr ? triu!(A[1:k,:]) : nothing
-  T = rett || rrqr ? rrqr_t(R) : nothing
+  T = rett || rrqr ? rrqrt(R) : nothing
   if rrqr
     rrqr_swapcols!(Q, R, p, T, opts)
     R = retr ? R : nothing
@@ -373,10 +385,10 @@ function geqp3_adap!{T<:BlasFloat}(A::StridedMatrix{T}, opts::LRAOptions)
   jpvt, tau, k
 end
 
-function rrqr_t{S}(R::StridedMatrix{S})
+function rrqrt{S}(R::StridedMatrix{S})
   k, n = size(R)
   T = R[:,k+1:n]
-  BLAS.trsm!('L', 'U', 'N', 'N', one(S), sub(R,1:k,1:k), T)
+  A_ldiv_B!(UpperTriangular(sub(R,1:k,1:k)), T)
 end
 
 function rrqr_swapcols!{S}(
@@ -392,7 +404,8 @@ function rrqr_swapcols!{S}(
     Tmax, idx = findmaxabs(T)
     Tmax <= 1 + opts.rrqr_delta && break
     if niter == opts.rrqr_niter
-      warn("iteration limit ($niter) reached in RRQR postprocessing")
+      opts.verb &&
+        warn("iteration limit ($niter) reached in RRQR postprocessing")
       break
     end
     niter += 1
@@ -406,15 +419,15 @@ function rrqr_swapcols!{S}(
     triu!(R1)
     R2 = sub(R, :, k+1:n)
     copy!(R2, T)
-    BLAS.trmm!('L', 'U', 'N', 'N', one(S), R1, R2)
+    A_mul_B!(UpperTriangular(R1), R2)
   end
 end
 
 function rrqr_update!{S}(
     R1::StridedMatrix{S}, p::Vector{Int}, T::Matrix{S}, work::Vector{S},
     i::Integer, j::Integer, retr::Bool)
-  k = size(R1, 2)
-  n = length(p)
+  k, n = size(T)
+  n += k
   p[i], p[k+j] = p[k+j], p[i]
   for l = 1:k
     work[l] = T[l,j]
@@ -427,7 +440,7 @@ function rrqr_update!{S}(
   end
   BLAS.ger!(-1/(1 + work[i]), sub(work,1:k), sub(work,k+1:n), T)
   if retr
-    BLAS.gemv!('N', one(S), R1, sub(work,1:k), zero(S), sub(work,k+1:2*k))
+    A_mul_B!(sub(work,k+1:2*k), R1, sub(work,1:k))
     for l = 1:k
       R1[l,i] += work[k+l]
     end

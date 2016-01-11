@@ -130,13 +130,19 @@ for (trans, p, q, g, h) in ((:n, :n, :m, :A_mul_B!,  :A_mul_Bc!),
       isherm = ishermitian(A)
       Bp = Array(T, order, $p)
       if opts.sketch_randn_niter > 0
-        Bq = Array(T, order, $q)
+        Bq   = Array(T, order, $q)
+        tau  = Array(T, 1)
+        work = Array(T, 1)
       end
       $g(Bp, S, A)
       for i = 1:opts.sketch_randn_niter
-        $h(Bq, orthrows!(Bp, thin=false), A)
-        if isherm  Bp, Bq = Bq, Bp
-        else       $g(Bp, orthrows!(Bq, thin=false), A)
+        Bp, tau, work = orthrows!(Bp, tau, work, thin=false)
+        $h(Bq, Bp, A)
+        if isherm
+          Bp, Bq = Bq, Bp
+        else
+          Bq, tau, work = orthrows!(Bq, tau, work, thin=false)
+          $g(Bp, Bq, A)
         end
       end
       Bp
@@ -154,13 +160,19 @@ for (trans, p, q, g, h) in ((:n, :m, :n, :A_mul_B!,  :Ac_mul_B!),
       isherm = ishermitian(A)
       Bp = Array(T, $p, order)
       if opts.sketch_randn_niter > 0
-        Bq = Array(T, $q, order)
+        Bq   = Array(T, $q, order)
+        tau  = Array(T, 1)
+        work = Array(T, 1)
       end
       $g(Bp, A, S)
       for i = 1:opts.sketch_randn_niter
-        $h(Bq, A, orthcols!(Bp, thin=false))
-        if isherm  Bp, Bq = Bq, Bp
-        else       $g(Bp, A, orthcols!(Bq, thin=false))
+        Bp, tau, work = orthcols!(Bp, tau, work, thin=false)
+        $h(Bq, A, Bp)
+        if isherm
+          Bp, Bq = Bq, Bp
+        else
+          Bq, tau, work = orthcols!(Bq, tau, work, thin=false)
+          $g(Bp, A, Bq)
         end
       end
       Bp

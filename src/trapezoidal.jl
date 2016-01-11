@@ -59,33 +59,31 @@ size(A::Trapezoidal, args...) = size(A.data, args...)
 
 ## LowerTrapezoidal left-multiplication
 
-function A_mul_B!{T<:BlasFloat}(
+function A_mul_B!{T}(
     y::StridedVector{T}, A::LowerTrapezoidal{T}, x::StridedVector{T})
   m, n = size(A)
   y[1:n] = x
-  BLAS.trmv!('L', 'N', 'N', sub(A.data,1:n,:), sub(y,1:n))
-  BLAS.gemv!('N', one(T), sub(A.data,n+1:m,:), x, zero(T), sub(y,n+1:m))
+  A_mul_B!(LowerTriangular(sub(A.data,1:n,:)), sub(y,1:n))
+  A_mul_B!(sub(y,n+1:m), sub(A.data,n+1:m,:), x)
   y
 end
-function A_mul_B!{T<:BlasFloat}(
+function A_mul_B!{T}(
     C::StridedMatrix{T}, A::LowerTrapezoidal{T}, B::StridedMatrix{T})
   m, n = size(A)
   C[1:n,:] = B
-  BLAS.trmm!('L', 'L', 'N', 'N', one(T), sub(A.data,1:n,:), sub(C,1:n,:))
-  BLAS.gemm!('N', 'N', one(T), sub(A.data,n+1:m,:), B, zero(T), sub(C,n+1:m,:))
+  A_mul_B!(LowerTriangular(sub(A.data,1:n,:)), sub(C,1:n,:))
+  A_mul_B!(sub(C,n+1:m,:), sub(A.data,n+1:m,:), B)
   C
 end
 
-for (f, g, trans) in ((:A_mul_Bc!, :ctranspose!, 'C'),
-                      (:A_mul_Bt!, :transpose!,  'T'))
+for (f, g) in ((:A_mul_Bc!, :ctranspose!), (:A_mul_Bt!, :transpose!))
   @eval begin
-    function $f{T<:BlasFloat}(
+    function $f{T}(
         C::StridedMatrix{T}, A::LowerTrapezoidal{T}, B::StridedMatrix{T})
       m, n = size(A)
       $g(sub(C,1:n,:), B)
-      BLAS.trmm!('L', 'L', 'N', 'N', one(T), sub(A.data,1:n,:), sub(C,1:n,:))
-      BLAS.gemm!(
-        'N', $trans, one(T), sub(A.data,n+1:m,:), B, zero(T), sub(C,n+1:m,:))
+      A_mul_B!(LowerTriangular(sub(A.data,1:n,:)), sub(C,1:n,:))
+      $f(sub(C,n+1:m,:), sub(A.data,n+1:m,:), B)
       C
     end
   end
@@ -131,7 +129,7 @@ function A_mul_B!{T<:BlasFloat}(
     C::StridedMatrix{T}, A::StridedMatrix{T}, B::LowerTrapezoidal{T})
   m, n = size(B)
   copy!(C, sub(A,:,1:n))
-  BLAS.trmm!('R', 'L', 'N', 'N', one(T), sub(B.data,1:n,:), C)
+  A_mul_B!(C, LowerTriangular(sub(B.data,1:n,:)))
   BLAS.gemm!('N', 'N', one(T), sub(A,:,n+1:m), sub(B.data,n+1:m,:), one(T), C)
 end
 
@@ -142,8 +140,7 @@ for (f, trans) in ((:A_mul_Bc!, 'C'), (:A_mul_Bt!, 'T'))
       m, n = size(B)
       copy!(sub(C,:,1:n), A)
       BLAS.trmm!('R', 'L', $trans, 'N', one(T), sub(B.data,1:n,:), sub(C,:,1:n))
-      BLAS.gemm!(
-        'N', $trans, one(T), A, sub(B.data,n+1:m,:), zero(T), sub(C,:,n+1:m))
+      $f(sub(C,:,n+1:m), A, sub(B.data,n+1:m,:))
       C
     end
   end
@@ -171,8 +168,7 @@ for (f, g, trans) in ((:Ac_mul_Bc!, :ctranspose!, 'C'),
       m, n = size(B)
       $g(sub(C,:,1:n), A)
       BLAS.trmm!('R', 'L', $trans, 'N', one(T), sub(B.data,1:n,:), sub(C,:,1:n))
-      BLAS.gemm!(
-        $trans, $trans, one(T), A, sub(B.data,n+1:m,:), zero(T), sub(C,:,n+1:m))
+      $f(sub(C,:,n+1:m), A, sub(B.data,n+1:m,:))
       C
     end
   end
@@ -184,14 +180,14 @@ function A_mul_B!{T<:BlasFloat}(
     y::StridedVector{T}, A::UpperTrapezoidal{T}, x::StridedVector{T})
   m, n = size(A)
   copy!(y, sub(x,1:m))
-  BLAS.trmv!('U', 'N', 'N', sub(A.data,:,1:m), y)
+  A_mul_B!(UpperTriangular(sub(A.data,:,1:m)), y)
   BLAS.gemv!('N', one(T), sub(A.data,:,m+1:n), sub(x,m+1:n), one(T), y)
 end
 function A_mul_B!{T<:BlasFloat}(
     C::StridedMatrix{T}, A::UpperTrapezoidal{T}, B::StridedMatrix{T})
   m, n = size(A)
   copy!(C, sub(B,1:m,:))
-  BLAS.trmm!('L', 'U', 'N', 'N', one(T), sub(A.data,:,1:m), C)
+  A_mul_B!(UpperTriangular(sub(A.data,:,1:m)), C)
   BLAS.gemm!('N', 'N', one(T), sub(A.data,:,m+1:n), sub(B,m+1:n,:), one(T), C)
 end
 
@@ -202,7 +198,7 @@ for (f, g, trans) in ((:A_mul_Bc!, :ctranspose!, 'C'),
         C::StridedMatrix{T}, A::UpperTrapezoidal{T}, B::StridedMatrix{T})
       m, n = size(A)
       $g(C, sub(B,:,1:m))
-      BLAS.trmm!('L', 'U', 'N', 'N', one(T), sub(A.data,:,1:m), C)
+      A_mul_B!(UpperTriangular(sub(A.data,:,1:m)), C)
       BLAS.gemm!(
         'N', $trans, one(T), sub(A.data,:,m+1:n), sub(B,:,m+1:n), one(T), C)
     end
@@ -216,7 +212,7 @@ for (f, trans) in ((:Ac_mul_B!, 'C'), (:At_mul_B!, 'T'))
       m, n = size(A)
       y[1:m] = x
       BLAS.trmv!('U', $trans, 'N', sub(A.data,:,1:m), sub(y,1:m))
-      BLAS.gemv!($trans, one(T), sub(A.data,:,m+1:n), x, zero(T), sub(y,m+1:n))
+      $f(sub(y,m+1:n), sub(A.data,:,m+1:n), x)
       y
     end
     function $f{T<:BlasFloat}(
@@ -224,8 +220,7 @@ for (f, trans) in ((:Ac_mul_B!, 'C'), (:At_mul_B!, 'T'))
       m, n = size(A)
       C[1:m,:] = B
       BLAS.trmm!('L', 'U', $trans, 'N', one(T), sub(A.data,:,1:m), sub(C,1:m,:))
-      BLAS.gemm!(
-        $trans, 'N', one(T), sub(A.data,:,m+1:n), B, zero(T), sub(C,m+1:n,:))
+      $f(sub(C,m+1:n,:), sub(A.data,:,m+1:n), B)
       C
     end
   end
@@ -239,8 +234,7 @@ for (f, g, trans) in ((:Ac_mul_Bc!, :ctranspose!, 'C'),
       m, n = size(A)
       $g(sub(C,1:m,:), B)
       BLAS.trmm!('L', 'U', $trans, 'N', one(T), sub(A.data,:,1:m), sub(C,1:m,:))
-      BLAS.gemm!(
-        $trans, $trans, one(T), sub(A.data,:,m+1:n), B, zero(T), sub(C,m+1:n,:))
+      $f(sub(C,m+1:n,:), sub(A.data,:,m+1:n), B)
       C
     end
   end
@@ -248,12 +242,12 @@ end
 
 ## UpperTrapezoidal right-multiplication
 
-function A_mul_B!{T<:BlasFloat}(
+function A_mul_B!{T}(
     C::StridedMatrix{T}, A::StridedMatrix{T}, B::UpperTrapezoidal{T})
   m, n = size(B)
   C[:,1:m] = A
-  BLAS.trmm!('R', 'U', 'N', 'N', one(T), sub(B.data,:,1:m), sub(C,:,1:m))
-  BLAS.gemm!('N', 'N', one(T), A, sub(B.data,:,m+1:n), zero(T), sub(C,:,m+1:n))
+  A_mul_B!(sub(C,:,1:m), UpperTriangular(sub(B.data,:,1:m)))
+  A_mul_B!(sub(C,:,m+1:n), A, sub(B.data,:,m+1:n))
   C
 end
 
@@ -270,16 +264,14 @@ for (f, trans) in ((:A_mul_Bc!, 'C'), (:A_mul_Bt!, 'T'))
   end
 end
 
-for (f, g, trans) in ((:Ac_mul_B!, :ctranspose!, 'C'),
-                      (:At_mul_B!, :transpose!,  'T'))
+for (f, g) in ((:Ac_mul_B!, :ctranspose!), (:At_mul_B!, :transpose!))
   @eval begin
-    function $f{T<:BlasFloat}(
+    function $f{T}(
         C::StridedMatrix{T}, A::StridedMatrix{T}, B::UpperTrapezoidal{T})
       m, n = size(B)
       $g(sub(C,:,1:m), A)
-      BLAS.trmm!('R', 'U', 'N', 'N', one(T), sub(B.data,:,1:m), sub(C,:,1:m))
-      BLAS.gemm!(
-        $trans, 'N', one(T), A, sub(B.data,:,m+1:n), zero(T), sub(C,:,m+1:n))
+      A_mul_B!(sub(C,:,1:m), UpperTriangular(sub(B.data,:,1:m)))
+      $f(sub(C,:,m+1:n), A, sub(B.data,:,m+1:n))
       C
     end
   end

@@ -39,8 +39,8 @@ for sfx in ("", "!")
         B[:,kr+1:kr+kc] = Fc[:Q]
         Rr = sub(Fr.R, 1:kr, 1:kr)
         Rc = sub(Fc.R, 1:kc, 1:kc)
-        BLAS.trmm!('R', 'U', 'N', 'N', one(T), Rr, sub(B,:,   1:kr   ))
-        BLAS.trmm!('R', 'U', 'N', 'N', one(T), Rc, sub(B,:,kr+1:kr+kc))
+        A_mul_B!(sub(B,:,   1:kr   ), UpperTriangular(Rr))
+        A_mul_B!(sub(B,:,kr+1:kr+kc), UpperTriangular(Rc))
         opts.pqrfact_retval="q"
         return pqrfact_backend!(B, opts)[:Q]
       else
