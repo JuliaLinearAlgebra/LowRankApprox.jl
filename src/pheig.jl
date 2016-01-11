@@ -241,12 +241,16 @@ function pheigfact{T}(
     B[i,i] = real(B[i,i])
   end
   F = eigfact!(Hermitian(B))
+  F = PartialHermEigen(F.values, F.vectors)
   kn, kp = pheigrank(F[:values], opts)
   if kn + kp < n
     idx = [1:kn; n-kp+1:n]
-    return PartialHermEigen(F.values[idx], Q*F.vectors[:,idx])
+    F.values  = F.values[idx]
+    F.vectors = F.vectors[:,idx]
   end
-  PartialHermEigen(F.values, Q*F.vectors)
+  pheigorth!(F.values, F.vectors, opts)
+  F.vectors = Q*F.vectors
+  F
 end
 
 function pheigvals{T}(
@@ -281,8 +285,8 @@ function pheigrank{T<:Real}(w::Vector{T}, opts::LRAOptions)
   k = opts.rank >= 0 ? min(opts.rank, n) : n
   wmax = max(abs(w[1]), abs(w[n]))
   idx = searchsorted(w, 0)
-  kn = pheigrank1(sub(w,          1:first(idx)-1), opts, wmax)
-  kp = pheigrank1(sub(w,last(idx)+1:n)           , opts, wmax)
+  kn = pheigrank1(sub(w,1:first(idx)-1),   opts, wmax)
+  kp = pheigrank1(sub(w,n:-1:last(idx)+1), opts, wmax)
   kn, kp
 end
 function pheigrank1{T<:Real}(w::StridedVector, opts::LRAOptions, wmax::T)
@@ -293,4 +297,28 @@ function pheigrank1{T<:Real}(w::StridedVector, opts::LRAOptions, wmax::T)
     abs(w[i]) <= ptol && return i - 1
   end
   k
+end
+
+function pheigorth!{T<:Real}(
+    values::Vector{T}, vectors::Matrix, opts::LRAOptions)
+  n = length(values)
+  a = 1
+  while a <= n
+    va = values[a]
+    b  = a + 1
+    while b <= n
+      vb = values[b]
+      2*abs((va - vb)/(va + vb)) > opts.pheig_orthtol && break
+      b += 1
+    end
+    b -= 1
+    for i = a:b
+      vi = sub(vectors, :, i)
+      for j = i+1:b
+        vj = sub(vectors, :, j)
+        BLAS.axpy!(-dot(vi,vj), vi, vj)
+      end
+    end
+    a = b + 1
+  end
 end

@@ -86,6 +86,7 @@ export
 type LRAOptions
   atol::Float64
   nb::Int
+  pheig_orthtol::Float64
   pqrfact_retval::ASCIIString
   rank::Int
   rrqr_delta::Float64
@@ -103,21 +104,22 @@ end
 
 function LRAOptions{T}(::Type{T}; args...)
   opts = LRAOptions(
-    0,              # atol
-    32,             # nb
-    "qr",           # pqrfact_retval
-    -1,             # rank
-    -1,             # rrqr_delta
-    -1,             # rrqr_niter
-    5*eps(real(T)), # rtol
-    :randn,         # sketch
-    0,              # sketch_randn_niter
-    true,           # sketchfact_adap
-    n -> n + 8,     # sketchfact_randn_samp
-    n -> n + 8,     # sketchfact_srft_samp
-    n -> 4*n + 8,   # sketchfact_sub_samp
-    32,             # snorm_niter
-    true,           # verb
+    0,                # atol
+    32,               # nb
+    1e3*eps(real(T)), # pheig_orthtol
+    "qr",             # pqrfact_retval
+    -1,               # rank
+    -1,               # rrqr_delta
+    -1,               # rrqr_niter
+    5*eps(real(T)),   # rtol
+    :randn,           # sketch
+    0,                # sketch_randn_niter
+    true,             # sketchfact_adap
+    n -> n + 8,       # sketchfact_randn_samp
+    n -> n + 8,       # sketchfact_srft_samp
+    n -> 4*n + 8,     # sketchfact_sub_samp
+    32,               # snorm_niter
+    true,             # verb
   )
   for (key, value) in args
     setfield!(opts, key, value)
@@ -140,6 +142,7 @@ end
 function chkopts!(opts::LRAOptions)
   opts.atol >= 0 || throw(ArgumentError("atol"))
   opts.nb > 0 || throw(ArgumentError("nb"))
+  opts.pheig_orthtol >= 0 || throw(ArgumentError("pheig_orthtol"))
   opts.rtol >= 0 || throw(ArgumentError("rtol"))
   opts.sketch in (:none, :randn, :sprn, :srft, :sub) ||
     throw(ArgumentError("sketch"))

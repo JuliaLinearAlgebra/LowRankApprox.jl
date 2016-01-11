@@ -63,12 +63,8 @@ function orthcols!{T<:BlasFloat}(
   end
   A, tau, work
 end
-function orthcols!{T}(A::StridedMatrix{T}; thin::Bool=true)
-  tau  = Array(T, 1)
-  work = Array(T, 1)
-  A, tau, work = orthcols!(A, tau, work, thin=thin)
-  A
-end
+orthcols!{T}(A::StridedMatrix{T}; thin::Bool=true) =
+  orthcols!(A, Array(T,1), Array(T,1), thin=thin)[1]
 
 function orthrows!{T<:BlasFloat}(
     A::StridedMatrix{T}, tau::Vector{T}, work::Vector{T}; thin::Bool=true)
@@ -81,12 +77,8 @@ function orthrows!{T<:BlasFloat}(
   end
   A, tau, work
 end
-function orthrows!{T}(A::StridedMatrix{T}; thin::Bool=true)
-  tau  = Array(T, 1)
-  work = Array(T, 1)
-  A, tau, work = orthrows!(A, tau, work, thin=thin)
-  A
-end
+orthrows!{T}(A::StridedMatrix{T}; thin::Bool=true) =
+  orthrows!(A, Array(T,1), Array(T,1), thin=thin)[1]
 
 function scalevec!(s::AbstractVector, x::AbstractVector)
   n = length(x)

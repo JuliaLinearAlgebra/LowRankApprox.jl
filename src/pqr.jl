@@ -5,11 +5,6 @@ References:
   P. Businger, G.H. Golub. Linear least squares solutions by Householder
     transformations. Numer. Math. 7: 269-276, 1965.
 
-  S.A. Goreinov, I.V. Oseledets, D.V. Savostyanov, E.E. Tyrtyshnikov, N.L.
-    Zamarashkin. How to find a good submatrix. In Matrix Methods: Theory,
-    Algorithms, Applications, V. Olshevsky and E. Tyrtyshnikov, eds., World
-    Scientific, Hackensack, NY: 247-256, 2010.
-
   M. Gu, S.C. Eisenstat. Efficient algorithms for computing a strong
     rank-revealing QR factorization. SIAM J. Sci. Comput. 17 (4): 848-869, 1996.
 =#
