@@ -16,7 +16,6 @@ This Julia package provides fast low-rank approximation algorithms for BLAS/LAPA
   - singular value decomposition
   - Hermitian eigendecomposition
   - CUR decomposition
-- spectral norm estimation
 
 By "partial", we mean essentially that these algorithms are early-terminating, i.e., they are not simply post-truncated versions of their standard counterparts. There is also support for "matrix-free" linear operators described only through their action on vectors. All methods accept a number of options specifying, e.g., the rank, estimated absolute precision, and estimated relative precision of approximation.
 
@@ -49,7 +48,6 @@ LowRankApprox has been fully tested in Julia v0.4.0. The apparent build errors r
   - [Sparse Random Gaussian](#sparse-random-gaussian)
 - [Other Algorithms](#other-algorithms)
   - [Partial Range](#partial-range)
-  - [Spectral Norm Estimation](#spectral-norm-estimation)
 - [Options](#options)
 - [Computational Complexity](#computational-complexity)
 
@@ -446,8 +444,6 @@ and is only implemented for type `AbstractMatrix`. Power iteration is not suppor
 ## Other Algorithms
 
 ### Partial Range
-
-### Spectral Norm Estimation
 
 ## Options
 

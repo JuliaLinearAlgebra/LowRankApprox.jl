@@ -26,7 +26,7 @@ function getcols(trans::Symbol, A::AbstractMatrix, cols)
   elseif trans == :c  return A[cols,:]'
   end
 end
-function getcols{T}(trans::Symbol, A::AbstractLinOp{T}, cols)
+function getcols{T}(trans::Symbol, A::AbstractLinearOperator{T}, cols)
   if     trans == :n  return A[:,cols]
   elseif trans == :c  return A'[:, cols]
   end

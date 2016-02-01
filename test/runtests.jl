@@ -1,9 +1,7 @@
 using Base.Test
 using LowRankApprox
 
-include("linop.jl")
 include("permute.jl")
-include("snorm.jl")
 include("trapezoidal.jl")
 
 println()

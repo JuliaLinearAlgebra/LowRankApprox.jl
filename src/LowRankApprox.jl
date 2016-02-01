@@ -5,6 +5,8 @@ module LowRankApprox
 
 importall Base
 using Base.LinAlg: BlasFloat, BlasInt, chksquare, chkstride1
+using FastLinAlg
+using FastLinAlg: matrixlib, snorm, snormdiff
 
 export
 
@@ -28,14 +30,6 @@ export
   ID,
   idfact, idfact!,
   id, id!,
-
-  # linop.jl
-  AbstractLinearOperator,
-  LinearOperator,
-  HermitianLinearOperator,
-
-  # matrixlib.jl
-  matrixlib,
 
   # permute.jl
   PermutationMatrix,
@@ -72,14 +66,15 @@ export
   sketch,
   sketchfact,
 
-  # snorm.jl
-  snorm,
-  snormdiff,
-
   # trapezoidal.jl
   Trapezoidal,
   LowerTrapezoidal,
-  UpperTrapezoidal
+  UpperTrapezoidal,
+
+  # FastLinAlg.jl
+  matrixlib,
+  snorm,
+  snormdiff
 
 # common
 
@@ -98,7 +93,6 @@ type LRAOptions
   sketchfact_randn_samp::Function
   sketchfact_srft_samp::Function
   sketchfact_sub_samp::Function
-  snorm_niter::Int
   verb::Bool
 end
 
@@ -118,7 +112,6 @@ function LRAOptions{T}(::Type{T}; args...)
     n -> n + 8,       # sketchfact_randn_samp
     n -> n + 8,       # sketchfact_srft_samp
     n -> 4*n + 8,     # sketchfact_sub_samp
-    32,               # snorm_niter
     true,             # verb
   )
   for (key, value) in args
@@ -150,7 +143,7 @@ function chkopts!(opts::LRAOptions)
 end
 function chkopts!(opts::LRAOptions, A)
   chkopts!(opts)
-  if typeof(A) <: AbstractLinOp && opts.sketch != :randn
+  if typeof(A) <: AbstractLinearOperator && opts.sketch != :randn
     warn("invalid sketch method; using \"randn\"")
     opts.sketch = :randn
   end
@@ -161,10 +154,7 @@ chktrans(trans::Symbol) = trans in (:n, :c) || throw(ArgumentError("trans"))
 # source files
 
 include("lapack.jl")
-include("linop.jl")
-include("matrixlib.jl")
 include("permute.jl")
-include("snorm.jl")
 include("trapezoidal.jl")
 include("util.jl")
 
