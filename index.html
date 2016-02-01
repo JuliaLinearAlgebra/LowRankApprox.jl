@@ -29,9 +29,7 @@
       </header>
       <section>
         <h1>
-<a id="lowrankapprox" class="anchor" href="#lowrankapprox" aria-hidden="true"><span class="octicon octicon-link"></span></a>LowRankApprox</h1>
-
-<p><a href="https://travis-ci.org/klho/LowRankApprox.jl"><img src="https://travis-ci.org/klho/LowRankApprox.jl.svg?branch=master" alt="Build Status"></a></p>
+<a id="lowrankapprox" class="anchor" href="#lowrankapprox" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>LowRankApprox</h1>
 
 <p>This Julia package provides fast low-rank approximation algorithms for BLAS/LAPACK-compatible matrices based on some of the latest technology in adaptive randomized matrix sketching. Currently implemented algorithms include:</p>
 
@@ -56,7 +54,6 @@
 <li>CUR decomposition</li>
 </ul>
 </li>
-<li>spectral norm estimation</li>
 </ul>
 
 <p>By "partial", we mean essentially that these algorithms are early-terminating, i.e., they are not simply post-truncated versions of their standard counterparts. There is also support for "matrix-free" linear operators described only through their action on vectors. All methods accept a number of options specifying, e.g., the rank, estimated absolute precision, and estimated relative precision of approximation.</p>
@@ -71,12 +68,10 @@
 <li>~0.3 s in MATLAB</li>
 </ul>
 
-<p>This difference can be attributed to Julia's tight integration with Fortran and C as well as to some low-level memory management not available in traditional dynamic languages.</p>
-
-<p>LowRankApprox has been fully tested in Julia v0.4.0. The apparent build errors reported by Travis CI seem to be due to the reference 64-bit Julia installation being compiled against 32-bit BLAS.</p>
+<p>This difference can be attributed in part to both algorithmic improvements as well as to some low-level optimizations.</p>
 
 <h2>
-<a id="contents" class="anchor" href="#contents" aria-hidden="true"><span class="octicon octicon-link"></span></a>Contents</h2>
+<a id="contents" class="anchor" href="#contents" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Contents</h2>
 
 <ul>
 <li><a href="#installation">Installation</a></li>
@@ -107,7 +102,6 @@
 
 <ul>
 <li><a href="#partial-range">Partial Range</a></li>
-<li><a href="#spectral-norm-estimation">Spectral Norm Estimation</a></li>
 </ul>
 </li>
 <li><a href="#options">Options</a></li>
@@ -115,16 +109,16 @@
 </ul>
 
 <h2>
-<a id="installation" class="anchor" href="#installation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Installation</h2>
+<a id="installation" class="anchor" href="#installation" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Installation</h2>
 
-<p>To install LowRankApprox, simply type:</p>
+<p>LowRankApprox requires Julia version 0.4+ and <a href="http://klho.github.io/FastLinAlg.jl">FastLinAlg</a>. To install LowRankApprox, simply type:</p>
 
 <div class="highlight highlight-source-julia"><pre>Pkg<span class="pl-k">.</span><span class="pl-c1">clone</span>(<span class="pl-s"><span class="pl-pds">"</span>git://github.com/klho/LowRankApprox.jl.git<span class="pl-pds">"</span></span>)</pre></div>
 
 <p>at the Julia prompt. The package can then be imported as usual with <code>using</code> or <code>import</code>.</p>
 
 <h2>
-<a id="getting-started" class="anchor" href="#getting-started" aria-hidden="true"><span class="octicon octicon-link"></span></a>Getting Started</h2>
+<a id="getting-started" class="anchor" href="#getting-started" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Getting Started</h2>
 
 <p>To illustrate the usage of this package, let's consider the computation of a partial QR decomposition of a Hilbert matrix, which is well known to have low rank. First, we load LowRankApprox via:</p>
 
@@ -156,7 +150,7 @@ z <span class="pl-k">=</span> F<span class="pl-k">'</span><span class="pl-k">*</
 <div class="highlight highlight-source-julia"><pre>aerr <span class="pl-k">=</span> <span class="pl-c1">snormdiff</span>(A, F)
 rerr <span class="pl-k">=</span> aerr <span class="pl-k">/</span> <span class="pl-c1">snorm</span>(A)</pre></div>
 
-<p>This computes the absolute and relative errors in the spectral norm using power iteration. Here, the relative error achieved should be on the order of machine epsilon. (You may see a warning about exceeding the maximum number of iterations, but this is harmless in this case.)</p>
+<p>This computes the absolute and relative errors in the spectral norm using power iteration. Here, the relative error achieved should be on the order of machine epsilon. (You may see a warning about exceeding the iteration limit, but this is harmless in this case.)</p>
 
 <p>The default interface requests ~1e-15 estimated relative precision. To request, say, only 1e-12 relative precision, use:</p>
 
@@ -190,12 +184,12 @@ F <span class="pl-k">=</span> <span class="pl-c1">pqrfact</span>(A, opts)</pre><
 <p>Linear operators can be scaled, added, and composed together using the usual syntax. All methods in LowRankApprox transparently support both matrices and linear operators.</p>
 
 <h2>
-<a id="low-rank-factorizations" class="anchor" href="#low-rank-factorizations" aria-hidden="true"><span class="octicon octicon-link"></span></a>Low-Rank Factorizations</h2>
+<a id="low-rank-factorizations" class="anchor" href="#low-rank-factorizations" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Low-Rank Factorizations</h2>
 
 <p>We now detail the various low-rank approximations implemented, which all nominally return compact <code>Factorization</code> types storing the matrix factors in structured form. All such factorizations provide optimized multiplication routines. Furthermore, the rank of any factorization <code>F</code> can be queried with <code>F[:k]</code> and the matrix approximant defined by <code>F</code> can be reconstructed as <code>full(F)</code>. For concreteness of exposition, assume in the following that <code>A</code> has size <code>m</code> by <code>n</code> with factorization rank <code>F[:k] = k</code>.</p>
 
 <h3>
-<a id="qr-decomposition" class="anchor" href="#qr-decomposition" aria-hidden="true"><span class="octicon octicon-link"></span></a>QR Decomposition</h3>
+<a id="qr-decomposition" class="anchor" href="#qr-decomposition" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>QR Decomposition</h3>
 
 <p>A partial QR decomposition is a factorization <code>A[:,p] = Q*R</code>, where <code>Q</code> is <code>m</code> by <code>k</code> with orthonormal columns, <code>R</code> is <code>k</code> by <code>n</code> and upper trapezoidal, and <code>p</code> is a permutation vector. Such a decomposition can be computed with:</p>
 
@@ -237,7 +231,7 @@ F <span class="pl-k">=</span> <span class="pl-c1">pqrfact</span>(A, opts)</pre><
 <p>The above methods do not modify the input matrix <code>A</code> and may make a copy of the data in order to enforce this (whether this is necessary depends on the type of input and the sketch method used). Potentially more efficient versions that reserve the right to overwrite <code>A</code> are available as <code>pqrfact!</code> and <code>pqr!</code>, respectively.</p>
 
 <h3>
-<a id="interpolative-decomposition-id" class="anchor" href="#interpolative-decomposition-id" aria-hidden="true"><span class="octicon octicon-link"></span></a>Interpolative Decomposition (ID)</h3>
+<a id="interpolative-decomposition-id" class="anchor" href="#interpolative-decomposition-id" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Interpolative Decomposition (ID)</h3>
 
 <p>The ID is based on the approximation <code>A[:,rd] = A[:,sk]*T</code>, where <code>sk</code> is a set of <code>k</code> "skeleton" columns, <code>rd</code> is a set of <code>n - k</code> "redundant" columns, and <code>T</code> is a <code>k</code> by <code>n - k</code> interpolation matrix. It follows that <code>A[:,p] = C*V</code>, where <code>p = [sk; rd]</code>, <code>C = A[:,sk]</code>, and <code>V = [eye(k) T]</code>. An ID can be computed by:</p>
 
@@ -295,7 +289,7 @@ F <span class="pl-k">=</span> <span class="pl-c1">pqrfact</span>(A, opts)</pre><
 <p>The default interface is equivalent to passing <code>:n</code> as the first argument. Moreover, modifying versions of the above are available as <code>idfact!</code> and <code>id!</code>.</p>
 
 <h3>
-<a id="singular-value-decomposition-svd" class="anchor" href="#singular-value-decomposition-svd" aria-hidden="true"><span class="octicon octicon-link"></span></a>Singular Value Decomposition (SVD)</h3>
+<a id="singular-value-decomposition-svd" class="anchor" href="#singular-value-decomposition-svd" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Singular Value Decomposition (SVD)</h3>
 
 <p>A partial SVD is a factorization <code>A = U*S*V'</code>, where <code>U</code> and <code>V</code> are <code>m</code> by <code>k</code> and <code>n</code> by <code>k</code>, respectively, both with orthonormal columns, and <code>S</code> is <code>k</code> by <code>k</code> and diagonal with nonincreasing nonnegative real entries. It can be computed with:</p>
 
@@ -327,7 +321,7 @@ F <span class="pl-k">=</span> <span class="pl-c1">pqrfact</span>(A, opts)</pre><
 <div class="highlight highlight-source-julia"><pre>S <span class="pl-k">=</span> <span class="pl-c1">psvdvals</span>(A, args<span class="pl-k">...</span>)</pre></div>
 
 <h3>
-<a id="hermitian-eigendecomposition" class="anchor" href="#hermitian-eigendecomposition" aria-hidden="true"><span class="octicon octicon-link"></span></a>Hermitian Eigendecomposition</h3>
+<a id="hermitian-eigendecomposition" class="anchor" href="#hermitian-eigendecomposition" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Hermitian Eigendecomposition</h3>
 
 <p>A partial Hermitian eigendecomposition of an <code>n</code> by <code>n</code> Hermitian matrix <code>A</code> is a factorization <code>A = U*S*U'</code>, where <code>U</code> is <code>n</code> by <code>k</code> with orthonormal columns and <code>S</code> is <code>k</code> by <code>k</code> and diagonal with nondecreasing real entries. It is very similar to a partial Hermitian SVD and can be computed by:</p>
 
@@ -353,7 +347,7 @@ F <span class="pl-k">=</span> <span class="pl-c1">pqrfact</span>(A, opts)</pre><
 <div class="highlight highlight-source-julia"><pre>values <span class="pl-k">=</span> <span class="pl-c1">pheigvals</span>(A, args<span class="pl-k">...</span>)</pre></div>
 
 <h3>
-<a id="cur-decomposition" class="anchor" href="#cur-decomposition" aria-hidden="true"><span class="octicon octicon-link"></span></a>CUR Decomposition</h3>
+<a id="cur-decomposition" class="anchor" href="#cur-decomposition" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>CUR Decomposition</h3>
 
 <p>A CUR decomposition is a factorization <code>A = C*U*R</code>, where <code>C = A[:,cols]</code> and <code>R = A[rows,:]</code> consist of <code>k</code> columns and rows, respectively, from <code>A</code> and <code>U = inv(A[rows,cols])</code>. The basis rows and columns can be computed with:</p>
 
@@ -401,7 +395,7 @@ F <span class="pl-k">=</span> <span class="pl-c1">pqrfact</span>(A, opts)</pre><
 <p>Modifying versions of the above are available as <code>curfact!</code> and <code>cur!</code>.</p>
 
 <h2>
-<a id="sketch-methods" class="anchor" href="#sketch-methods" aria-hidden="true"><span class="octicon octicon-link"></span></a>Sketch Methods</h2>
+<a id="sketch-methods" class="anchor" href="#sketch-methods" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Sketch Methods</h2>
 
 <p>Matrix sketching is a core component of this package and its proper use is critical for high performance. For an <code>m</code> by <code>n</code> matrix <code>A</code>, a sketch of order <code>k</code> takes the form <code>B = S*A</code>, where <code>S</code> is a <code>k</code> by <code>m</code> sampling matrix (see below). Sketches can similarly be constructed for sampling from the right or for multiplying against <code>A'</code>. The idea is that <code>B</code> contains a compressed representation of <code>A</code> up to rank approximately <code>k</code>, which can then be efficiently processed to recover information about <code>A</code>.</p>
 
@@ -458,7 +452,7 @@ opts<span class="pl-k">.</span>sketch <span class="pl-k">=</span> <span class="p
 <p>where <code>side in (:left, :right)</code> and <code>trans in (:n, :c)</code>.</p>
 
 <h3>
-<a id="random-gaussian" class="anchor" href="#random-gaussian" aria-hidden="true"><span class="octicon octicon-link"></span></a>Random Gaussian</h3>
+<a id="random-gaussian" class="anchor" href="#random-gaussian" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Random Gaussian</h3>
 
 <p>The canonical sampling matrix is a Gaussian random matrix with entries drawn independently from the standard normal distribution (or with real and imaginary parts each drawn independently if <code>A</code> is complex). To use this sketch method, set:</p>
 
@@ -469,7 +463,7 @@ opts<span class="pl-k">.</span>sketch <span class="pl-k">=</span> <span class="p
 <p>For generic <code>A</code>, Gaussian sketching has complexity <code>O(k*m*n)</code>. In principle, this makes it the most expensive stage of computing a fast low-rank approximation. There is thus a serious effort to develop sketch methods with lower computational cost, which is addressed in part by the following techniques.</p>
 
 <h3>
-<a id="random-subset" class="anchor" href="#random-subset" aria-hidden="true"><span class="octicon octicon-link"></span></a>Random Subset</h3>
+<a id="random-subset" class="anchor" href="#random-subset" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Random Subset</h3>
 
 <p>Perhaps the simplest matrix sketch is just a random subset of rows or columns, with complexity <code>O(k*m)</code> or <code>O(k*n)</code> as appropriate. This can be specified with:</p>
 
@@ -478,7 +472,7 @@ opts<span class="pl-k">.</span>sketch <span class="pl-k">=</span> <span class="p
 <p>The linear growth in matrix dimension is obviously attractive, but note that this method can fail if the matrix is not sufficiently "regular", e.g., if it contains a few large isolated entries. Random subselection is only implemented for type <code>AbstractMatrix</code>.</p>
 
 <h3>
-<a id="subsampled-random-fourier-transform-srft" class="anchor" href="#subsampled-random-fourier-transform-srft" aria-hidden="true"><span class="octicon octicon-link"></span></a>Subsampled Random Fourier Transform (SRFT)</h3>
+<a id="subsampled-random-fourier-transform-srft" class="anchor" href="#subsampled-random-fourier-transform-srft" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Subsampled Random Fourier Transform (SRFT)</h3>
 
 <p>An alternative approach based on imposing structure in the sampling matrix is the SRFT, which has the form <code>S = R*F*D</code> (if applying from the left), where <code>R</code> is a random permutation matrix of size <code>k</code> by <code>m</code>, <code>F</code> is the discrete Fourier transform (DFT) of order <code>m</code>, and <code>D</code> is a random diagonal unitary scaling. Due to the DFT structure, this can be applied in only <code>O(m*n*log(k))</code> operations. To use this method, set:</p>
 
@@ -487,7 +481,7 @@ opts<span class="pl-k">.</span>sketch <span class="pl-k">=</span> <span class="p
 <p>For real <code>A</code>, our SRFT implementation uses only real arithmetic by separately computing real and imaginary parts as in a standard real-to-real DFT. Only <code>AbstractMatrix</code> types are supported.</p>
 
 <h3>
-<a id="sparse-random-gaussian" class="anchor" href="#sparse-random-gaussian" aria-hidden="true"><span class="octicon octicon-link"></span></a>Sparse Random Gaussian</h3>
+<a id="sparse-random-gaussian" class="anchor" href="#sparse-random-gaussian" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Sparse Random Gaussian</h3>
 
 <p>As a modification of Gaussian sketching, we provide also a "sparse" random Gaussian sampling scheme, wherein <code>S</code> is restricted to have only <code>O(m)</code> or <code>O(n)</code> nonzeros, depending on the dimension to be contracted. Considering the case <code>B = S*A</code> for concreteness, each row of <code>S</code> is taken to be nonzero in only <code>O(m/k)</code> columns, with full coverage of <code>A</code> maintained by evenly spreading these nonzero indices among the rows of <code>S</code>. The complexity of computing <code>B</code> is <code>O(m*n)</code>. Sparse Gaussian sketching can be specified with:</p>
 
@@ -496,19 +490,16 @@ opts<span class="pl-k">.</span>sketch <span class="pl-k">=</span> <span class="p
 <p>and is only implemented for type <code>AbstractMatrix</code>. Power iteration is not supported since any subsequent matrix application would devolve back to having <code>O(k*m*n)</code> cost.</p>
 
 <h2>
-<a id="other-algorithms" class="anchor" href="#other-algorithms" aria-hidden="true"><span class="octicon octicon-link"></span></a>Other Algorithms</h2>
+<a id="other-algorithms" class="anchor" href="#other-algorithms" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Other Algorithms</h2>
 
 <h3>
-<a id="partial-range" class="anchor" href="#partial-range" aria-hidden="true"><span class="octicon octicon-link"></span></a>Partial Range</h3>
-
-<h3>
-<a id="spectral-norm-estimation" class="anchor" href="#spectral-norm-estimation" aria-hidden="true"><span class="octicon octicon-link"></span></a>Spectral Norm Estimation</h3>
+<a id="partial-range" class="anchor" href="#partial-range" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Partial Range</h3>
 
 <h2>
-<a id="options" class="anchor" href="#options" aria-hidden="true"><span class="octicon octicon-link"></span></a>Options</h2>
+<a id="options" class="anchor" href="#options" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Options</h2>
 
 <h2>
-<a id="computational-complexity" class="anchor" href="#computational-complexity" aria-hidden="true"><span class="octicon octicon-link"></span></a>Computational Complexity</h2>
+<a id="computational-complexity" class="anchor" href="#computational-complexity" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Computational Complexity</h2>
       </section>
       <footer>
         <p>This project is maintained by <a href="https://github.com/klho">klho</a></p>
