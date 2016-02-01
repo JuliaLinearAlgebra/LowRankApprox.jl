@@ -25,6 +25,8 @@ This package has been developed with performance in mind, and early tests have s
 - ~0.07 s using SciPy in Python (calling a Fortran backend; see [PyMatrixID](http://klho.github.io/PyMatrixID))
 - ~0.3 s in MATLAB
 
+This difference can be attributed in part to both algorithmic improvements as well as to some low-level optimizations.
+
 ## Contents
 
 - [Installation](#installation)
