@@ -1,7 +1,5 @@
 # LowRankApprox
 
-[![Build Status](https://travis-ci.org/klho/LowRankApprox.jl.svg?branch=master)](https://travis-ci.org/klho/LowRankApprox.jl)
-
 This Julia package provides fast low-rank approximation algorithms for BLAS/LAPACK-compatible matrices based on some of the latest technology in adaptive randomized matrix sketching. Currently implemented algorithms include:
 
 - sketch methods:
@@ -27,10 +25,6 @@ This package has been developed with performance in mind, and early tests have s
 - ~0.07 s using SciPy in Python (calling a Fortran backend; see [PyMatrixID](http://klho.github.io/PyMatrixID))
 - ~0.3 s in MATLAB
 
-This difference can be attributed to Julia's tight integration with Fortran and C as well as to some low-level memory management not available in traditional dynamic languages.
-
-LowRankApprox has been fully tested in Julia v0.4.0. The apparent build errors reported by Travis CI seem to be due to the reference 64-bit Julia installation being compiled against 32-bit BLAS.
-
 ## Contents
 
 - [Installation](#installation)
@@ -53,7 +47,7 @@ LowRankApprox has been fully tested in Julia v0.4.0. The apparent build errors r
 
 ## Installation
 
-To install LowRankApprox, simply type:
+LowRankApprox requires Julia version 0.4+ and [FastLinAlg](http://klho.github.io/FastLinAlg.jl). To install LowRankApprox, simply type:
 
 ```julia
 Pkg.clone("git://github.com/klho/LowRankApprox.jl.git")
