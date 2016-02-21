@@ -235,8 +235,8 @@ function pheigfact{T}(
   V = idfact(:n, A, opts)
   F = qrfact!(full(:c, V))
   Q = F[:Q]
-  B = hermitianize!(F[:R]*(A[V[:sk],V[:sk]]*F[:R]'))
-  F = eigfact!(B)
+  B = F[:R]*(A[V[:sk],V[:sk]]*F[:R]')
+  F = eigfact!(hermitianize!(B))
   F = PartialHermEigen(F.values, F.vectors)
   kn, kp = pheigrank(F[:values], opts)
   n = size(B, 2)
@@ -257,8 +257,8 @@ function pheigvals{T}(
   opts = isempty(args) ? opts : copy(opts; args...)
   V = idfact(:n, A, opts)
   F = qrfact!(full(:c, V))
-  B = hermitianize!(F[:R]*(A[V[:sk],V[:sk]]*F[:R]'))
-  v = eigvals!(B)
+  B = F[:R]*(A[V[:sk],V[:sk]]*F[:R]')
+  v = eigvals!(hermitianize!(B))
   kn, kp = pheigrank(v, opts)
   n = size(B, 2)
   kn + kp < n && return v[[1:kn; n-kp+1:n]]
