@@ -183,17 +183,18 @@ end
 function sketchfact_randn(
     side::Symbol, trans::Symbol, A::AbstractMatOrLinOp, opts::LRAOptions)
   if opts.sketchfact_adap || opts.rank < 0
-    k = opts.nb
+    n = opts.nb
     opts_ = copy(opts, rrqr_delta=-1.)
     while true
-      B = sketch_randn(side, trans, A, opts.sketchfact_randn_samp(k), opts)
-      p, tau, l = geqp3_adap!(B, opts_)
-      l < k && return rrqr_postproc(B, p, tau, l, opts)
-      k *= 2
+      order = opts.sketchfact_randn_samp(n)
+      B = sketch_randn(side, trans, A, order, opts)
+      p, tau, k = geqp3_adap!(B, opts_)
+      k < n && return pqrback_postproc(B, p, tau, k, opts)
+      n *= 2
     end
   else
-    k = opts.sketchfact_randn_samp(opts.rank)
-    B = sketch_randn(side, trans, A, k, opts)
+    order = opts.sketchfact_randn_samp(opts.rank)
+    B = sketch_randn(side, trans, A, order, opts)
     return pqrfact_backend!(B, opts)
   end
 end
@@ -266,17 +267,18 @@ end
 function sketchfact_sub(
     side::Symbol, trans::Symbol, A::AbstractMatrix, opts::LRAOptions)
   if opts.sketchfact_adap || opts.rank < 0
-    k = opts.nb
+    n = opts.nb
     opts_ = copy(opts, rrqr_delta=-1.)
     while true
-      B = sketch_sub(side, trans, A, opts.sketchfact_sub_samp(k), opts)
-      p, tau, l = geqp3_adap!(B, opts_)
-      l < k && return rrqr_postproc(B, p, tau, l, opts)
-      k *= 2
+      order = opts.sketchfact_sub_samp(n)
+      B = sketch_sub(side, trans, A, order, opts)
+      p, tau, k = geqp3_adap!(B, opts_)
+      k < n && return pqrback_postproc(B, p, tau, k, opts)
+      n *= 2
     end
   else
-    k = opts.sketchfact_sub_samp(opts.rank)
-    B = sketch_sub(side, trans, A, k, opts)
+    order = opts.sketchfact_sub_samp(opts.rank)
+    B = sketch_sub(side, trans, A, order, opts)
     return pqrfact_backend!(B, opts)
   end
 end
@@ -474,17 +476,18 @@ end
 function sketchfact_srft(
     side::Symbol, trans::Symbol, A::AbstractMatrix, opts::LRAOptions)
   if opts.sketchfact_adap || opts.rank < 0
-    k = opts.nb
+    n = opts.nb
     opts_ = copy(opts, rrqr_delta=-1.)
     while true
-      B = sketch_srft(side, trans, A, opts.sketchfact_srft_samp(k), opts)
-      p, tau, l = geqp3_adap!(B, opts_)
-      l < k && return rrqr_postproc(B, p, tau, l, opts)
-      k *= 2
+      order = opts.sketchfact_srft_samp(n)
+      B = sketch_srft(side, trans, A, order, opts)
+      p, tau, k = geqp3_adap!(B, opts_)
+      k < n && return pqrback_postproc(B, p, tau, k, opts)
+      n *= 2
     end
   else
-    k = opts.sketchfact_srft_samp(opts.rank)
-    B = sketch_srft(side, trans, A, k, opts)
+    order = opts.sketchfact_srft_samp(opts.rank)
+    B = sketch_srft(side, trans, A, order, opts)
     return pqrfact_backend!(B, opts)
   end
 end
@@ -594,17 +597,17 @@ end
 function sketchfact_sprn(
     side::Symbol, trans::Symbol, A::AbstractMatrix, opts::LRAOptions)
   if opts.sketchfact_adap || opts.rank < 0
-    k = opts.nb
+    n = opts.nb
     opts_ = copy(opts, rrqr_delta=-1.)
     while true
-      B = sketch_sprn(side, trans, A, k, opts)
-      p, tau, l = geqp3_adap!(B, opts_)
-      l < k && return rrqr_postproc(B, p, tau, l, opts)
-      k *= 2
+      B = sketch_sprn(side, trans, A, n, opts)
+      p, tau, k = geqp3_adap!(B, opts_)
+      k < n && return pqrback_postproc(B, p, tau, k, opts)
+      n *= 2
     end
   else
-    k = opts.rank
-    B = sketch_sprn(side, trans, A, k, opts)
+    order = opts.rank
+    B = sketch_sprn(side, trans, A, order, opts)
     return pqrfact_backend!(B, opts)
   end
 end

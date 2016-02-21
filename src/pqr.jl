@@ -298,7 +298,7 @@ end
 ## core backend routine: rank-adaptive GEQP3 with RRQR postprocessing
 function pqrfact_backend!(A::StridedMatrix, opts::LRAOptions)
   p, tau, k = geqp3_adap!(A, opts)
-  rrqr_postproc(A, p, tau, k, opts)
+  pqrback_postproc(A, p, tau, k, opts)
 end
 
 function geqp3_adap!{T<:BlasFloat}(A::StridedMatrix{T}, opts::LRAOptions)
@@ -368,7 +368,7 @@ function geqp3_adap!{T<:BlasFloat}(A::StridedMatrix{T}, opts::LRAOptions)
   jpvt, tau, k
 end
 
-function rrqr_postproc{S}(
+function pqrback_postproc{S}(
     A::StridedMatrix{S}, p::Vector{Int}, tau::Vector{S}, k::Integer,
     opts::LRAOptions)
   retq = contains(opts.pqrfact_retval, "q")
