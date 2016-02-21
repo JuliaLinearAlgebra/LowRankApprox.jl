@@ -32,6 +32,21 @@ function getcols{T}(trans::Symbol, A::AbstractLinearOperator{T}, cols)
   end
 end
 
+function hermitianize!(A::AbstractMatrix, uplo::Symbol=:U)
+  chksquare(A)
+  n = size(A, 2)
+  if uplo == :U
+    for j = 1:n, i = 1:j
+      A[i,j] = 0.5*(A[i,j] + conj(A[j,i]))
+    end
+  elseif uplo == :L
+    for i = 1:n, j = 1:i
+      A[i,j] = 0.5*(A[i,j] + conj(A[j,i]))
+    end
+  end
+  Hermitian(A, uplo)
+end
+
 function iscale!(A::AbstractMatrix, b::AbstractVector)
   m, n = size(A)
   length(b) == n || throw(DimensionMismatch)
