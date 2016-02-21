@@ -99,7 +99,7 @@ CUR(A, args...) = CUR(LinOp(A), args...)
 function HermCUR(A::AbstractMatOrLinOp, U::HermCURPackedU)
   cols = U[:cols]
   C = A[:,cols]
-  F = eigfact!(C[cols,:])
+  F = eigfact!(Hermitian(C[cols,:]))
   U = PartialHermEigen(1./F[:values], F[:vectors])
   HermCUR(cols, C, U)
 end
