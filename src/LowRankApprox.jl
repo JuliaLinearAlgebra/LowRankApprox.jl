@@ -98,21 +98,21 @@ end
 
 function LRAOptions{T}(::Type{T}; args...)
   opts = LRAOptions(
-    0,                # atol
-    32,               # nb
-    1e3*eps(real(T)), # pheig_orthtol
-    "qr",             # pqrfact_retval
-    -1,               # rank
-    -1,               # rrqr_delta
-    -1,               # rrqr_niter
-    5*eps(real(T)),   # rtol
-    :randn,           # sketch
-    0,                # sketch_randn_niter
-    true,             # sketchfact_adap
-    n -> n + 8,       # sketchfact_randn_samp
-    n -> n + 8,       # sketchfact_srft_samp
-    n -> 4*n + 8,     # sketchfact_sub_samp
-    true,             # verb
+    0,                  # atol
+    32,                 # nb
+    sqrt(eps(real(T))), # pheig_orthtol
+    "qr",               # pqrfact_retval
+    -1,                 # rank
+    -1,                 # rrqr_delta
+    -1,                 # rrqr_niter
+    5*eps(real(T)),     # rtol
+    :randn,             # sketch
+    0,                  # sketch_randn_niter
+    true,               # sketchfact_adap
+    n -> n + 8,         # sketchfact_randn_samp
+    n -> n + 8,         # sketchfact_srft_samp
+    n -> 4*n + 8,       # sketchfact_sub_samp
+    true,               # verb
   )
   for (key, value) in args
     setfield!(opts, key, value)
