@@ -298,19 +298,7 @@ end
 ## core backend routine: rank-adaptive GEQP3 with RRQR postprocessing
 function pqrfact_backend!(A::StridedMatrix, opts::LRAOptions)
   p, tau, k = geqp3_adap!(A, opts)
-  retq = contains(opts.pqrfact_retval, "q")
-  retr = contains(opts.pqrfact_retval, "r")
-  rett = contains(opts.pqrfact_retval, "t")
-  rrqr = 0 < k < size(A,2) && opts.rrqr_delta >= 0
-  Q = retq ? LAPACK.orgqr!(A[:,1:k], tau, k) : nothing
-  R = retr || rett || rrqr ? triu!(A[1:k,:]) : nothing
-  T = rett || rrqr ? rrqrt(R) : nothing
-  if rrqr
-    rrqr_swapcols!(Q, R, p, T, opts)
-    R = retr ? R : nothing
-  end
-  retq && retr && !rett && return PartialQR(Q, R, p)
-  PQRFactors(Q, R, p, k, T)
+  rrqr_postproc(A, p, tau, k, opts)
 end
 
 function geqp3_adap!{T<:BlasFloat}(A::StridedMatrix{T}, opts::LRAOptions)
@@ -378,6 +366,24 @@ function geqp3_adap!{T<:BlasFloat}(A::StridedMatrix{T}, opts::LRAOptions)
 
   @label ret
   jpvt, tau, k
+end
+
+function rrqr_postproc{S}(
+    A::StridedMatrix{S}, p::Vector{Int}, tau::Vector{S}, k::Integer,
+    opts::LRAOptions)
+  retq = contains(opts.pqrfact_retval, "q")
+  retr = contains(opts.pqrfact_retval, "r")
+  rett = contains(opts.pqrfact_retval, "t")
+  rrqr = 0 < k < size(A,2) && opts.rrqr_delta >= 0
+  Q = retq ? LAPACK.orgqr!(A[:,1:k], tau, k) : nothing
+  R = retr || rett || rrqr ? triu!(A[1:k,:]) : nothing
+  T = rett || rrqr ? rrqrt(R) : nothing
+  if rrqr
+    rrqr_swapcols!(Q, R, p, T, opts)
+    R = retr ? R : nothing
+  end
+  retq && retr && !rett && return PartialQR(Q, R, p)
+  PQRFactors(Q, R, p, k, T)
 end
 
 function rrqrt{S}(R::StridedMatrix{S})
