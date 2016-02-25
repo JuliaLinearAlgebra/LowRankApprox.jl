@@ -24,7 +24,7 @@ for sfx in ("", "!")
       if trans == :b
         chksquare(A)
         ishermitian(A) && return $f(:n, A, opts)
-        opts = copy(opts, pqrfact_retval="qr")
+        opts.pqrfact_retval = "qr"
         if opts.sketch == :none
           Fr = pqrfact!(A', opts)
           Fc =       $g(A , opts)
@@ -44,7 +44,7 @@ for sfx in ("", "!")
         opts.pqrfact_retval="q"
         return pqrfact_backend!(B, opts)[:Q]
       else
-        opts = copy(opts, pqrfact_retval="q")
+        opts.pqrfact_retval = "q"
         if opts.sketch == :none
           if trans == :n  Q =       $g(A , opts)[:Q]
           else            Q = pqrfact!(A', opts)[:Q]
