@@ -114,40 +114,6 @@ for (geqrf, gelqf, orgqr, orglq, elty) in
   end
 end
 
-for (lapmr, lapmt, elty) in ((:slapmr_, :slapmt_, :Float32   ),
-                             (:dlapmr_, :dlapmt_, :Float64   ),
-                             (:clapmr_, :clapmt_, :Complex64 ),
-                             (:zlapmr_, :zlapmt_, :Complex128))
-  @eval begin
-    function lapmr!(
-        forward::BlasInt, X::StridedVecOrMat{$elty}, K::StridedVector{BlasInt})
-      chkstride1(X, K)
-      m = size(X, 1)
-      n = size(X, 2)
-      m == length(K) || throw(DimensionMismatch)
-      ccall(($(blasfunc(lapmr)), liblapack), Void,
-            (Ptr{BlasInt}, Ptr{BlasInt}, Ptr{BlasInt},
-             Ptr{$elty}, Ptr{BlasInt}, Ptr{BlasInt}),
-            &forward, &m, &n,
-            X, &max(1,stride(X,2)), K)
-      X
-    end
-
-    function lapmt!(
-        forward::BlasInt, X::StridedMatrix{$elty}, K::StridedVector{BlasInt})
-      chkstride1(X, K)
-      m, n = size(X)
-      n == length(K) || throw(DimensionMismatch)
-      ccall(($(blasfunc(lapmt)), liblapack), Void,
-            (Ptr{BlasInt}, Ptr{BlasInt}, Ptr{BlasInt},
-             Ptr{$elty}, Ptr{BlasInt}, Ptr{BlasInt}),
-            &forward, &m, &n,
-            X, &max(1,stride(X,2)), K)
-      X
-    end
-  end
-end
-
 for (laqps, elty, relty) in ((:slaqps_, :Float32,    :Float32),
                              (:dlaqps_, :Float64,    :Float64),
                              (:claqps_, :Complex64,  :Float32),

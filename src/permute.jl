@@ -60,27 +60,130 @@ size(A::PermMat, dim::Integer) = (dim == 1 || dim == 2) ? length(A.p) : 1
 sparse(A::RowPerm) = sparse(1:length(A.p), A.p, ones(A.p))
 sparse(A::ColPerm) = sparse(A.p, 1:length(A.p), ones(A.p))
 
-# BLAS/LAPACK routines (in-place)
+# in-place permutation routines
+
+function rowperm!(fwd::Bool, x::AbstractVector, p::Vector{Int})
+  n = length(x)
+  length(p) == n || throw(DimensionMismatch)
+  scale!(p, -1)
+  if (fwd)
+    for i = 1:n
+      p[i] > 0 && continue
+      j    =    i
+      p[j] = -p[j]
+      k    =  p[j]
+      while p[k] < 0
+        x[j], x[k] = x[k], x[j]
+        j    =    k
+        p[j] = -p[j]
+        k    =  p[j]
+      end
+    end
+  else
+    for i = 1:n
+      p[i] > 0 && continue
+      p[i] = -p[i]
+      j    =  p[i]
+      while p[j] < 0
+        x[i], x[j] = x[j], x[i]
+        p[j] = -p[j]
+        j    =  p[j]
+      end
+    end
+  end
+  x
+end
+function rowperm!(fwd::Bool, A::AbstractMatrix, p::Vector{Int})
+  m, n = size(A)
+  length(p) == m || throw(DimensionMismatch)
+  scale!(p, -1)
+  if (fwd)
+    for i = 1:m
+      p[i] > 0 && continue
+      j    =    i
+      p[j] = -p[j]
+      k    =  p[j]
+      while p[k] < 0
+        for l = 1:n
+          A[j,l], A[k,l] = A[k,l], A[j,l]
+        end
+        j    =    k
+        p[j] = -p[j]
+        k    =  p[j]
+      end
+    end
+  else
+    for i = 1:m
+      p[i] > 0 && continue
+      p[i] = -p[i]
+      j    =  p[i]
+      while p[j] < 0
+        for l = 1:n
+          A[i,l], A[j,l] = A[j,l], A[i,l]
+        end
+        p[j] = -p[j]
+        j    =  p[j]
+      end
+    end
+  end
+  A
+end
+
+function colperm!(fwd::Bool, A::AbstractMatrix, p::Vector{Int})
+  m, n = size(A)
+  length(p) == n || throw(DimensionMismatch)
+  scale!(p, -1)
+  if (fwd)
+    for i = 1:n
+      p[i] > 0 && continue
+      j    =    i
+      p[j] = -p[j]
+      k    =  p[j]
+      while p[k] < 0
+        for l = 1:m
+          A[l,j], A[l,k] = A[l,k], A[l,j]
+        end
+        j    =    k
+        p[j] = -p[j]
+        k    =  p[j]
+      end
+    end
+  else
+    for i = 1:n
+      p[i] > 0 && continue
+      p[i] = -p[i]
+      j    =  p[i]
+      while p[j] < 0
+        for l = 1:m
+          A[l,i], A[l,j] = A[l,j], A[l,i]
+        end
+        p[j] = -p[j]
+        j    =  p[j]
+      end
+    end
+  end
+  A
+end
 
 ## RowPermutation
 A_mul_B!{T<:BlasFloat}(A::RowPerm, B::StridedVecOrMat{T}) =
-  _LAPACK.lapmr!(1, B, A.p)
+  rowperm!(true, B, A.p)
 A_mul_B!{T<:BlasFloat}(A::StridedMatrix{T}, B::RowPerm) =
-  _LAPACK.lapmt!(0, A, B.p)
+  colperm!(false, A, B.p)
 A_mul_Bc!{T<:BlasFloat}(A::StridedMatrix{T}, B::RowPerm) =
-  _LAPACK.lapmt!(1, A, B.p)
+  colperm!(true, A, B.p)
 Ac_mul_B!{T<:BlasFloat}(A::RowPerm, B::StridedVecOrMat{T}) =
-  _LAPACK.lapmr!(0, B, A.p)
+  rowperm!(false, B, A.p)
 
 ## ColumnPermutation
 A_mul_B!{T<:BlasFloat}(A::ColPerm, B::StridedVecOrMat{T}) =
-  _LAPACK.lapmr!(0, B, A.p)
+  rowperm!(false, B, A.p)
 A_mul_B!{T<:BlasFloat}(A::StridedMatrix{T}, B::ColPerm) =
-  _LAPACK.lapmt!(1, A, B.p)
+  colperm!(true, A, B.p)
 A_mul_Bc!{T<:BlasFloat}(A::StridedMatrix{T}, B::ColPerm) =
-  _LAPACK.lapmt!(0, A, B.p)
+  colperm!(false, A, B.p)
 Ac_mul_B!{T<:BlasFloat}(A::ColPerm, B::StridedVecOrMat{T}) =
-  _LAPACK.lapmr!(1, B, A.p)
+  rowperm!(true, B, A.p)
 
 ## transpose multiplication
 A_mul_Bt!{T}(A::StridedMatrix{T}, B::PermMat) = A_mul_Bc!(A, B)

@@ -305,7 +305,7 @@ function geqp3_adap!{T<:BlasFloat}(A::StridedMatrix{T}, opts::LRAOptions)
   chkstride1(A)
   m, n = size(A)
   lda  = stride(A, 2)
-  jpvt = collect(1:n)
+  jpvt = collect(BlasInt, 1:n)
   l    = min(m, n)
   k    = (opts.rank < 0 || opts.rank > l) ? l : opts.rank
   tau  = Array(T, k)
@@ -342,12 +342,12 @@ function geqp3_adap!{T<:BlasFloat}(A::StridedMatrix{T}, opts::LRAOptions)
     jb = BlasInt(min(nb, k-j+1))
     if is_real
       _LAPACK.laqps!(
-        j-1, jb, fjb, sub(A,:,j:n), sub(jpvt,j:n), sub(tau,j:k),
+        BlasInt(j-1), jb, fjb, sub(A,:,j:n), sub(jpvt,j:n), sub(tau,j:k),
         sub(work,j:n), sub(work,n+j:2*n),
         sub(work,2*n+1:2*n+nb), sub(work,2*n+jb+1:lwork))
     else
       _LAPACK.laqps!(
-        j-1, jb, fjb, sub(A,:,j:n), sub(jpvt,j:n), sub(tau,j:k),
+        BlasInt(j-1), jb, fjb, sub(A,:,j:n), sub(jpvt,j:n), sub(tau,j:k),
         sub(rwork,j:n), sub(rwork,n+j:2*n),
         sub(work,1:nb), sub(work,jb+1:lwork))
     end
@@ -365,6 +365,7 @@ function geqp3_adap!{T<:BlasFloat}(A::StridedMatrix{T}, opts::LRAOptions)
   end
 
   @label ret
+  jpvt = convert(Array{Int}, jpvt)
   jpvt, tau, k
 end
 
