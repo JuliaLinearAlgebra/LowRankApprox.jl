@@ -319,7 +319,6 @@ end
 
 function srft_reshape!(X::StridedMatrix, d::AbstractVector, x::AbstractVecOrMat)
   l, m = size(X)
-  n = l*m
   i = 0
   for j = 1:l, k = 1:m
     i += 1
@@ -329,7 +328,6 @@ end
 function srft_reshape_conj!(
     X::StridedMatrix, d::AbstractVector, x::AbstractVecOrMat)
   l, m = size(X)
-  n = l*m
   i = 0
   for j = 1:l, k = 1:m
     i += 1

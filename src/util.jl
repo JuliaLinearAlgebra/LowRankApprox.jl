@@ -12,7 +12,7 @@ end
 function findmaxabs{T}(x::AbstractVecOrMat{T})
   m  = zero(real(T))
   mi = 0
-  for i = 1:length(x)
+  @inbounds for i = 1:length(x)
     t = abs(x[i])
     t < m && continue
     m  = t
@@ -37,11 +37,11 @@ function hermitianize!(A::AbstractMatrix, uplo::Symbol=:U)
   n = size(A, 2)
   if uplo == :U
     for j = 1:n, i = 1:j
-      A[i,j] = 0.5*(A[i,j] + conj(A[j,i]))
+      @inbounds A[i,j] = 0.5*(A[i,j] + conj(A[j,i]))
     end
   elseif uplo == :L
     for i = 1:n, j = 1:i
-      A[i,j] = 0.5*(A[i,j] + conj(A[j,i]))
+      @inbounds A[i,j] = 0.5*(A[i,j] + conj(A[j,i]))
     end
   end
   Hermitian(A, uplo)
@@ -50,9 +50,9 @@ end
 function iscale!(A::AbstractMatrix, b::AbstractVector)
   m, n = size(A)
   length(b) == n || throw(DimensionMismatch)
-  for j = 1:n
+  @inbounds for j = 1:n
     bj = b[j]
-    for i = 1:m
+    @simd for i = 1:m
       A[i,j] /= bj
     end
   end
@@ -61,8 +61,10 @@ end
 function iscale!(b::AbstractVector, A::AbstractMatrix)
   m, n = size(A)
   length(b) == m || throw(DimensionMismatch)
-  for j = 1:n, i = 1:m
-    A[i,j] /= b[i]
+  @inbounds for j = 1:n
+    @simd for i = 1:m
+      A[i,j] /= b[i]
+    end
   end
   A
 end
@@ -98,7 +100,7 @@ orthrows!{T}(A::StridedMatrix{T}; thin::Bool=true) =
 function scalevec!(s::AbstractVector, x::AbstractVector)
   n = length(x)
   length(s) == n || throw(DimensionMismatch)
-  for i = 1:n
+  @inbounds @simd for i = 1:n
     x[i] *= s[i]
   end
   x
@@ -106,7 +108,7 @@ end
 function iscalevec!(s::AbstractVector, x::AbstractVector)
   n = length(x)
   length(s) == n || throw(DimensionMismatch)
-  for i = 1:n
+  @inbounds @simd for i = 1:n
     x[i] /= s[i]
   end
   x

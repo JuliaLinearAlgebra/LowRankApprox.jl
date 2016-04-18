@@ -34,15 +34,19 @@ function full!{T}(trans::Symbol, A::StridedMatrix{T}, V::IDPackedV{T})
   k, n = size(V)
   if trans == :n
     size(A) == (k, n) || throw(DimensionMismatch)
-    for j = 1:k, i = 1:k
-      A[i,j] = i == j ? 1 : 0
+    @inbounds for j = 1:k
+      @simd for i = 1:k
+        A[i,j] = i == j ? 1 : 0
+      end
     end
     A[:,k+1:n] = V[:T]
     A_mul_Bc!(A, V[:P])
   else
     size(A) == (n, k) || throw(DimensionMismatch)
-    for j = 1:k, i = 1:k
-      A[i,j] = i == j ? 1 : 0
+    @inbounds for j = 1:k
+      @simd for i = 1:k
+        A[i,j] = i == j ? 1 : 0
+      end
     end
     ctranspose!(sub(A,k+1:n,:), V[:T])
     A_mul_B!(V[:P], A)

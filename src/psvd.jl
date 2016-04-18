@@ -283,7 +283,7 @@ end
 function psvdrank{T<:Real}(s::Vector{T}, opts::LRAOptions)
   k = length(s)
   ptol = max(opts.atol, opts.rtol*s[1])
-  for i = 2:k
+  @inbounds for i = 2:k
     s[i] <= ptol && return i - 1
   end
   k

@@ -69,7 +69,7 @@ function prange_sub{T}(trans::Symbol, A::AbstractMatrix{T}, opts::LRAOptions)
   else
     n = size(A, 2)
     B = Array(T, n, k)
-    for j = 1:k, i = 1:n
+    @inbounds for j = 1:k, i = 1:n
       B[i,j] = conj(A[F[:p][j],i])
     end
   end

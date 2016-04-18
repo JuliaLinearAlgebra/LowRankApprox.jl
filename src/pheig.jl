@@ -287,7 +287,7 @@ function pheigrank1{T<:Real}(w::StridedVector, opts::LRAOptions, wmax::T)
   k = length(w)
   k = opts.rank >= 0 ? min(opts.rank, k) : k
   ptol = max(opts.atol, opts.rtol*wmax)
-  for i = 2:k
+  @inbounds for i = 2:k
     abs(w[i]) <= ptol && return i - 1
   end
   k
@@ -297,7 +297,7 @@ function pheigorth!{T<:Real}(
     values::Vector{T}, vectors::Matrix, opts::LRAOptions)
   n = length(values)
   a = 1
-  while a <= n
+  @inbounds while a <= n
     va = values[a]
     b  = a + 1
     while b <= n

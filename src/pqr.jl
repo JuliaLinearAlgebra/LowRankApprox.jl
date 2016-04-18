@@ -330,12 +330,12 @@ function geqp3_adap_main!{T<:BlasFloat}(
 
   # initialize column norms
   if is_real
-    for j = 1:n
+    @inbounds for j = 1:n
       work[j] = work[n+j] = norm(sub(A,:,j))
     end
   else
     rwork = Array(eltype(real(zero(T))), 2*n)
-    for j = 1:n
+    @inbounds for j = 1:n
       rwork[j] = rwork[n+j] = norm(sub(A,:,j))
     end
   end
@@ -364,7 +364,7 @@ function geqp3_adap_main!{T<:BlasFloat}(
 
     # check for rank termination
     if abs(A[j-1,j-1]) <= ptol
-      for i = (j-fjb[1]):j-1
+      @inbounds for i = (j-fjb[1]):j-1
         abs(A[i,i]) <= ptol && return i - 1
       end
     end
@@ -434,19 +434,19 @@ function maxdet_update!{S}(
   k, n = size(T)
   n += k
   p[i], p[k+j] = p[k+j], p[i]
-  for l = 1:k
+  @inbounds @simd for l = 1:k
     work[l] = T[l,j]
     T[l,j] = 0
   end
   work[i] -= 1
   T[i,j] = 1
-  for l = 1:n-k
+  @inbounds for l = 1:n-k
     work[k+l] = conj(T[i,l])
   end
   BLAS.ger!(-1/(1 + work[i]), sub(work,1:k), sub(work,k+1:n), T)
   if retr
     A_mul_B!(sub(work,k+1:2*k), R1, sub(work,1:k))
-    for l = 1:k
+    @inbounds @simd for l = 1:k
       R1[l,i] += work[k+l]
     end
   end
