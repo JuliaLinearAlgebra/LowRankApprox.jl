@@ -183,8 +183,8 @@ end
 function sketchfact_randn(
     side::Symbol, trans::Symbol, A::AbstractMatOrLinOp, opts::LRAOptions)
   if opts.sketchfact_adap || opts.rank < 0
-    n = opts.nb
-    opts_ = copy(opts, rrqr_delta=-1.)
+    n = opts.sketchfact_init
+    opts_ = copy(opts, maxdet_tol=-1.)
     while true
       order = opts.sketchfact_randn_samp(n)
       B = sketch_randn(side, trans, A, order, opts)
@@ -267,8 +267,8 @@ end
 function sketchfact_sub(
     side::Symbol, trans::Symbol, A::AbstractMatrix, opts::LRAOptions)
   if opts.sketchfact_adap || opts.rank < 0
-    n = opts.nb
-    opts_ = copy(opts, rrqr_delta=-1.)
+    n = opts.sketchfact_init
+    opts_ = copy(opts, maxdet_tol=-1.)
     while true
       order = opts.sketchfact_sub_samp(n)
       B = sketch_sub(side, trans, A, order, opts)
@@ -476,8 +476,8 @@ end
 function sketchfact_srft(
     side::Symbol, trans::Symbol, A::AbstractMatrix, opts::LRAOptions)
   if opts.sketchfact_adap || opts.rank < 0
-    n = opts.nb
-    opts_ = copy(opts, rrqr_delta=-1.)
+    n = opts.sketchfact_init
+    opts_ = copy(opts, maxdet_tol=-1.)
     while true
       order = opts.sketchfact_srft_samp(n)
       B = sketch_srft(side, trans, A, order, opts)
@@ -597,8 +597,8 @@ end
 function sketchfact_sprn(
     side::Symbol, trans::Symbol, A::AbstractMatrix, opts::LRAOptions)
   if opts.sketchfact_adap || opts.rank < 0
-    n = opts.nb
-    opts_ = copy(opts, rrqr_delta=-1.)
+    n = opts.sketchfact_init
+    opts_ = copy(opts, maxdet_tol=-1.)
     while true
       B = sketch_sprn(side, trans, A, n, opts)
       p, tau, k = geqp3_adap!(B, opts_)

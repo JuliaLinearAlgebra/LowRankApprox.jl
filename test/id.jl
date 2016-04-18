@@ -7,7 +7,7 @@ tic()
 m = 128
 n =  64
 M = matrixlib(:fourier, rand(m), rand(n))
-opts = LRAOptions(rrqr_delta=0., sketch_randn_niter=1)
+opts = LRAOptions(maxdet_tol=0., sketch_randn_niter=1)
 
 for (t, s) in ((:none,                 :none ),
                (:RandomGaussian,       :randn),

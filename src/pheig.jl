@@ -302,7 +302,7 @@ function pheigorth!{T<:Real}(
     b  = a + 1
     while b <= n
       vb = values[b]
-      2*abs((va - vb)/(va + vb)) > opts.pheig_orthtol && break
+      symrelerr(va, vb) > opts.pheig_orthtol && break
       b += 1
     end
     b -= 1

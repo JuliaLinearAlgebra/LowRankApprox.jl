@@ -111,3 +111,5 @@ function iscalevec!(s::AbstractVector, x::AbstractVector)
   end
   x
 end
+
+symrelerr(x, y) = 2*abs((x - y)/(x + y))

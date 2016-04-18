@@ -295,23 +295,32 @@ function pqrr{S}(R::Matrix{S}, T::Matrix{S})
   R_
 end
 
-## core backend routine: rank-adaptive GEQP3 with RRQR postprocessing
+## core backend routine: rank-adaptive GEQP3 with determinant maximization
 function pqrfact_backend!(A::StridedMatrix, opts::LRAOptions)
   p, tau, k = geqp3_adap!(A, opts)
   pqrback_postproc(A, p, tau, k, opts)
 end
 
-function geqp3_adap!{T<:BlasFloat}(A::StridedMatrix{T}, opts::LRAOptions)
-  chkstride1(A)
+function geqp3_adap!{T}(A::StridedMatrix{T}, opts::LRAOptions)
   m, n = size(A)
-  lda  = stride(A, 2)
   jpvt = collect(BlasInt, 1:n)
   l    = min(m, n)
   k    = (opts.rank < 0 || opts.rank > l) ? l : opts.rank
   tau  = Array(T, k)
+  if k > 0
+    k = geqp3_adap_main!(A, jpvt, tau, opts)
+  end
+  jpvt = convert(Array{Int}, jpvt)
+  jpvt, tau, k
+end
 
-  # quick return if empty
-  k == 0 && @goto ret
+function geqp3_adap_main!{T<:BlasFloat}(
+    A::StridedMatrix{T}, jpvt::Vector{BlasInt}, tau::Vector{T},
+    opts::LRAOptions)
+  chkstride1(A)
+  lda = stride(A, 2)
+  n   = length(jpvt)
+  k   = length(tau)
 
   # set block size and allocate work array
   nb      = min(opts.nb, k)
@@ -356,17 +365,11 @@ function geqp3_adap!{T<:BlasFloat}(A::StridedMatrix{T}, opts::LRAOptions)
     # check for rank termination
     if abs(A[j-1,j-1]) <= ptol
       for i = (j-fjb[1]):j-1
-        if abs(A[i,i]) <= ptol
-          k = i - 1
-          @goto ret
-        end
+        abs(A[i,i]) <= ptol && return i - 1
       end
     end
   end
-
-  @label ret
-  jpvt = convert(Array{Int}, jpvt)
-  jpvt, tau, k
+  k
 end
 
 function pqrback_postproc{S}(
@@ -375,25 +378,25 @@ function pqrback_postproc{S}(
   retq = contains(opts.pqrfact_retval, "q")
   retr = contains(opts.pqrfact_retval, "r")
   rett = contains(opts.pqrfact_retval, "t")
-  rrqr = 0 < k < size(A,2) && opts.rrqr_delta >= 0
+  maxdet = 0 < k < size(A,2) && opts.maxdet_tol >= 0
   Q = retq ? LAPACK.orgqr!(A[:,1:k], tau, k) : nothing
-  R = retr || rett || rrqr ? triu!(A[1:k,:]) : nothing
-  T = rett || rrqr ? rrqrt(R) : nothing
-  if rrqr
-    rrqr_swapcols!(Q, R, p, T, opts)
+  R = retr || rett || maxdet ? triu!(A[1:k,:]) : nothing
+  T = rett || maxdet ? maxdet_t(R) : nothing
+  if maxdet
+    maxdet_swapcols!(Q, R, p, T, opts)
     R = retr ? R : nothing
   end
   retq && retr && !rett && return PartialQR(Q, R, p)
   PQRFactors(Q, R, p, k, T)
 end
 
-function rrqrt{S}(R::StridedMatrix{S})
+function maxdet_t{S}(R::StridedMatrix{S})
   k, n = size(R)
   T = R[:,k+1:n]
   A_ldiv_B!(UpperTriangular(sub(R,1:k,1:k)), T)
 end
 
-function rrqr_swapcols!{S}(
+function maxdet_swapcols!{S}(
     Q::Union{Matrix{S}, Void}, R::Matrix{S}, p::Vector{Int}, T::Matrix{S},
     opts::LRAOptions)
   k, n  = size(R)
@@ -404,15 +407,15 @@ function rrqr_swapcols!{S}(
   niter = 0
   while true
     Tmax, idx = findmaxabs(T)
-    Tmax <= 1 + opts.rrqr_delta && break
-    if niter == opts.rrqr_niter
+    Tmax <= 1 + opts.maxdet_tol && break
+    if niter == opts.maxdet_niter
       opts.verb &&
-        warn("iteration limit ($niter) reached in RRQR postprocessing")
+        warn("iteration limit ($niter) reached in determinant maximization")
       break
     end
     niter += 1
     i, j = ind2sub((k, n-k), idx)
-    rrqr_update!(R1, p, T, work, i, j, retr)
+    maxdet_update!(R1, p, T, work, i, j, retr)
   end
   niter == 0 && return
   F = qrfact!(R1)
@@ -425,7 +428,7 @@ function rrqr_swapcols!{S}(
   end
 end
 
-function rrqr_update!{S}(
+function maxdet_update!{S}(
     R1::StridedMatrix{S}, p::Vector{Int}, T::Matrix{S}, work::Vector{S},
     i::Integer, j::Integer, retr::Bool)
   k, n = size(T)

@@ -80,16 +80,17 @@ export
 
 type LRAOptions
   atol::Float64
+  maxdet_niter::Int
+  maxdet_tol::Float64
   nb::Int
   pheig_orthtol::Float64
   pqrfact_retval::ASCIIString
   rank::Int
-  rrqr_delta::Float64
-  rrqr_niter::Int
   rtol::Float64
   sketch::Symbol
   sketch_randn_niter::Int
   sketchfact_adap::Bool
+  sketchfact_init::Int
   sketchfact_randn_samp::Function
   sketchfact_srft_samp::Function
   sketchfact_sub_samp::Function
@@ -99,16 +100,17 @@ end
 function LRAOptions{T}(::Type{T}; args...)
   opts = LRAOptions(
     0,                  # atol
+    -1,                 # maxdet_niter
+    -1,                 # maxdet_tol
     32,                 # nb
     sqrt(eps(real(T))), # pheig_orthtol
     "qr",               # pqrfact_retval
     -1,                 # rank
-    -1,                 # rrqr_delta
-    -1,                 # rrqr_niter
     5*eps(real(T)),     # rtol
     :randn,             # sketch
     0,                  # sketch_randn_niter
     true,               # sketchfact_adap
+    32,                 # sketchfact_init
     n -> n + 8,         # sketchfact_randn_samp
     n -> n + 8,         # sketchfact_srft_samp
     n -> 4*n + 8,       # sketchfact_sub_samp
@@ -139,6 +141,7 @@ function chkopts!(opts::LRAOptions)
   opts.rtol >= 0 || throw(ArgumentError("rtol"))
   opts.sketch in (:none, :randn, :sprn, :srft, :sub) ||
     throw(ArgumentError("sketch"))
+  opts.sketchfact_init > 0 || throw(ArgumentError("sketchfact_init"))
   opts.pqrfact_retval = lowercase(opts.pqrfact_retval)
 end
 function chkopts!(opts::LRAOptions, A)
