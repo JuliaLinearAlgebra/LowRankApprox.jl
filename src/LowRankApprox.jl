@@ -6,7 +6,7 @@ module LowRankApprox
 importall Base
 using Base.LinAlg: BlasFloat, BlasInt, chksquare, chkstride1
 using FastLinAlg
-using FastLinAlg: matrixlib, snorm, snormdiff
+using FastLinAlg: ColumnPermutation, matrixlib, snorm, snormdiff
 
 export
 
@@ -30,11 +30,6 @@ export
   ID,
   idfact, idfact!,
   id, id!,
-
-  # permute.jl
-  PermutationMatrix,
-  RowPermutation,
-  ColumnPermutation,
 
   # pheig.jl
   HermitianPartialEigen,
@@ -157,7 +152,6 @@ chktrans(trans::Symbol) = trans in (:n, :c) || throw(ArgumentError("trans"))
 # source files
 
 include("lapack.jl")
-include("permute.jl")
 include("trapezoidal.jl")
 include("util.jl")
 
