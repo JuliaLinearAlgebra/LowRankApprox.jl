@@ -91,18 +91,23 @@ type RandomGaussian <: SketchMatrix
   k::Int
 end
 
-full{T}(::Type{T}, side::Symbol, A::RandomGaussian, n::Integer) =
-  side == :left ? crandn(T, A.k, n) : crandn(T, n, A.k)
+function A_mul_B!{T}(C, A::RandomGaussian, B::AbstractMatOrLinOp{T})
+  S = crandn(T, A.k, size(B,1))
+  A_mul_B!(C, S, B)
+end
+function A_mul_Bc!{T}(C, A::RandomGaussian, B::AbstractMatOrLinOp{T})
+  S = crandn(T, A.k, size(B,2))
+  A_mul_Bc!(C, S, B)
+end
 
-A_mul_B!{T}(C, A::RandomGaussian, B::AbstractMatOrLinOp{T}) =
-  (S = full(T, :left, A, size(B,1)); A_mul_B!(C, S, B))
-A_mul_Bc!{T}(C, A::RandomGaussian, B::AbstractMatOrLinOp{T}) =
-  (S = full(T, :left, A, size(B,2)); A_mul_Bc!(C, S, B))
-
-A_mul_B!{T}(C, A::AbstractMatOrLinOp{T}, B::RandomGaussian) =
-  (S = full(T, :right, B, size(A,2)); A_mul_B!(C, A, S))
-Ac_mul_B!{T}(C, A::AbstractMatOrLinOp{T}, B::RandomGaussian) =
-  (S = full(T, :right, B, size(A,1)); Ac_mul_B!(C, A, S))
+function A_mul_B!{T}(C, A::AbstractMatOrLinOp{T}, B::RandomGaussian)
+  S = crandn(T, size(A,2), B.k)
+  A_mul_B!(C, A, S)
+end
+function Ac_mul_B!{T}(C, A::AbstractMatOrLinOp{T}, B::RandomGaussian)
+  S = crandn(T, size(A,1), B.k)
+  Ac_mul_B!(C, A, S)
+end
 
 ## sketch interface
 
@@ -289,8 +294,20 @@ type SRFT <: SketchMatrix
   k::Int
 end
 
-srft_rand{T<:Real}(::Type{T}, n::Integer) = 2*bitrand(n) - 1
-srft_rand{T<:Complex}(::Type{T}, n::Integer) = exp(2im*pi*rand(n))
+function srft_rand{T<:Real}(::Type{T}, n::Integer)
+  x = rand(n)
+  @simd for i = 1:n
+    @inbounds x[i] = 2*(x[i] > 0.5) - 1
+  end
+  x
+end
+function srft_rand{T<:Complex}(::Type{T}, n::Integer)
+  x = crandn(T, n)
+  @inbounds for i = 1:n
+    x[i] /= abs(x[i])
+  end
+  x
+end
 
 function srft_init{T<:Real}(::Type{T}, n::Integer, k::Integer)
   l = k
@@ -320,7 +337,7 @@ end
 function srft_reshape!(X::StridedMatrix, d::AbstractVector, x::AbstractVecOrMat)
   l, m = size(X)
   i = 0
-  for j = 1:l, k = 1:m
+  @inbounds for j = 1:l, k = 1:m
     i += 1
     X[j,k] = d[i]*x[i]
   end
@@ -329,7 +346,7 @@ function srft_reshape_conj!(
     X::StridedMatrix, d::AbstractVector, x::AbstractVecOrMat)
   l, m = size(X)
   i = 0
-  for j = 1:l, k = 1:m
+  @inbounds for j = 1:l, k = 1:m
     i += 1
     X[j,k] = d[i]*conj(x[i])
   end
@@ -347,7 +364,7 @@ function srft_apply!{T<:Real}(
   nnyq = div(n, 2)
   cnyq = div(l, 2)
   i = 1
-  while i <= k
+  @inbounds while i <= k
     idx_ = idx[i] - 1
     row = fld(idx_, l) + 1
     col = rem(idx_, l) + 1
@@ -361,6 +378,7 @@ function srft_apply!{T<:Real}(
 
     # initialze next entry to fill
     y[i] = 0
+    s = one(T)
 
     # compute only one entry if purely real or no more space
     if in == 0 || in == nnyq || i == k
@@ -368,7 +386,8 @@ function srft_apply!{T<:Real}(
         a = X[ia+1,j]
         b = ib == 0 || ib == ia ? zero(T) : X[ib+1,j]
         b = cswap ? -b : b
-        y[i] += real(w^(j - 1)*(a + b*im))
+        y[i] += real(s*(a + b*im))
+        s *= w
       end
 
     # else compute one entry each for real/imag parts
@@ -378,9 +397,10 @@ function srft_apply!{T<:Real}(
         a = X[ia+1,j]
         b = ib == 0 || ib == ia ? zero(T) : X[ib+1,j]
         b = cswap ? -b : b
-        z = w^(j - 1)*(a + b*im)
+        z = s*(a + b*im)
         y[i  ] += real(z)
         y[i+1] += imag(z)
+        s *= w
       end
       i += 1
     end
@@ -397,13 +417,15 @@ function srft_apply!{T<:Complex}(
   A_mul_B!(X, fftplan!, X)
   wn = exp(-2im*pi/n)
   wm = exp(-2im*pi/m)
-  for i = 1:k
+  @inbounds for i = 1:k
     row = fld(idx[i] - 1, l) + 1
     col = rem(idx[i] - 1, l) + 1
     w = wm^(row - 1)*wn^(col - 1)
     y[i] = 0
+    s = one(T)
     for j = 1:m
-      y[i] += w^(j - 1)*X[col,j]
+      y[i] += s*X[col,j]
+      s *= w
     end
   end
 end
@@ -503,7 +525,7 @@ function A_mul_B!{T}(C, A::SparseRandGauss, B::AbstractMatrix{T})
   size(C) == (k, n) || throw(DimensionMismatch)
   r = randperm(m)
   idx = 0
-  for i = 1:k
+  @inbounds for i = 1:k
     p = fld(m - i, k) + 1
     s = crandn(T, p)
     for j = 1:n
@@ -522,7 +544,7 @@ function A_mul_Bc!{T}(C, A::SparseRandGauss, B::AbstractMatrix{T})
   size(C) == (k, m) || throw(DimensionMismatch)
   r = randperm(n)
   idx = 0
-  for i = 1:k
+  @inbounds for i = 1:k
     p = fld(n - i, k) + 1
     s = crandn(T, p)
     for j = 1:m
@@ -542,7 +564,7 @@ function A_mul_B!{T}(C, A::AbstractMatrix{T}, B::SparseRandGauss)
   size(C) == (m, k) || throw(DimensionMismatch)
   r = randperm(n)
   idx = 0
-  for j = 1:k
+  @inbounds for j = 1:k
     p = fld(n - j, k) + 1
     s = crandn(T, p)
     for i = 1:m
@@ -561,7 +583,7 @@ function Ac_mul_B!{T}(C, A::AbstractMatrix{T}, B::SparseRandGauss)
   size(C) == (n, k) || throw(DimensionMismatch)
   r = randperm(m)
   idx = 0
-  for j = 1:k
+  @inbounds for j = 1:k
     p = fld(m - j, k) + 1
     s = crandn(T, p)
     for i = 1:n

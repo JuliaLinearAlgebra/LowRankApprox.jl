@@ -346,7 +346,7 @@ function geqp3_adap_main!{T<:BlasFloat}(
 
   # block factorization
   j = 1
-  fjb = Array(BlasInt, 1)
+  fjb = Ref{BlasInt}()
   while j <= k
     jb = BlasInt(min(nb, k-j+1))
     if is_real
@@ -360,14 +360,15 @@ function geqp3_adap_main!{T<:BlasFloat}(
         sub(rwork,j:n), sub(rwork,n+j:2*n),
         sub(work,1:nb), sub(work,jb+1:lwork))
     end
-    j += fjb[1]
+    jn = j + fjb[]
 
     # check for rank termination
-    if abs(A[j-1,j-1]) <= ptol
-      @inbounds for i = (j-fjb[1]):j-1
+    if abs(A[jn-1,jn-1]) <= ptol
+      @inbounds for i = j:jn-1
         abs(A[i,i]) <= ptol && return i - 1
       end
     end
+    j = jn
   end
   k
 end
@@ -436,10 +437,10 @@ function maxdet_update!{S}(
   p[i], p[k+j] = p[k+j], p[i]
   @inbounds @simd for l = 1:k
     work[l] = T[l,j]
-    T[l,j] = 0
+    T[l,j]  = 0
   end
   work[i] -= 1
-  T[i,j] = 1
+  T[i,j]   = 1
   @inbounds for l = 1:n-k
     work[k+l] = conj(T[i,l])
   end

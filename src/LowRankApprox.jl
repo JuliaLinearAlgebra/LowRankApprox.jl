@@ -6,9 +6,13 @@ module LowRankApprox
 importall Base
 using Base.LinAlg: BlasFloat, BlasInt, chksquare, chkstride1
 using FastLinAlg
-using FastLinAlg: ColumnPermutation, matrixlib, snorm, snormdiff
 
 export
+
+  # FastLinAlg.jl
+  matrixlib,
+  snorm,
+  snormdiff,
 
   # LowRankApprox.jl
   LRAOptions,
@@ -64,12 +68,7 @@ export
   # trapezoidal.jl
   Trapezoidal,
   LowerTrapezoidal,
-  UpperTrapezoidal,
-
-  # FastLinAlg.jl
-  matrixlib,
-  snorm,
-  snormdiff
+  UpperTrapezoidal
 
 # common
 
