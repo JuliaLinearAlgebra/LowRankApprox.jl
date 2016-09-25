@@ -3,8 +3,8 @@
 
 module _LAPACK
 
+import Base.BLAS.@blasfunc
 import Base.LinAlg: BlasFloat, BlasInt, chkstride1
-import Base.blasfunc
 
 const liblapack = Base.liblapack_name
 
@@ -21,7 +21,7 @@ for (laqps, elty, relty) in ((:slaqps_, :Float32,    :Float32),
         auxv::StridedVector{$elty}, F::StridedVector{$elty})
       m, n = size(A)
       ccall(
-        ($(blasfunc(laqps)), liblapack), Void,
+        (@blasfunc($laqps), liblapack), Void,
         (Ptr{BlasInt}, Ptr{BlasInt}, Ptr{BlasInt}, Ptr{BlasInt}, Ptr{BlasInt},
          Ptr{$elty}, Ptr{BlasInt}, Ptr{BlasInt}, Ptr{$elty},
          Ptr{$relty}, Ptr{$relty}, Ptr{$elty}, Ptr{$elty}, Ptr{BlasInt}),

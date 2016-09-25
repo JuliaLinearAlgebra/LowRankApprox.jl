@@ -12,8 +12,8 @@ References:
 =#
 
 for sfx in ("", "!")
-  f = symbol("prange", sfx)
-  g = symbol("pqrfact", sfx)
+  f = Symbol("prange", sfx)
+  g = Symbol("pqrfact", sfx)
   @eval begin
     function $f{T}(
         trans::Symbol, A::AbstractMatOrLinOp{T}, opts::LRAOptions=LRAOptions(T);
@@ -22,7 +22,7 @@ for sfx in ("", "!")
       opts = copy(opts; args...)
       chkopts!(opts, A)
       if trans == :b
-        chksquare(A)
+        checksquare(A)
         ishermitian(A) && return $f(:n, A, opts)
         opts.pqrfact_retval = "qr"
         if opts.sketch == :none
@@ -37,10 +37,10 @@ for sfx in ("", "!")
         B = Array(T, size(A,1), kr+kc)
         B[:,   1:kr   ] = Fr[:Q]
         B[:,kr+1:kr+kc] = Fc[:Q]
-        Rr = sub(Fr.R, 1:kr, 1:kr)
-        Rc = sub(Fc.R, 1:kc, 1:kc)
-        A_mul_B!(sub(B,:,   1:kr   ), UpperTriangular(Rr))
-        A_mul_B!(sub(B,:,kr+1:kr+kc), UpperTriangular(Rc))
+        Rr = view(Fr.R, 1:kr, 1:kr)
+        Rc = view(Fc.R, 1:kc, 1:kc)
+        A_mul_B!(view(B,:,   1:kr   ), UpperTriangular(Rr))
+        A_mul_B!(view(B,:,kr+1:kr+kc), UpperTriangular(Rc))
         opts.pqrfact_retval="q"
         return pqrfact_backend!(B, opts)[:Q]
       else

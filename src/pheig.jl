@@ -26,7 +26,7 @@ ctranspose(A::PartialHermEigen) = copy(A)
 transpose!(A::PartialHermEigen) = conj!(A.vectors)
 transpose(A::PartialHermEigen) = PartialHermEigen(A.values, conj(A.vectors))
 
-full(A::PartialHermEigen) = scale(A[:vectors], A[:values])*A[:vectors]'
+full(A::PartialHermEigen) = (A[:vectors]*Diagonal(A[:values]))*A[:vectors]'
 
 function getindex(A::PartialHermEigen, d::Symbol)
   if     d == :k        return length(A.values)
@@ -125,7 +125,7 @@ function A_mul_Bt!{T}(
 end
 
 for f in (:Ac_mul_B, :At_mul_B)
-  f! = symbol(f, "!")
+  f! = Symbol(f, "!")
   @eval begin
     function $f!{T}(
         C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialHermEigen{T})
@@ -229,7 +229,7 @@ end
 
 function pheigfact{T}(
     A::AbstractMatOrLinOp{T}, opts::LRAOptions=LRAOptions(T); args...)
-  chksquare(A)
+  checksquare(A)
   !ishermitian(A) && error("matrix must be Hermitian")
   opts = isempty(args) ? opts : copy(opts; args...)
   V = idfact(:n, A, opts)
@@ -252,7 +252,7 @@ end
 
 function pheigvals{T}(
     A::AbstractMatOrLinOp{T}, opts::LRAOptions=LRAOptions(T); args...)
-  chksquare(A)
+  checksquare(A)
   !ishermitian(A) && error("matrix must be Hermitian")
   opts = isempty(args) ? opts : copy(opts; args...)
   V = idfact(:n, A, opts)
@@ -279,8 +279,8 @@ function pheigrank{T<:Real}(w::Vector{T}, opts::LRAOptions)
   k = opts.rank >= 0 ? min(opts.rank, n) : n
   wmax = max(abs(w[1]), abs(w[n]))
   idx = searchsorted(w, 0)
-  kn = pheigrank1(sub(w,1:first(idx)-1),   opts, wmax)
-  kp = pheigrank1(sub(w,n:-1:last(idx)+1), opts, wmax)
+  kn = pheigrank1(view(w,1:first(idx)-1),   opts, wmax)
+  kp = pheigrank1(view(w,n:-1:last(idx)+1), opts, wmax)
   kn, kp
 end
 function pheigrank1{T<:Real}(w::StridedVector, opts::LRAOptions, wmax::T)
@@ -307,9 +307,9 @@ function pheigorth!{T<:Real}(
     end
     b -= 1
     for i = a:b
-      vi = sub(vectors, :, i)
+      vi = view(vectors, :, i)
       for j = i+1:b
-        vj = sub(vectors, :, j)
+        vj = view(vectors, :, j)
         BLAS.axpy!(-dot(vi,vj), vi, vj)
       end
     end

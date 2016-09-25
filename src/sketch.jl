@@ -127,7 +127,7 @@ end
 
 for (trans, p, q, g, h) in ((:n, :n, :m, :A_mul_B!,  :A_mul_Bc!),
                             (:c, :m, :n, :A_mul_Bc!, :A_mul_B! ))
-  f = symbol("sketch_randn_l", trans)
+  f = Symbol("sketch_randn_l", trans)
   @eval begin
     function $f{T}(A::AbstractMatOrLinOp{T}, order::Integer, opts::LRAOptions)
       S = RandomGaussian(order)
@@ -157,7 +157,7 @@ end
 
 for (trans, p, q, g, h) in ((:n, :m, :n, :A_mul_B!,  :Ac_mul_B!),
                             (:c, :n, :m, :Ac_mul_B!, :A_mul_B! ))
-  f = symbol("sketch_randn_r", trans)
+  f = Symbol("sketch_randn_r", trans)
   @eval begin
     function $f{T}(A::AbstractMatOrLinOp{T}, order::Integer, opts::LRAOptions)
       S = RandomGaussian(order)
@@ -216,7 +216,7 @@ function A_mul_B!(C, A::RandomSubset, B::AbstractMatrix)
   size(C) == (k, n) || throw(DimensionMismatch)
   r = rand(1:m, k)
   for i = 1:k
-    copy!(sub(C,i,:), sub(B,r[i],:))
+    copy!(view(C,[i],:), view(B,r[i:i],:))
   end
   C
 end
@@ -226,7 +226,7 @@ function A_mul_Bc!(C, A::RandomSubset, B::AbstractMatrix)
   size(C) == (k, m) || throw(DimensionMismatch)
   r = rand(1:n, k)
   for i = 1:k
-    ctranspose!(sub(C,i,:), sub(B,:,r[i]))
+    ctranspose!(view(C,[i],:), view(B,:,r[i:i]))
   end
   C
 end
@@ -237,7 +237,7 @@ function A_mul_B!(C, A::AbstractMatrix, B::RandomSubset)
   size(C) == (m, k) || throw(DimensionMismatch)
   r = rand(1:n, k)
   for i = 1:k
-    copy!(sub(C,:,i), sub(A,:,r[i]))
+    copy!(view(C,:,[i]), view(A,:,r[i:i]))
   end
   C
 end
@@ -247,7 +247,7 @@ function Ac_mul_B!(C, A::AbstractMatrix, B::RandomSubset)
   size(C) == (n, k) || throw(DimensionMismatch)
   r = rand(1:m, k)
   for i = 1:k
-    ctranspose!(sub(C,:,i), sub(A,r[i],:))
+    ctranspose!(view(C,:,[i]), view(A,r[i:i],:))
   end
   C
 end
@@ -436,8 +436,8 @@ function A_mul_B!{T}(C, A::SRFT, B::AbstractMatrix{T})
   size(C) == (k, n) || throw(DimensionMismatch)
   X, d, idx, fftplan! = srft_init(T, m, k)
   for i = 1:n
-    srft_reshape!(X, d, sub(B,:,i))
-    srft_apply!(sub(C,:,i), X, idx, fftplan!)
+    srft_reshape!(X, d, view(B,:,i))
+    srft_apply!(view(C,:,i), X, idx, fftplan!)
   end
   C
 end
@@ -447,8 +447,8 @@ function A_mul_Bc!{T}(C, A::SRFT, B::AbstractMatrix{T})
   size(C) == (k, m) || throw(DimensionMismatch)
   X, d, idx, fftplan! = srft_init(T, n, k)
   for i = 1:m
-    srft_reshape_conj!(X, d, sub(B,i,:))
-    srft_apply!(sub(C,:,i), X, idx, fftplan!)
+    srft_reshape_conj!(X, d, view(B,i,:))
+    srft_apply!(view(C,:,i), X, idx, fftplan!)
   end
   C
 end
@@ -459,8 +459,8 @@ function A_mul_B!{T}(C, A::AbstractMatrix{T}, B::SRFT)
   size(C) == (m, k) || throw(DimensionMismatch)
   X, d, idx, fftplan! = srft_init(T, n, k)
   for i = 1:m
-    srft_reshape!(X, d, sub(A,i,:))
-    srft_apply!(sub(C,i,:), X, idx, fftplan!)
+    srft_reshape!(X, d, view(A,i,:))
+    srft_apply!(view(C,i,:), X, idx, fftplan!)
   end
   C
 end
@@ -470,8 +470,8 @@ function Ac_mul_B!{T}(C, A::AbstractMatrix{T}, B::SRFT)
   size(C) == (n, k) || throw(DimensionMismatch)
   X, d, idx, fftplan! = srft_init(T, m, k)
   for i = 1:n
-    srft_reshape_conj!(X, d, sub(A,:,i))
-    srft_apply!(sub(C,i,:), X, idx, fftplan!)
+    srft_reshape_conj!(X, d, view(A,:,i))
+    srft_apply!(view(C,i,:), X, idx, fftplan!)
   end
   C
 end

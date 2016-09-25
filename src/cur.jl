@@ -177,11 +177,11 @@ function getindex{T}(A::SymCUR{T}, d::Symbol)
 end
 
 ishermitian(::CUR) = false
-issym(::CUR) = false
+issymmetric(::CUR) = false
 ishermitian(::HermCUR) = true
-issym{T}(A::HermCUR{T}) = isreal(A)
+issymnetric{T}(A::HermCUR{T}) = isreal(A)
 ishermitian{T}(A::SymCUR{T}) = isreal(A)
-issym(::SymCUR) = true
+issymmetric(::SymCUR) = true
 
 isreal{T}(::AbstractCUR{T}) = T <: Real
 
@@ -201,7 +201,7 @@ A_mul_B!{T}(C::StridedVecOrMat{T}, A::CUR{T}, B::StridedVecOrMat{T}) =
   A_mul_B!(C, A[:C], A[:U]*(A[:R]*B))
 
 for f in (:A_mul_Bc, :A_mul_Bt)
-  f! = symbol(f, "!")
+  f! = Symbol(f, "!")
   @eval begin
     function $f!{T}(C::StridedMatrix{T}, A::CUR{T}, B::StridedMatrix{T})
       tmp = $f(A[:R], B)
@@ -211,7 +211,7 @@ for f in (:A_mul_Bc, :A_mul_Bt)
 end
 
 for f in (:Ac_mul_B, :At_mul_B)
-  f! = symbol(f, "!")
+  f! = Symbol(f, "!")
   @eval begin
     function $f!{T}(C::StridedVecOrMat{T}, A::CUR{T}, B::StridedVecOrMat{T})
       tmp = $f(A[:C], B)
@@ -222,8 +222,8 @@ for f in (:Ac_mul_B, :At_mul_B)
 end
 
 for (f, g) in ((:Ac_mul_Bc, :Ac_mul_B), (:At_mul_Bt, :At_mul_B))
-  f! = symbol(f, "!")
-  g! = symbol(g, "!")
+  f! = Symbol(f, "!")
+  g! = Symbol(g, "!")
   @eval begin
     function $f!{T}(C::StridedMatrix{T}, A::CUR{T}, B::StridedMatrix{T})
       tmp = $f(A[:C], B)
@@ -239,7 +239,7 @@ A_mul_B!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::CUR{T}) =
   A_mul_B!(C, (A*B[:C])*B[:U], B[:R])
 
 for f in (:A_mul_Bc, :A_mul_Bt)
-  f! = symbol(f, "!")
+  f! = Symbol(f, "!")
   @eval begin
     function $f!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::CUR{T})
       tmp = $f(A, B[:R])
@@ -250,7 +250,7 @@ for f in (:A_mul_Bc, :A_mul_Bt)
 end
 
 for f in (:Ac_mul_B, :At_mul_B)
-  f! = symbol(f, "!")
+  f! = Symbol(f, "!")
   @eval begin
     function $f!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::CUR{T})
       tmp = $f(A, B[:C])
@@ -260,8 +260,8 @@ for f in (:Ac_mul_B, :At_mul_B)
 end
 
 for (f, g) in ((:Ac_mul_Bc, :A_mul_Bc), (:At_mul_Bt, :A_mul_Bt))
-  f! = symbol(f, "!")
-  g! = symbol(g, "!")
+  f! = Symbol(f, "!")
+  g! = Symbol(g, "!")
   @eval begin
     function $f!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::CUR{T})
       tmp = $f(A, B[:R])
@@ -323,7 +323,7 @@ function A_mul_Bt!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::HermCUR{T})
 end
 
 for f in (:Ac_mul_B, :At_mul_B)
-  f! = symbol(f, "!")
+  f! = Symbol(f, "!")
   @eval begin
     function $f!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::HermCUR{T})
       tmp = $f(A, B[:C])
@@ -387,7 +387,7 @@ A_mul_Bt!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T}) =
   A_mul_B!(C, A, B)
 
 for f in (:Ac_mul_B, :At_mul_B)
-  f! = symbol(f, "!")
+  f! = Symbol(f, "!")
   @eval begin
     function $f!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T})
       tmp = $f(A, B[:C])
@@ -459,9 +459,9 @@ end
 # factorization routines
 
 for sfx in ("", "!")
-  f = symbol("curfact", sfx)
-  g = symbol("curfact_none", sfx)
-  h = symbol("cur", sfx)
+  f = Symbol("curfact", sfx)
+  g = Symbol("curfact_none", sfx)
+  h = Symbol("cur", sfx)
   @eval begin
     function $f{T}(
         A::AbstractMatOrLinOp{T}, opts::LRAOptions=LRAOptions(T); args...)
@@ -473,7 +473,7 @@ for sfx in ("", "!")
         F = sketchfact(:left, :n, A, opts)
         cols = F[:p][1:F[:k]]
         return HermCURPackedU(cols)
-      elseif issym(A)
+      elseif issymmetric(A)
         F = sketchfact(:left, :n, A, opts)
         cols = F[:p][1:F[:k]]
         return SymCURPackedU(cols)
@@ -511,7 +511,7 @@ function curfact_none!(A::StridedMatrix, opts::LRAOptions)
     F = pqrfact_backend!(A, opts)
     cols = F[:p][1:F[:k]]
     return HermCURPackedU(cols)
-  elseif issym(A)
+  elseif issymmetric(A)
     F = pqrfact_backend!(A, opts)
     cols = F[:p][1:F[:k]]
     return SymCURPackedU(cols)
@@ -519,7 +519,7 @@ function curfact_none!(A::StridedMatrix, opts::LRAOptions)
   curfact_none(A, opts)
 end
 function curfact_none(A::StridedMatrix, opts::LRAOptions)
-  (ishermitian(A) || issym(A)) && return curfact_none!(copy(A), opts)
+  (ishermitian(A) || issymmetric(A)) && return curfact_none!(copy(A), opts)
   m, n = size(A)
   if m >= n
     F = pqrfact_backend!(A', opts)

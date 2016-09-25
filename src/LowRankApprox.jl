@@ -4,7 +4,7 @@
 module LowRankApprox
 
 importall Base
-using Base.LinAlg: BlasFloat, BlasInt, chksquare, chkstride1
+using Base.LinAlg: BlasFloat, BlasInt, checksquare, chkstride1
 using FastLinAlg
 
 export
@@ -78,7 +78,7 @@ type LRAOptions
   maxdet_tol::Float64
   nb::Int
   pheig_orthtol::Float64
-  pqrfact_retval::ASCIIString
+  pqrfact_retval::String
   rank::Int
   rtol::Float64
   sketch::Symbol

@@ -26,7 +26,7 @@ ctranspose(A::PartialSVD) = PartialSVD(A.Vt', copy(A.S), A.U')
 transpose!(A::PartialSVD) = PartialSVD(A.Vt.', A.S, A.U.')
 transpose(A::PartialSVD) = PartialSVD(A.Vt.', copy(A.S), A.U.')
 
-full(A::PartialSVD) = scale(A[:U], A[:S])*A[:Vt]
+full(A::PartialSVD) = (A[:U]*Diagonal(A[:S]))*A[:Vt]
 
 function getindex(A::PartialSVD, d::Symbol)
   if     d == :S   return A.S
@@ -59,7 +59,7 @@ A_mul_B!{T}(C::StridedMatrix{T}, A::PartialSVD{T}, B::StridedMatrix{T}) =
   A_mul_B!(C, A[:U], scale!(A[:S], A[:Vt]*B))
 
 for f in (:A_mul_Bc, :A_mul_Bt)
-  f! = symbol(f, "!")
+  f! = Symbol(f, "!")
   @eval begin
     function $f!{T}(C::StridedMatrix{T}, A::PartialSVD{T}, B::StridedMatrix{T})
       tmp = $f(A[:Vt], B)
@@ -70,7 +70,7 @@ for f in (:A_mul_Bc, :A_mul_Bt)
 end
 
 for f in (:Ac_mul_B, :At_mul_B)
-  f! = symbol(f, "!")
+  f! = Symbol(f, "!")
   @eval begin
     function $f!{T}(
         y::StridedVector{T}, A::PartialSVD{T}, x::StridedVector{T})
@@ -88,7 +88,7 @@ for f in (:Ac_mul_B, :At_mul_B)
 end
 
 for (f, g!) in ((:Ac_mul_Bc, :Ac_mul_B!), (:At_mul_Bt, :At_mul_B!))
-  f! = symbol(f, "!")
+  f! = Symbol(f, "!")
   @eval begin
     function $f!{T}(C::StridedMatrix{T}, A::PartialSVD{T}, B::StridedMatrix{T})
       tmp = $f(A[:U], B)
@@ -104,7 +104,7 @@ A_mul_B!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialSVD{T}) =
   A_mul_B!(C, scale!(A*B[:U], B[:S]), B[:Vt])
 
 for f in (:A_mul_Bc, :A_mul_Bt)
-  f! = symbol(f, "!")
+  f! = Symbol(f, "!")
   @eval begin
     function $f!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialSVD{T})
       tmp = $f(A, B[:Vt])
@@ -115,7 +115,7 @@ for f in (:A_mul_Bc, :A_mul_Bt)
 end
 
 for f in (:Ac_mul_B, :At_mul_B)
-  f! = symbol(f, "!")
+  f! = Symbol(f, "!")
   @eval begin
     function $f!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialSVD{T})
       tmp = $f(A, B[:U])
@@ -126,7 +126,7 @@ for f in (:Ac_mul_B, :At_mul_B)
 end
 
 for (f, g!) in ((:Ac_mul_Bc, :A_mul_Bc!), (:At_mul_Bt, :A_mul_Bt!))
-  f! = symbol(f, "!")
+  f! = Symbol(f, "!")
   @eval begin
     function $f!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialSVD{T})
       tmp = $f(A, B[:Vt])
@@ -226,7 +226,7 @@ function psvdfact{T}(
     F = svdfact!(F[:R]*V)
     k = psvdrank(F[:S], opts)
     if k < V[:k]
-      U  = Q*sub(F.U,:,1:k)
+      U  = Q*view(F.U,:,1:k)
       S  = F.S[1:k]
       Vt = F.Vt[1:k,:]
     else
@@ -243,7 +243,7 @@ function psvdfact{T}(
     if k < V[:k]
       U  = F.U[:,1:k]
       S  = F.S[1:k]
-      Vt = sub(F.Vt,1:k,:)*Q'
+      Vt = view(F.Vt,1:k,:)*Q'
     else
       U  = F.U
       S  = F.S

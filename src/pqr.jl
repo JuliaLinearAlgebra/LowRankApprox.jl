@@ -95,7 +95,7 @@ for (f!, g) in ((:A_mul_Bc!, :Ac_mul_Bc), (:A_mul_Bt!, :At_mul_Bt))
 end
 
 for f in (:Ac_mul_B, :At_mul_B)
-  f! = symbol(f, "!")
+  f! = Symbol(f, "!")
   @eval begin
     function $f!{T}(
         C::StridedVecOrMat{T}, A::PartialQR{T}, B::StridedVecOrMat{T})
@@ -107,7 +107,7 @@ for f in (:Ac_mul_B, :At_mul_B)
 end
 
 for (f, g!) in ((:Ac_mul_Bc, :Ac_mul_B!), (:At_mul_Bt, :At_mul_B!))
-  f! = symbol(f, "!")
+  f! = Symbol(f, "!")
   @eval begin
     function $f!{T}(C::StridedMatrix{T}, A::PartialQR{T}, B::StridedMatrix{T})
       tmp = $f(A[:Q], B)
@@ -125,8 +125,8 @@ function A_mul_B!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialQR{T})
 end
 
 for f in (:A_mul_Bc, :A_mul_Bt)
-  f!  = symbol(f, "!")
-  f!! = symbol(f, "!!")
+  f!  = Symbol(f, "!")
+  f!! = Symbol(f, "!!")
   @eval begin
     function $f!!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialQR{T})
       A_mul_B!(A, B[:P])
@@ -139,7 +139,7 @@ for f in (:A_mul_Bc, :A_mul_Bt)
 end
 
 for f in (:Ac_mul_B, :At_mul_B)
-  f! = symbol(f, "!")
+  f! = Symbol(f, "!")
   @eval begin
     function $f!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialQR{T})
       tmp = $f(A, B[:Q])
@@ -151,7 +151,7 @@ end
 
 for (f!, g, h) in ((:Ac_mul_Bc!, :Ac_mul_B, :A_mul_Bc),
                    (:At_mul_Bt!, :At_mul_B, :A_mul_Bt))
-  h! = symbol(h, "!")
+  h! = Symbol(h, "!")
   @eval begin
     function $f!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialQR{T})
       tmp = $g(A, B[:P])
@@ -243,9 +243,9 @@ end
 # factorization routines
 
 for sfx in ("", "!")
-  f = symbol("pqrfact", sfx)
-  g = symbol("pqrfact_none", sfx)
-  h = symbol("pqr", sfx)
+  f = Symbol("pqrfact", sfx)
+  g = Symbol("pqrfact_none", sfx)
+  h = Symbol("pqr", sfx)
   @eval begin
     function $f{S}(
         trans::Symbol, A::AbstractMatOrLinOp{S}, opts::LRAOptions=LRAOptions(S);
@@ -287,8 +287,8 @@ function pqrr{S}(R::Matrix{S}, T::Matrix{S})
   k, n = size(T)
   n += k
   R_ = Array(S, k, n)
-  R1 = sub(R_, :,   1:k)
-  R2 = sub(R_, :, k+1:n)
+  R1 = view(R_, :,   1:k)
+  R2 = view(R_, :, k+1:n)
   copy!(R1, R)
   copy!(R2, T)
   A_mul_B!(UpperTriangular(R1), R2)
@@ -331,15 +331,15 @@ function geqp3_adap_main!{T<:BlasFloat}(
   # initialize column norms
   if is_real
     @inbounds for j = 1:n
-      work[j] = work[n+j] = norm(sub(A,:,j))
+      work[j] = work[n+j] = norm(view(A,:,j))
     end
   else
     rwork = Array(eltype(real(zero(T))), 2*n)
     @inbounds for j = 1:n
-      rwork[j] = rwork[n+j] = norm(sub(A,:,j))
+      rwork[j] = rwork[n+j] = norm(view(A,:,j))
     end
   end
-  maxnrm = maximum(sub(is_real ? work : rwork, 1:n))
+  maxnrm = maximum(view(is_real ? work : rwork, 1:n))
 
   # set pivot threshold
   ptol = max(opts.atol, opts.rtol*maxnrm)
@@ -351,14 +351,14 @@ function geqp3_adap_main!{T<:BlasFloat}(
     jb = BlasInt(min(nb, k-j+1))
     if is_real
       _LAPACK.laqps!(
-        BlasInt(j-1), jb, fjb, sub(A,:,j:n), sub(jpvt,j:n), sub(tau,j:k),
-        sub(work,j:n), sub(work,n+j:2*n),
-        sub(work,2*n+1:2*n+nb), sub(work,2*n+jb+1:lwork))
+        BlasInt(j-1), jb, fjb, view(A,:,j:n), view(jpvt,j:n), view(tau,j:k),
+        view(work,j:n), view(work,n+j:2*n),
+        view(work,2*n+1:2*n+nb), view(work,2*n+jb+1:lwork))
     else
       _LAPACK.laqps!(
-        BlasInt(j-1), jb, fjb, sub(A,:,j:n), sub(jpvt,j:n), sub(tau,j:k),
-        sub(rwork,j:n), sub(rwork,n+j:2*n),
-        sub(work,1:nb), sub(work,jb+1:lwork))
+        BlasInt(j-1), jb, fjb, view(A,:,j:n), view(jpvt,j:n), view(tau,j:k),
+        view(rwork,j:n), view(rwork,n+j:2*n),
+        view(work,1:nb), view(work,jb+1:lwork))
     end
     jn = j + fjb[]
 
@@ -394,14 +394,14 @@ end
 function maxdet_t{S}(R::StridedMatrix{S})
   k, n = size(R)
   T = R[:,k+1:n]
-  A_ldiv_B!(UpperTriangular(sub(R,1:k,1:k)), T)
+  A_ldiv_B!(UpperTriangular(view(R,1:k,1:k)), T)
 end
 
 function maxdet_swapcols!{S}(
     Q::Union{Matrix{S}, Void}, R::Matrix{S}, p::Vector{Int}, T::Matrix{S},
     opts::LRAOptions)
   k, n  = size(R)
-  R1    = sub(R, :, 1:k)
+  R1    = view(R, :, 1:k)
   work  = Array(S, max(n, 2*k))
   retq  = contains(opts.pqrfact_retval, "q")
   retr  = contains(opts.pqrfact_retval, "r")
@@ -423,7 +423,7 @@ function maxdet_swapcols!{S}(
   retq && LAPACK.gemqrt!('R', 'N', F.factors, F.T, Q)
   if retr
     triu!(R1)
-    R2 = sub(R, :, k+1:n)
+    R2 = view(R, :, k+1:n)
     copy!(R2, T)
     A_mul_B!(UpperTriangular(R1), R2)
   end
@@ -444,9 +444,9 @@ function maxdet_update!{S}(
   @inbounds for l = 1:n-k
     work[k+l] = conj(T[i,l])
   end
-  BLAS.ger!(-1/(1 + work[i]), sub(work,1:k), sub(work,k+1:n), T)
+  BLAS.ger!(-1/(1 + work[i]), view(work,1:k), view(work,k+1:n), T)
   if retr
-    A_mul_B!(sub(work,k+1:2*k), R1, sub(work,1:k))
+    A_mul_B!(view(work,k+1:2*k), R1, view(work,1:k))
     @inbounds @simd for l = 1:k
       R1[l,i] += work[k+l]
     end
