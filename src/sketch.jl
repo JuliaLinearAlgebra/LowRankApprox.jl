@@ -188,7 +188,7 @@ end
 function sketchfact_randn(
     side::Symbol, trans::Symbol, A::AbstractMatOrLinOp, opts::LRAOptions)
   if opts.sketchfact_adap || opts.rank < 0
-    n = opts.sketchfact_init
+    n = opts.nb
     opts_ = copy(opts, maxdet_tol=-1.)
     while true
       order = opts.sketchfact_randn_samp(n)
@@ -272,7 +272,7 @@ end
 function sketchfact_sub(
     side::Symbol, trans::Symbol, A::AbstractMatrix, opts::LRAOptions)
   if opts.sketchfact_adap || opts.rank < 0
-    n = opts.sketchfact_init
+    n = opts.nb
     opts_ = copy(opts, maxdet_tol=-1.)
     while true
       order = opts.sketchfact_sub_samp(n)
@@ -496,7 +496,7 @@ end
 function sketchfact_srft(
     side::Symbol, trans::Symbol, A::AbstractMatrix, opts::LRAOptions)
   if opts.sketchfact_adap || opts.rank < 0
-    n = opts.sketchfact_init
+    n = opts.nb
     opts_ = copy(opts, maxdet_tol=-1.)
     while true
       order = opts.sketchfact_srft_samp(n)
@@ -617,7 +617,7 @@ end
 function sketchfact_sprn(
     side::Symbol, trans::Symbol, A::AbstractMatrix, opts::LRAOptions)
   if opts.sketchfact_adap || opts.rank < 0
-    n = opts.sketchfact_init
+    n = opts.nb
     opts_ = copy(opts, maxdet_tol=-1.)
     while true
       B = sketch_sprn(side, trans, A, n, opts)

@@ -397,6 +397,7 @@ function maxdet_t{S}(R::StridedMatrix{S})
   A_ldiv_B!(UpperTriangular(view(R,1:k,1:k)), T)
 end
 
+## rank-revealing QR determinant maximization
 function maxdet_swapcols!{S}(
     Q::Union{Matrix{S}, Void}, R::Matrix{S}, p::Vector{Int}, T::Matrix{S},
     opts::LRAOptions)
@@ -429,6 +430,7 @@ function maxdet_swapcols!{S}(
   end
 end
 
+## column swap update based on Sherman-Morrison
 function maxdet_update!{S}(
     R1::StridedMatrix{S}, p::Vector{Int}, T::Matrix{S}, work::Vector{S},
     i::Integer, j::Integer, retr::Bool)

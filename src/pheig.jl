@@ -293,6 +293,7 @@ function pheigrank1{T<:Real}(w::StridedVector, opts::LRAOptions, wmax::T)
   k
 end
 
+## reorthonormalize eigenvalue cluster (issue in LAPACK)
 function pheigorth!{T<:Real}(
     values::Vector{T}, vectors::Matrix, opts::LRAOptions)
   n = length(values)

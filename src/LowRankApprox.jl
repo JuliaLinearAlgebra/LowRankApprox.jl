@@ -5,70 +5,51 @@ module LowRankApprox
 
 importall Base
 using Base.LinAlg: BlasFloat, BlasInt, checksquare, chkstride1
-using FastLinAlg
 
 export
-
-  # FastLinAlg.jl
-  matrixlib,
-  snorm,
-  snormdiff,
 
   # LowRankApprox.jl
   LRAOptions,
 
   # cur.jl
-  AbstractCURPackedU,
-  CURPackedU,
-  HermitianCURPackedU,
-  SymmetricCURPackedU,
-  AbstractCUR,
-  CUR,
-  HermitianCUR,
-  SymmetricCUR,
-  curfact, curfact!,
-  cur, cur!,
+  AbstractCURPackedU, CURPackedU, HermitianCURPackedU, SymmetricCURPackedU,
+  AbstractCUR, CUR, HermitianCUR, SymmetricCUR,
+  curfact, curfact!, cur, cur!,
 
   # id.jl
-  IDPackedV,
-  ID,
-  idfact, idfact!,
-  id, id!,
+  IDPackedV, ID, idfact, idfact!, id, id!,
+
+  # linop.jl
+  AbstractLinearOperator, AbstractMatOrLinOp,
+  LinearOperator, HermitianLinearOperator,
+
+  # matrixlib.jl
+  matrixlib,
+
+  # permute.jl
+  PermutationMatrix, RowPermutation, ColumnPermutation,
 
   # pheig.jl
-  HermitianPartialEigen,
-  pheigfact,
-  pheig,
-  pheigvals,
+  HermitianPartialEigen, pheigfact, pheig, pheigvals,
 
   # pqr.jl
-  PartialQRFactors,
-  PartialQR,
-  pqrfact, pqrfact!,
-  pqr, pqr!,
+  PartialQRFactors, PartialQR, pqrfact, pqrfact!, pqr, pqr!,
 
   # prange.jl
   prange, prange!,
 
   # psvd.jl
-  PartialSVD,
-  psvdfact,
-  psvd,
-  psvdvals,
+  PartialSVD, psvdfact, psvd, psvdvals,
 
   # sketch.jl
-  SketchMatrix,
-  RandomGaussian,
-  RandomSubset,
-  SRFT,
-  SparseRandomGaussian,
-  sketch,
-  sketchfact,
+  SketchMatrix, RandomGaussian, RandomSubset, SRFT, SparseRandomGaussian,
+  sketch, sketchfact,
+
+  # snorm.jl
+  snorm, snormdiff,
 
   # trapezoidal.jl
-  Trapezoidal,
-  LowerTrapezoidal,
-  UpperTrapezoidal
+  Trapezoidal, LowerTrapezoidal, UpperTrapezoidal
 
 # common
 
@@ -84,10 +65,10 @@ type LRAOptions
   sketch::Symbol
   sketch_randn_niter::Int
   sketchfact_adap::Bool
-  sketchfact_init::Int
   sketchfact_randn_samp::Function
   sketchfact_srft_samp::Function
   sketchfact_sub_samp::Function
+  snorm_niter::Int
   verb::Bool
 end
 
@@ -104,10 +85,10 @@ function LRAOptions{T}(::Type{T}; args...)
     :randn,             # sketch
     0,                  # sketch_randn_niter
     true,               # sketchfact_adap
-    32,                 # sketchfact_init
     n -> n + 8,         # sketchfact_randn_samp
     n -> n + 8,         # sketchfact_srft_samp
     n -> 4*n + 8,       # sketchfact_sub_samp
+    32,                 # snorm_niter
     true,               # verb
   )
   for (key, value) in args
@@ -135,12 +116,11 @@ function chkopts!(opts::LRAOptions)
   opts.rtol >= 0 || throw(ArgumentError("rtol"))
   opts.sketch in (:none, :randn, :sprn, :srft, :sub) ||
     throw(ArgumentError("sketch"))
-  opts.sketchfact_init > 0 || throw(ArgumentError("sketchfact_init"))
   opts.pqrfact_retval = lowercase(opts.pqrfact_retval)
 end
 function chkopts!(opts::LRAOptions, A)
   chkopts!(opts)
-  if typeof(A) <: AbstractLinearOperator && opts.sketch != :randn
+  if typeof(A) <: AbstractLinOp && opts.sketch != :randn
     warn("invalid sketch method; using \"randn\"")
     opts.sketch = :randn
   end
@@ -151,6 +131,10 @@ chktrans(trans::Symbol) = trans in (:n, :c) || throw(ArgumentError("trans"))
 # source files
 
 include("lapack.jl")
+include("linop.jl")
+include("matrixlib.jl")
+include("permute.jl")
+include("snorm.jl")
 include("trapezoidal.jl")
 include("util.jl")
 

@@ -14,6 +14,7 @@ This Julia package provides fast low-rank approximation algorithms for BLAS/LAPA
   - singular value decomposition
   - Hermitian eigendecomposition
   - CUR decomposition
+- spectral norm estimation
 
 By "partial", we mean essentially that these algorithms are early-terminating, i.e., they are not simply post-truncated versions of their standard counterparts. There is also support for "matrix-free" linear operators described only through their action on vectors. All methods accept a number of options specifying, e.g., the rank, estimated absolute precision, and estimated relative precision of approximation.
 
@@ -26,6 +27,8 @@ This package has been developed with performance in mind, and early tests have s
 - ~0.3 s in MATLAB
 
 This difference can be attributed in part to both algorithmic improvements as well as to some low-level optimizations.
+
+**Note**: LowRankApprox was last tested with Julia v0.5.0 and is no longer under active development.
 
 ## Contents
 
@@ -42,14 +45,16 @@ This difference can be attributed in part to both algorithmic improvements as we
   - [Random Subset](#random-subset)
   - [Subsampled Random Fourier Transform](#subsampled-random-fourier-transform-srft)
   - [Sparse Random Gaussian](#sparse-random-gaussian)
-- [Other Algorithms](#other-algorithms)
+- [Other Capabilities](#other-capabilities)
   - [Partial Range](#partial-range)
+  - [Spectral Norm Estimation](#spectral-norm-estimation)
+- [Core Algorithm](#core-algorithm)
 - [Options](#options)
 - [Computational Complexity](#computational-complexity)
 
 ## Installation
 
-LowRankApprox requires Julia version 0.4+ and [FastLinAlg](http://klho.github.io/FastLinAlg.jl). To install LowRankApprox, simply type:
+To install LowRankApprox, simply type:
 
 ```julia
 Pkg.clone("git://github.com/klho/LowRankApprox.jl.git")
@@ -78,7 +83,7 @@ A partial QR decomposition can then be computed using:
 F = pqrfact(A)
 ```
 
-This returns a `PartialQR` factorization with variables `Q`, `R`, and `p` denoting the unitary, triangular, and permutation factors, respectively, constituting the decomposition. Alternatively, these can be extracted directly with:
+This returns a `PartialQR` factorization with variables `Q`, `R`, and `p` denoting the unitary, trapezoidal, and permutation factors, respectively, constituting the decomposition. Alternatively, these can be extracted directly with:
 
 ```julia
 Q, R, p = pqr(A)
@@ -128,6 +133,8 @@ opts = LRAOptions(rank=20, rtol=1e-12)
 F = pqrfact(A, opts)
 ```
 
+For further details, see the [Options](#options) section.
+
 All aforementioned considerations also apply when the input is a linear operator, i.e., when the matrix is described not by its entries but by its action on vectors. To demonstrate, we can convert `A` to type `LinearOperator` as follows:
 
 ```julia
@@ -150,7 +157,7 @@ Linear operators can be scaled, added, and composed together using the usual syn
 
 ## Low-Rank Factorizations
 
-We now detail the various low-rank approximations implemented, which all nominally return compact `Factorization` types storing the matrix factors in structured form. All such factorizations provide optimized multiplication routines. Furthermore, the rank of any factorization `F` can be queried with `F[:k]` and the matrix approximant defined by `F` can be reconstructed as `full(F)`. For concreteness of exposition, assume in the following that `A` has size `m` by `n` with factorization rank `F[:k] = k`.
+We now detail the various low-rank approximations implemented, which all nominally return compact `Factorization` types storing the matrix factors in structured form. All such factorizations provide optimized multiplication routines. Furthermore, the rank of any factorization `F` can be queried with `F[:k]` and the matrix approximant defined by `F` can be reconstructed as `full(F)`. For concreteness of exposition, assume in the following that `A` has size `m` by `n` with factorization rank `F[:k] = k`. Note that certain matrix identities below should be interpreted only as equalities up to the approximation precision.
 
 ### QR Decomposition
 
@@ -173,7 +180,7 @@ The former returns a `PartialQR` factorization with access methods:
 - `F[:p]`: `p` permutation as type `Vector`
 - `F[:P]`: `p` permutation as type `ColumnPermutation`
 
-Both `F[:R]` and `F[:P]` are represented as structured matrices, complete with their own arithmetic operations, and together permit the alternate approximation formula `A*F[:P] = F[:Q]*F[:R]`. The factorization form additionally supports least squares solution by left-division.
+Both `F[:R]` and `F[:P]` are represented as structured matrices, complete with their own arithmetic operations, and together permit the alternative approximation formula `A*F[:P] = F[:Q]*F[:R]`. The factorization form additionally supports least squares solution by left-division.
 
 We can also compute a partial QR decomposition of `A'` (that is, pivoting on rows instead of columns) without necessarily constructing the matrix transpose explicitly by writing:
 
@@ -187,9 +194,9 @@ and similarly with `pqr`. The default interface is equivalent to, e.g.:
 F = pqrfact(:n, A, args...)
 ```
 
-for "no transpose". It is also possible to generate only a subset of the partial QR factors for further efficiency; for details, see the [Options](#options) section.
+for "no transpose". It is also possible to generate only a subset of the partial QR factors for further efficiency; see [Options](#options).
 
-The above methods do not modify the input matrix `A` and may make a copy of the data in order to enforce this (whether this is necessary depends on the type of input and the sketch method used). Potentially more efficient versions that reserve the right to overwrite `A` are available as `pqrfact!` and `pqr!`, respectively.
+The above methods do not modify the input matrix `A` and may make a copy of the data in order to enforce this (whether this is actually necessary depends on the type of input and the sketch method used). Potentially more efficient versions that reserve the right to overwrite `A` are available as `pqrfact!` and `pqr!`, respectively.
 
 ### Interpolative Decomposition (ID)
 
@@ -356,7 +363,13 @@ then passing to, e.g.:
 V = idfact(A, opts)
 ```
 
-computes an ID with sketching via a subsampled random Fourier transform (SRFT). A list of supported sketch methods is given below. To disable sketching altogether, use:
+computes an ID with sketching via a subsampled random Fourier transform (SRFT). This can also be done more directly with:
+
+```julia
+V = idfact(A, sketch=:srft)
+```
+
+A list of supported sketch methods is given below. To disable sketching altogether, use:
 
 ```julia
 opts.sketch = :none
@@ -365,16 +378,10 @@ opts.sketch = :none
 In addition to its integration with low-rank factorization methods, sketches can also be generated independently by:
 
 ```julia
-B = sketch(A, order, opts)
+B = sketch(A, order, args...)
 ```
 
-or simply:
-
-```julia
-B = sketch(A, order)
-```
-
-to use the default options. Other interfaces include:
+Other interfaces include:
 
 - `B = sketch(:left, :n, A, order, args...)` to compute `B = S*A`
 - `B = sketch(:left, :c, A, order, args...)` to compute `B = S*A'`
@@ -387,13 +394,11 @@ We also provide adaptive routines to automatically sketch with increasing orders
 F = sketchfact(A, args...)
 ```
 
-where `args...` denotes either `rank_or_rtol` or `opts` as previously discussed. Like `sketch`, a more detailed interface is also available as:
+Like `sketch`, a more detailed interface is also available as:
 
 ```julia
 F = sketchfact(side, trans, A, args...)
 ```
-
-where `side in (:left, :right)` and `trans in (:n, :c)`.
 
 ### Random Gaussian
 
@@ -403,9 +408,9 @@ The canonical sampling matrix is a Gaussian random matrix with entries drawn ind
 opts.sketch = :randn
 ```
 
-There is also support for power iteration to improve accuracy when the spectral gap is small. This computes, e.g., `B = S*(A*A')^p*A` (or simply `B = S*A^(p + 1)` if `A` is Hermitian) instead of just `B = S*A`, with all intermediate matrix products orthogonalized for stability.
+There is also support for power iteration to improve accuracy when the spectral gap (up to rank `k`) is small. This computes, e.g., `B = S*(A*A')^p*A` (or simply `B = S*A^(p + 1)` if `A` is Hermitian) instead of just `B = S*A`, with all intermediate matrix products orthogonalized for stability.
 
-For generic `A`, Gaussian sketching has complexity `O(k*m*n)`. In principle, this makes it the most expensive stage of computing a fast low-rank approximation. There is thus a serious effort to develop sketch methods with lower computational cost, which is addressed in part by the following techniques.
+For generic `A`, Gaussian sketching has complexity `O(k*m*n)`. In principle, this can make it the most expensive stage of computing a fast low-rank approximation (though in practice it is still very effective). There is a somewhat serious effort to develop sketch methods with lower computational cost, which is addressed in part by the following techniques.
 
 ### Random Subset
 
@@ -419,7 +424,7 @@ The linear growth in matrix dimension is obviously attractive, but note that thi
 
 ### Subsampled Random Fourier Transform (SRFT)
 
-An alternative approach based on imposing structure in the sampling matrix is the SRFT, which has the form `S = R*F*D` (if applying from the left), where `R` is a random permutation matrix of size `k` by `m`, `F` is the discrete Fourier transform (DFT) of order `m`, and `D` is a random diagonal unitary scaling. Due to the DFT structure, this can be applied in only `O(m*n*log(k))` operations. To use this method, set:
+An alternative approach based on imposing structure in the sampling matrix is the SRFT, which has the form `S = R*F*D` (if applying from the left), where `R` is a random permutation matrix of size `k` by `m`, `F` is the discrete Fourier transform (DFT) of order `m`, and `D` is a random diagonal unitary scaling. Due to the DFT structure, this can be applied in only `O(m*n*log(k))` operations (but beware that the constant is quite high). To use this method, set:
 
 ```julia
 opts.sketch = :srft
@@ -437,10 +442,121 @@ opts.sketch = :sprn
 
 and is only implemented for type `AbstractMatrix`. Power iteration is not supported since any subsequent matrix application would devolve back to having `O(k*m*n)` cost.
 
-## Other Algorithms
+## Other Capabilities
+
+We also provide a few other useful relevant algorithms as follows. Let `A` be an `m` by `n` matrix.
 
 ### Partial Range
 
+A basis for the partial range of `A` of rank `k` is an `m` by `k` matrix `Q` with orthonormal columns such that `A = Q*Q'*A`. Such a basis can be computed with:
+
+```julia
+Q = prange(A, args...)
+```
+
+Fast range approximation using sketching is supported.
+
+The default interface computes a basis for the column space of `A`. To capture the row space instead, use:
+
+```julia
+Q = prange(:c, A, args...)
+```
+
+which is equivalent to computing the partial range of `A'`. The resulting matrix `Q` is `n` by `k` with orthonormal rows and satisfies `A = A*Q*Q'`. It is also possible to approximate both the row and column spaces simultaneously with:
+
+```julia
+Q = prange(:b, A, args...)
+```
+
+Then `A = Q*Q'*A*Q*Q'`.
+
+A possibly modifying version is available as `prange!`.
+
+### Spectral Norm Estimation
+
+The spectral norm of `A` can be rapidly computed using randomized power iteration via:
+
+```julia
+err = snorm(A, args...)
+```
+
+Similarly, the spectral norm difference of two matrices `A` and `B` can be computed with:
+
+```julia
+err = snormdiff(A, B, args...)
+```
+
+which admits both a convenient and efficient way to test the accuracy of our low-rank approximations.
+
+## Core Algorithm
+
+The underlying algorithm behind LowRankApprox is the pivoted QR decomposition, with the magnitudes of the pivots providing an estimate of the approximation error incurred at each truncation rank. Here, we use an early-terminating variant of the LAPACK routine GEQP3. The partial QR decomposition so constructed is then leveraged into an ID to support the various other factorizations.
+
+Due to its fundamental importance, we can also perform optional determinant maximization post-processing to obtain a (strong) rank-revealing QR (RRQR) decomposition. This ensures that we select the best column pivots and can further improve numerical precision and stability.
+
 ## Options
 
+Numerous options are exposed by the `LRAOptions` type, which we will cover by logical function below.
+
+### Accuracy Options
+
+The accuracy of any low-rank approximation (in the spectral norm) is controlled by the following parameters:
+
+- `atol`: absolute tolerance of approximation (default: `0`)
+- `rtol`: relative tolerance of approximation (default: `5*eps()`)
+- `rank`: maximum rank of approximation (default: `-1`)
+
+Each parameter specifies an independent termination criterion; the computation completes when any of them are met. Currently, `atol` and `rtol` are checked against QR pivot magnitudes and thus accuracy can only be approximately guaranteed, though the resulting errors should be of the correct order.
+
+Iterative RRQR post-processing is also available:
+
+- `maxdet_niter`: maximum number of iterations for determinant maximization (default: `-1`)
+- `maxdet_tol`: relative tolerance for determinant maximization (default: `-1`)
+
+If `maxdet_tol < 0`, no post-processing is done; otherwise, as above, each parameter specifies an independent termination criterion. These options have an impact on all factorizations (i.e., not just QR) since they all involve, at some level, approximations based on the QR. For example, computing an ID via an RRQR guarantees that the interpolation matrix `T` satisfies `maxabs(T) < 1 + maxdet_tol` (assuming no early termination due to `maxdet_niter`).
+
+The parameters `atol` and `rtol` are also used for the spectral norm estimation routines `snorm` and `snormdiff` to specify the requested precision of the (scalar) norm output.
+
+### Sketching Options
+
+The following parameters govern matrix sketching:
+
+- `sketch`: sketch method, one of `:none`, `:randn` (default), `:srft`, `:sub`, or `:sprn`
+- `sketch_randn_niter`: number of power iterations for Gaussian sketching (default: `0`)
+- `sketchfact_adap`: whether to compute a sketched factorization adaptively by successively doubling the sketch order (default: `true`); if `false` only takes effect if `rank >= 0`, in which case a single sketch of order `rank` is (partially) factorized
+- `sketchfact_randn_samp`: oversampling function for Gaussian sketching (default: `n -> n + 8`)
+- `sketchfact_srft_samp`: oversampling function for SRFT sketching (default: `n -> n + 8`)
+- `sketchfact_sub_samp`: oversampling function for subset sketching (default: `n -> 4*n + 8`)
+
+The oversampling functions take as input a desired approximation rank and return a corresponding sketch order designed to be able to capture it with high probability. No oversampling function is used for sparse random Gaussian sketching due to its special form.
+
+### Other Options
+
+Other available options include:
+
+- `nb`: computational block size, used in various settings (default: `32`)
+- `pheig_orthtol`: eigenvalue relative tolerance to identify degenerate subspaces, within which eigenvectors are re-orthonormalized (to combat LAPACK issue; default: `sqrt(eps())`)
+- `pqrfact_retval`: string containing keys indicating which outputs to return from `pqrfact` (default: `"qr"`)
+  - `"q"`: orthonormal `Q` matrix
+  - `"r"`: trapezoidal `R` matrix
+  - `"t"`: interpolation `T` matrix (for ID)
+- `snorm_niter`: maximum number of iterations for spectral norm estimation (default: `32`)
+- `verb`: whether to print verbose messages, used sparingly (default: `true`)
+
+Note that `pqrfact` always returns the permutation vector `p` so that no specification is needed in `pqrfact_retval`. If `pqrfact_retval = "qr"` (in some order), then the output factorization has type `PartialQR`; otherwise, it is of type `PartialQRFactors`, which is simply a container type with no defined arithmetic operations. All keys other than `"q"`, `"r"`, and `"t"` are ignored.
+
 ## Computational Complexity
+
+Below, we summarize the leading-order computational costs of each factorization function depending on the sketch type. Let the matrix have size `m` by `n` with numerical rank `k`. Then, first, for a non-adaptive computation (i.e., `k` is known essentially a priori):
+
+| function | none    | randn   | sub           | srft         | sprn    |
+|:--------:|:-------:|:-------:|:-------------:|:------------:|:-------:|
+| `pqr`    | `k*m*n` | `k*m*n` | `k^2*(m + n)` | `m*n*log(k)` | `k*m*n` |
+| `id`     | `k*m*n` | `k*m*n` | `k^2*n + k*m` | `m*n*log(k)` | `k*m*n` |
+| `svd`    | `k*m*n` | `k*m*n` | `k^2*(m + n)` | `m*n*log(k)` | `k*m*n` |
+| `pheig`  | `k*m*n` | `k*m*n` | `k^2*(m + n)` | `m*n*log(k)` | `k*m*n` |
+| `cur`    | `k*m*n` | `k*m*n` | `k^2*(m + n)` | `m*n*log(k)` | `k*m*n` |
+
+Observe that the cost for the ID is unsymmetric in `m` and `n` for `sketch = :sub`; to obtain the operation count for a row-oriented ID, simply switch `m` and `n`.
+
+All of the above remain unchanged for `sketchfact_adap = true` with the exception of `sketch = :srft`, in which case the cost becomes `m*n*log(k)^2` across all functions.
