@@ -547,16 +547,21 @@ Note that `pqrfact` always returns the permutation vector `p` so that no specifi
 
 ## Computational Complexity
 
-Below, we summarize the leading-order computational costs of each factorization function depending on the sketch type. Let the matrix have size `m` by `n` with numerical rank `k`. Then, first, for a non-adaptive computation (i.e., `k` is known essentially a priori):
+Below, we summarize the leading-order computational costs of each factorization function depending on the sketch type. Assume an input `AbstractMatrix` of size `m` by `n` with numerical rank `k << min(m, n)` and `O(1)` cost to compute each entry. Then, first, for a non-adaptive computation (i.e., `k` is known essentially a priori):
 
-| function | none    | randn   | sub           | srft         | sprn    |
-|:--------:|:-------:|:-------:|:-------------:|:------------:|:-------:|
-| `pqr`    | `k*m*n` | `k*m*n` | `k^2*(m + n)` | `m*n*log(k)` | `k*m*n` |
-| `id`     | `k*m*n` | `k*m*n` | `k^2*n + k*m` | `m*n*log(k)` | `k*m*n` |
-| `svd`    | `k*m*n` | `k*m*n` | `k^2*(m + n)` | `m*n*log(k)` | `k*m*n` |
-| `pheig`  | `k*m*n` | `k*m*n` | `k^2*(m + n)` | `m*n*log(k)` | `k*m*n` |
-| `cur`    | `k*m*n` | `k*m*n` | `k^2*(m + n)` | `m*n*log(k)` | `k*m*n` |
+| function | none    | randn   | sub           | srft         | sprn  |
+|:--------:|:-------:|:-------:|:-------------:|:------------:|:-----:|
+| `pqr`    | `k*m*n` | `k*m*n` | `k^2*(m + n)` | `m*n*log(k)` | `m*n` |
+| `id`     | `k*m*n` | `k*m*n` | `k^2*n + k*m` | `m*n*log(k)` | `m*n` |
+| `svd`    | `k*m*n` | `k*m*n` | `k^2*(m + n)` | `m*n*log(k)` | `m*n` |
+| `pheig`  | `k*m*n` | `k*m*n` | `k^2*(m + n)` | `m*n*log(k)` | `m*n` |
+| `cur`    | `k*m*n` | `k*m*n` | `k^2*(m + n)` | `m*n*log(k)` | `m*n` |
 
-Observe that the cost for the ID is unsymmetric in `m` and `n` for `sketch = :sub`; to obtain the operation count for a row-oriented ID, simply switch `m` and `n`.
+The cost given for the ID is for the default column-oriented version; to obtain the operation count for a row-oriented ID, simply switch the roles of `m` and `n`. Note also that `pheig` is only applicable to square matrices, i.e., `m = n`.
 
-All of the above remain unchanged for `sketchfact_adap = true` with the exception of `sketch = :srft`, in which case the cost becomes `m*n*log(k)^2` across all functions.
+All of the above remain unchanged for `sketchfact_adap = true` with the exception of the following, in which case the costs become:
+
+- `sketch = :srft`: `m*n*log(k)^2`
+- `sketch = :sprn`: `m*n*log(k)`
+
+uniformly across all functions.
