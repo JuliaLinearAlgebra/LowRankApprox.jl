@@ -50,6 +50,9 @@ This difference can be attributed in part to both algorithmic improvements as we
   - [Spectral Norm Estimation](#spectral-norm-estimation)
 - [Core Algorithm](#core-algorithm)
 - [Options](#options)
+  - [Accuracy Options](#accuracy-options)
+  - [Sketching Options](#sketching-options)
+  - [Other Options](#other-options)
 - [Computational Complexity](#computational-complexity)
 
 ## Installation
