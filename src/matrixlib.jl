@@ -22,18 +22,19 @@ function matrixlib_cauchy{T}(::Type{T}, x::AbstractVector, y::AbstractVector)
   A
 end
 
-function matrixlib_fourier{S}(::Type{S}, x::AbstractVector, y::AbstractVector)
-  T = eltype(complex(zero(S)))
+function matrixlib_fourier{T}(::Type{T}, x::AbstractVector, y::AbstractVector)
+  S = eltype(complex(zero(T)))
   m = length(x)
   n = length(y)
-  A = Array(T, m, n)
+  A = Array(S, m, n)
   @inbounds for j = 1:n, i = 1:m
     A[i,j] = exp(-2im*pi*x[i]*y[j])
   end
   A
 end
-matrixlib_fourier(m::Integer, n::Integer) = matrixlib_fourier(0:m-1, (0:n-1)/n)
-matrixlib_fourier(n::Integer) = matrixlib_fourier(n, n)
+matrixlib_fourier{T}(::Type{T}, m::Integer, n::Integer) =
+  matrixlib_fourier(T, 0:m-1, (0:n-1)/n)
+matrixlib_fourier{T}(::Type{T}, n::Integer) = matrixlib_fourier(T, n, n)
 
 function matrixlib_hilb{T}(::Type{T}, m::Integer, n::Integer)
   m >= 0 || throw(ArgumentError("m"))
@@ -44,4 +45,4 @@ function matrixlib_hilb{T}(::Type{T}, m::Integer, n::Integer)
   end
   A
 end
-matrixlib_hilb(n::Integer) = matrixlib_hilb(n, n)
+matrixlib_hilb{T}(::Type{T}, n::Integer) = matrixlib_hilb(T, n, n)
