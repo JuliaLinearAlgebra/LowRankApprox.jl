@@ -17,30 +17,30 @@ for (t, data, trilu) in ((:LowerTrapezoidal, :data_up, :tril),
     @eval A = $t{$T}($T <: Real ? real($data) : $data)
     m, n = size(A)
     F = full(A)
-    @test_approx_eq (@eval $trilu(A.data)) F
+    @test (@eval $trilu(A.data)) ≈ F
 
     xm = rand(T, m)
     xn = rand(T, n)
-    @test_approx_eq A  *xn F  *xn
-    @test_approx_eq A' *xm F' *xm
-    @test_approx_eq A.'*xm F.'*xm
+    @test A  *xn ≈ F  *xn
+    @test A' *xm ≈ F' *xm
+    @test A.'*xm ≈ F.'*xm
 
     Bm = rand(T, m, m)
     Bn = rand(T, n, n)
-    @test_approx_eq A   *Bn   F   *Bn
-    @test_approx_eq A   *Bn'  F   *Bn'
-    @test_approx_eq A   *Bn.' F   *Bn.'
-    @test_approx_eq A'  *Bm   F'  *Bm
-    @test_approx_eq A'  *Bm'  F'  *Bm'
-    @test_approx_eq A.' *Bm   F.' *Bm
-    @test_approx_eq A.' *Bm.' F.' *Bm.'
-    @test_approx_eq Bm  *A    Bm  *F
-    @test_approx_eq Bn  *A'   Bn  *F'
-    @test_approx_eq Bn  *A.'  Bn  *F.'
-    @test_approx_eq Bm' *A    Bm' *F
-    @test_approx_eq Bn' *A'   Bn' *F'
-    @test_approx_eq Bm.'*A    Bm.'*F
-    @test_approx_eq Bn.'*A.'  Bn.'*F.'
+    @test A   *Bn   ≈ F   *Bn
+    @test A   *Bn'  ≈ F   *Bn'
+    @test A   *Bn.' ≈ F   *Bn.'
+    @test A'  *Bm   ≈ F'  *Bm
+    @test A'  *Bm'  ≈ F'  *Bm'
+    @test A.' *Bm   ≈ F.' *Bm
+    @test A.' *Bm.' ≈ F.' *Bm.'
+    @test Bm  *A    ≈ Bm  *F
+    @test Bn  *A'   ≈ Bn  *F'
+    @test Bn  *A.'  ≈ Bn  *F.'
+    @test Bm' *A    ≈ Bm' *F
+    @test Bn' *A'   ≈ Bn' *F'
+    @test Bm.'*A    ≈ Bm.'*F
+    @test Bn.'*A.'  ≈ Bn.'*F.'
   end
 end
 

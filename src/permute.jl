@@ -1,18 +1,18 @@
 #= src/permute.jl
 =#
 
-abstract PermutationMatrix <: AbstractMatrix{Int}
-typealias PermMat PermutationMatrix
+@compat abstract type PermutationMatrix <: AbstractMatrix{Int} end
+@compat const PermMat = PermutationMatrix
 
 type RowPermutation <: PermMat
   p::Vector{Int}
 end
-typealias RowPerm RowPermutation
+@compat const RowPerm = RowPermutation
 
 type ColumnPermutation <: PermMat
   p::Vector{Int}
 end
-typealias ColPerm ColumnPermutation
+@compat const ColPerm = ColumnPermutation
 
 convert(::Type{Array}, A::PermMat) = full(A)
 convert{T}(::Type{Array{T}}, A::PermMat) = convert(Array{T}, full(A))

@@ -57,8 +57,8 @@ full!{T}(A::StridedMatrix{T}, V::IDPackedV{T}) = full!(:n, A, V)
 function full{T}(trans::Symbol, A::IDPackedV{T})
   chktrans(trans)
   k, n = size(A)
-  if trans == :n  B = Array(T, k, n)
-  else            B = Array(T, n, k)
+  if trans == :n  B = Array{T}(k, n)
+  else            B = Array{T}(n, k)
   end
   full!(trans, B, A)
 end
@@ -251,12 +251,12 @@ size(A::ID, dim::Integer) =
 ### left-multiplication
 
 function A_mul_B!!{T}(y::StridedVector{T}, A::ID{T}, x::StridedVector{T})
-  tmp = Array(T, A[:k])
+  tmp = Array{T}(A[:k])
   A_mul_B!!(tmp, A[:V], x)
   A_mul_B!(y, A[:C], tmp)
 end  # overwrites x
 function A_mul_B!!{T}(C::StridedMatrix{T}, A::ID{T}, B::StridedMatrix{T})
-  tmp = Array(T, A[:k], size(B,2))
+  tmp = Array{T}(A[:k], size(B,2))
   A_mul_B!!(tmp, A[:V], B)
   A_mul_B!(C, A[:C], tmp)
 end  # overwrites B
@@ -302,7 +302,7 @@ for f! in (:A_mul_Bc!, :A_mul_Bt!)
   f!! = Symbol(f!, "!")
   @eval begin
     function $f!!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::ID{T})
-      tmp = Array(T, size(A,1), B[:k])
+      tmp = Array{T}(size(A,1), B[:k])
       $f!!(tmp, A, B[:V])
       $f!(C, tmp, B[:C])
     end  # overwrites A
@@ -344,7 +344,7 @@ for (f, f!, i) in ((:*,        :A_mul_B!,  1),
         T = promote_type(TA, TB)
         AT = convert($t{T}, A)
         BT = (T == TB ? B : convert(Array{T}, B))
-        CT = Array(T, size(A,$i))
+        CT = Array{T}(size(A,$i))
         $f!(CT, AT, BT)
       end
     end
@@ -364,7 +364,7 @@ for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
         T = promote_type(TA, TB)
         AT = convert($t{T}, A)
         BT = (T == TB ? B : convert(Array{T}, B))
-        CT = Array(T, size(A,$i), size(B,$j))
+        CT = Array{T}(size(A,$i), size(B,$j))
         $f!(CT, AT, BT)
       end
     end
@@ -385,7 +385,7 @@ for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
         T = promote_type(TA, TB)
         AT = (T == TA ? A : convert(Array{T}, A))
         BT = convert($t{T}, B)
-        CT = Array(T, size(A,$i), size(B,$j))
+        CT = Array{T}(size(A,$i), size(B,$j))
         $f!(CT, AT, BT)
       end
     end

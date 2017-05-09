@@ -1,10 +1,12 @@
 #= src/LowRankApprox.jl
 =#
-
+__precompile__()
 module LowRankApprox
 
 importall Base
 using Base.LinAlg: BlasFloat, BlasInt, checksquare, chkstride1
+
+using Compat
 
 export
 

@@ -14,16 +14,16 @@ for T in (Float32, Float64, Complex64, Complex128)
 
   A = rand(T, m, n)
   nrm = norm(A)
-  @test_approx_eq_eps nrm snorm(A) rtol*nrm
+  @test nrm ≈ snorm(A) atol = rtol*nrm
 
   A = rand(T, n, n)
   A += A'
   nrm = norm(A)
-  @test_approx_eq_eps nrm snorm(A) rtol*nrm
+  @test nrm ≈ snorm(A) atol = rtol*nrm
 
   B = rand(T, size(A))
   nrm = norm(A - B)
-  @test_approx_eq_eps nrm snormdiff(A, B) rtol*nrm
+  @test nrm ≈ snormdiff(A, B) atol = rtol*nrm
 end
 
 toc()
