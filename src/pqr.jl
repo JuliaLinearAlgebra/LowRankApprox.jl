@@ -18,7 +18,7 @@ type PartialQRFactors
   k::Int
   T::Nullable{Matrix}
 end
-typealias PQRFactors PartialQRFactors
+@compat const PQRFactors = PartialQRFactors
 
 function getindex(A::PQRFactors, d::Symbol)
   if     d == :P  return ColumnPermutation(A.p)
@@ -181,7 +181,7 @@ for (f, f!, i) in ((:*,        :A_mul_B!,  1),
       T = promote_type(TA, TB)
       AT = convert(PartialQR{T}, A)
       BT = (T == TB ? B : convert(Array{T}, B))
-      CT = Array(T, size(A,$i))
+      CT = Array{T}(size(A,$i))
       $f!(CT, AT, BT)
     end
   end
@@ -199,7 +199,7 @@ for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
       T = promote_type(TA, TB)
       AT = convert(PartialQR{T}, A)
       BT = (T == TB ? B : convert(Array{T}, B))
-      CT = Array(T, size(A,$i), size(B,$j))
+      CT = Array{T}(size(A,$i), size(B,$j))
       $f!(CT, AT, BT)
     end
   end
@@ -218,7 +218,7 @@ for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
       T = promote_type(TA, TB)
       AT = (T == TA ? A : convert(Array{T}, A))
       BT = convert(PartialQR{T}, B)
-      CT = Array(T, size(A,$i), size(B,$j))
+      CT = Array{T}(size(A,$i), size(B,$j))
       $f!(CT, AT, BT)
     end
   end
@@ -229,14 +229,14 @@ function \{TA,TB}(A::PartialQR{TA}, B::StridedVector{TB})
   T = promote_type(TA, TB)
   AT = convert(PartialQR{T}, A)
   BT = (T == TB ? B : convert(Array{T}, B))
-  CT = Array(T, size(A,2))
+  CT = Array{T}(size(A,2))
   A_ldiv_B!(CT, AT, BT)
 end
 function \{TA,TB}(A::PartialQR{TA}, B::StridedMatrix{TB})
   T = promote_type(TA, TB)
   AT = convert(PartialQR{T}, A)
   BT = (T == TB ? B : convert(Array{T}, B))
-  CT = Array(T, size(A,2), size(B,2))
+  CT = Array{T}(size(A,2), size(B,2))
   A_ldiv_B!(CT, AT, BT)
 end
 
@@ -286,7 +286,7 @@ pqrfact_none(trans::Symbol, A::StridedMatrix, opts::LRAOptions) =
 function pqrr{S}(R::Matrix{S}, T::Matrix{S})
   k, n = size(T)
   n += k
-  R_ = Array(S, k, n)
+  R_ = Array{S}(k, n)
   R1 = view(R_, :,   1:k)
   R2 = view(R_, :, k+1:n)
   copy!(R1, R)
@@ -306,7 +306,7 @@ function geqp3_adap!{T}(A::StridedMatrix{T}, opts::LRAOptions)
   jpvt = collect(BlasInt, 1:n)
   l    = min(m, n)
   k    = (opts.rank < 0 || opts.rank > l) ? l : opts.rank
-  tau  = Array(T, k)
+  tau  = Array{T}(k)
   if k > 0
     k = geqp3_adap_main!(A, jpvt, tau, opts)
   end
@@ -326,7 +326,7 @@ function geqp3_adap_main!{T<:BlasFloat}(
   nb      = min(opts.nb, k)
   is_real = T <: Real
   lwork   = 2*n*is_real + (n + 1)*nb
-  work    = Array(T, lwork)
+  work    = Array{T}(lwork)
 
   # initialize column norms
   if is_real
@@ -334,7 +334,7 @@ function geqp3_adap_main!{T<:BlasFloat}(
       work[j] = work[n+j] = norm(view(A,:,j))
     end
   else
-    rwork = Array(eltype(real(zero(T))), 2*n)
+    rwork = Array{eltype(real(zero(T)))}(2*n)
     @inbounds for j = 1:n
       rwork[j] = rwork[n+j] = norm(view(A,:,j))
     end
@@ -403,7 +403,7 @@ function maxdet_swapcols!{S}(
     opts::LRAOptions)
   k, n  = size(R)
   R1    = view(R, :, 1:k)
-  work  = Array(S, max(n, 2*k))
+  work  = Array{S}(max(n, 2*k))
   retq  = contains(opts.pqrfact_retval, "q")
   retr  = contains(opts.pqrfact_retval, "r")
   niter = 0

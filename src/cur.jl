@@ -11,7 +11,7 @@ References:
 
 # CURPackedU
 
-abstract AbstractCURPackedU <: Factorization
+@compat abstract type AbstractCURPackedU <: Factorization{Int} end
 
 type CURPackedU <: AbstractCURPackedU
   rows::Vector{Int}
@@ -21,14 +21,14 @@ end
 type HermitianCURPackedU <: AbstractCURPackedU
   cols::Vector{Int}
 end
-typealias HermCURPackedU HermitianCURPackedU
+@compat const HermCURPackedU = HermitianCURPackedU
 
 type SymmetricCURPackedU <: AbstractCURPackedU
   cols::Vector{Int}
 end
-typealias SymCURPackedU SymmetricCURPackedU
+@compat const SymCURPackedU = SymmetricCURPackedU
 
-typealias HermOrSymCURPackedU Union{HermCURPackedU, SymCURPackedU}
+@compat const HermOrSymCURPackedU = Union{HermCURPackedU, SymCURPackedU}
 
 copy(A::CURPackedU) = CURPackedU(copy(rows), copy(cols))
 copy(A::SymCURPackedU) = SymCURPackedU(copy(cols))
@@ -56,7 +56,7 @@ size(A::AbstractCURPackedU, dim::Integer) =
 
 # CUR
 
-abstract AbstractCUR{T} <: Factorization{T}
+@compat abstract type AbstractCUR{T} <: Factorization{T} end
 
 type CUR{T} <: AbstractCUR{T}
   rows::Vector{Int}
@@ -71,16 +71,16 @@ type HermitianCUR{T} <: AbstractCUR{T}
   C::Matrix{T}
   U::Factorization{T}
 end
-typealias HermCUR HermitianCUR
+@compat const HermCUR = HermitianCUR
 
 type SymmetricCUR{T} <: AbstractCUR{T}
   cols::Vector{Int}
   C::Matrix{T}
   U::Factorization{T}
 end
-typealias SymCUR SymmetricCUR
+@compat const SymCUR = SymmetricCUR
 
-typealias HermOrSymCUR{T} Union{HermCUR{T}, SymCUR{T}}
+@compat const HermOrSymCUR{T} = Union{HermCUR{T}, SymCUR{T}}
 
 function CUR(A::AbstractMatOrLinOp, U::CURPackedU)
   rows = U[:rows]
@@ -413,7 +413,7 @@ for (f, f!, i) in ((:*,        :A_mul_B!,  1),
       T = promote_type(TA, TB)
       AT = convert(AbstractCUR{T}, A)
       BT = (T == TB ? B : convert(Array{T}, B))
-      CT = Array(T, size(A,$i))
+      CT = Array{T}(size(A,$i))
       $f!(CT, AT, BT)
     end
   end
@@ -431,7 +431,7 @@ for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
       T = promote_type(TA, TB)
       AT = convert(AbstractCUR{T}, A)
       BT = (T == TB ? B : convert(Array{T}, B))
-      CT = Array(T, size(A,$i), size(B,$j))
+      CT = Array{T}(size(A,$i), size(B,$j))
       $f!(CT, AT, BT)
     end
   end
@@ -450,7 +450,7 @@ for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
       T = promote_type(TA, TB)
       AT = (T == TA ? A : convert(Array{T}, A))
       BT = convert(AbstractCUR{T}, B)
-      CT = Array(T, size(A,$i), size(B,$j))
+      CT = Array{T}(size(A,$i), size(B,$j))
       $f!(CT, AT, BT)
     end
   end

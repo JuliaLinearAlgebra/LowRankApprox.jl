@@ -11,7 +11,7 @@ References:
     2008.
 =#
 
-abstract SketchMatrix
+@compat abstract type SketchMatrix end
 
 size(A::SketchMatrix, dim::Integer...) = A.k
 
@@ -19,7 +19,7 @@ for (f, f!, i) in ((:*,        :A_mul_B!,  2),
                    (:A_mul_Bc, :A_mul_Bc!, 1))
   @eval begin
     function $f{T}(A::SketchMatrix, B::AbstractMatOrLinOp{T})
-      C = Array(T, A.k, size(B,$i))
+      C = Array{T}(A.k, size(B,$i))
       $f!(C, A, B)
     end
   end
@@ -29,7 +29,7 @@ for (f, f!, i) in ((:*,        :A_mul_B!,  1),
                    (:Ac_mul_B, :Ac_mul_B!, 2))
   @eval begin
     function $f{T}(A::AbstractMatOrLinOp{T}, B::SketchMatrix)
-      C = Array(T, size(A,$i), B.k)
+      C = Array{T}(size(A,$i), B.k)
       $f!(C, A, B)
     end
   end
@@ -133,11 +133,11 @@ for (trans, p, q, g, h) in ((:n, :n, :m, :A_mul_B!,  :A_mul_Bc!),
       S = RandomGaussian(order)
       m, n = size(A)
       isherm = ishermitian(A)
-      Bp = Array(T, order, $p)
+      Bp = Array{T}(order, $p)
       if opts.sketch_randn_niter > 0
-        Bq   = Array(T, order, $q)
-        tau  = Array(T, 1)
-        work = Array(T, 1)
+        Bq   = Array{T}(order, $q)
+        tau  = Array{T}(1)
+        work = Array{T}(1)
       end
       $g(Bp, S, A)
       for i = 1:opts.sketch_randn_niter
@@ -163,11 +163,11 @@ for (trans, p, q, g, h) in ((:n, :m, :n, :A_mul_B!,  :Ac_mul_B!),
       S = RandomGaussian(order)
       m, n = size(A)
       isherm = ishermitian(A)
-      Bp = Array(T, $p, order)
+      Bp = Array{T}($p, order)
       if opts.sketch_randn_niter > 0
-        Bq   = Array(T, $q, order)
-        tau  = Array(T, 1)
-        work = Array(T, 1)
+        Bq   = Array{T}($q, order)
+        tau  = Array{T}(1)
+        work = Array{T}(1)
       end
       $g(Bp, A, S)
       for i = 1:opts.sketch_randn_niter
@@ -315,7 +315,7 @@ function srft_init{T<:Real}(::Type{T}, n::Integer, k::Integer)
     l -= 1
   end
   m = div(n, l)
-  X = Array(T, l, m)
+  X = Array{T}(l, m)
   d = srft_rand(T, n)
   idx = rand(1:n, k)
   r2rplan! = FFTW.plan_r2r!(X, FFTW.R2HC, 1)
@@ -327,7 +327,7 @@ function srft_init{T<:Complex}(::Type{T}, n::Integer, k::Integer)
     l -= 1
   end
   m = div(n, l)
-  X = Array(T, l, m)
+  X = Array{T}(l, m)
   d = srft_rand(T, n)
   idx = rand(1:n, k)
   fftplan! = plan_fft!(X, 1)
@@ -517,7 +517,7 @@ end
 type SparseRandomGaussian <: SketchMatrix
   k::Int
 end
-typealias SparseRandGauss SparseRandomGaussian
+@compat const SparseRandGauss = SparseRandomGaussian
 
 function A_mul_B!{T}(C, A::SparseRandGauss, B::AbstractMatrix{T})
   k = A.k

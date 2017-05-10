@@ -5,7 +5,7 @@ type PartialHermitianEigen{T,Tr<:Real} <: Factorization{T}
   values::Vector{Tr}
   vectors::Matrix{T}
 end
-typealias PartialHermEigen PartialHermitianEigen
+@compat const PartialHermEigen = PartialHermitianEigen
 
 conj!(A::PartialHermEigen) = PartialHermEigen(conj!(A.values), conj!(A.vectors))
 conj(A::PartialHermEigen) = conj!(copy(A))
@@ -166,7 +166,7 @@ for (f, f!, i) in ((:*,        :A_mul_B!,  1),
       T = promote_type(TA, TB)
       AT = convert(PartialHermEigen{T}, A)
       BT = (T == TB ? B : convert(Array{T}, B))
-      CT = Array(T, size(A,$i))
+      CT = Array{T}(size(A,$i))
       $f!(CT, AT, BT)
     end
   end
@@ -184,7 +184,7 @@ for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
       T = promote_type(TA, TB)
       AT = convert(PartialHermEigen{T}, A)
       BT = (T == TB ? B : convert(Array{T}, B))
-      CT = Array(T, size(A,$i), size(B,$j))
+      CT = Array{T}(size(A,$i), size(B,$j))
       $f!(CT, AT, BT)
     end
   end
@@ -203,7 +203,7 @@ for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
       T = promote_type(TA, TB)
       AT = (T == TA ? A : convert(Array{T}, A))
       BT = convert(PartialHermEigen{T}, B)
-      CT = Array(T, size(A,$i), size(B,$j))
+      CT = Array{T}(size(A,$i), size(B,$j))
       $f!(CT, AT, BT)
     end
   end
@@ -214,14 +214,14 @@ function \{TA,TB}(A::PartialHermEigen{TA}, B::StridedVector{TB})
   T = promote_type(TA, TB)
   AT = convert(PartialHermEigen{T}, A)
   BT = (T == TB ? B : convert(Array{T}, B))
-  CT = Array(T, size(A,2))
+  CT = Array{T}(size(A,2))
   A_ldiv_B!(CT, AT, BT)
 end
 function \{TA,TB}(A::PartialHermEigen{TA}, B::StridedMatrix{TB})
   T = promote_type(TA, TB)
   AT = convert(PartialHermEigen{T}, A)
   BT = (T == TB ? B : convert(Array{T}, B))
-  CT = Array(T, size(A,2), size(B,2))
+  CT = Array{T}(size(A,2), size(B,2))
   A_ldiv_B!(CT, AT, BT)
 end
 

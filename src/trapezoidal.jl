@@ -1,7 +1,7 @@
 #= src/trapezoidal.jl
 =#
 
-abstract Trapezoidal{T} <: AbstractMatrix{T}
+@compat abstract type Trapezoidal{T} <: AbstractMatrix{T} end
 
 type LowerTrapezoidal{T} <: Trapezoidal{T}
   data::Matrix{T}
@@ -311,7 +311,7 @@ for (f, f!, i) in ((:*,        :A_mul_B!,  1),
       T = promote_type(TA, TB)
       AT = convert(Trapezoidal{T}, A)
       BT = (T == TB ? B : convert(Array{T}, B))
-      CT = Array(T, size(A,$i))
+      CT = Array{T}(size(A,$i))
       $f!(CT, AT, BT)
     end
   end
@@ -329,7 +329,7 @@ for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
       T = promote_type(TA, TB)
       AT = convert(Trapezoidal{T}, A)
       BT = (T == TB ? B : convert(Array{T}, B))
-      CT = Array(T, size(A,$i), size(B,$j))
+      CT = Array{T}(size(A,$i), size(B,$j))
       $f!(CT, AT, BT)
     end
   end
@@ -348,7 +348,7 @@ for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
       T = promote_type(TA, TB)
       AT = (T == TA ? A : convert(Array{T}, A))
       BT = convert(Trapezoidal{T}, B)
-      CT = Array(T, size(A,$i), size(B,$j))
+      CT = Array{T}(size(A,$i), size(B,$j))
       $f!(CT, AT, BT)
     end
   end
