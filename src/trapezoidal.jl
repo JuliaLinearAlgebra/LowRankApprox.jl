@@ -1,13 +1,13 @@
 #= src/trapezoidal.jl
 =#
 
-@compat abstract type Trapezoidal{T} <: AbstractMatrix{T} end
+abstract type Trapezoidal{T} <: AbstractMatrix{T} end
 
-type LowerTrapezoidal{T} <: Trapezoidal{T}
+mutable struct LowerTrapezoidal{T} <: Trapezoidal{T}
   data::Matrix{T}
 end
 
-type UpperTrapezoidal{T} <: Trapezoidal{T}
+mutable struct UpperTrapezoidal{T} <: Trapezoidal{T}
   data::Matrix{T}
 end
 
@@ -15,16 +15,16 @@ conj!(A::LowerTrapezoidal) = LowerTrapezoidal(conj!(A.data))
 conj!(A::UpperTrapezoidal) = UpperTrapezoidal(conj!(A.data))
 conj(A::Trapezoidal) = conj!(copy(A))
 
-convert{T}(::Type{LowerTrapezoidal{T}}, A::LowerTrapezoidal) =
+convert(::Type{LowerTrapezoidal{T}}, A::LowerTrapezoidal) where {T} =
   LowerTrapezoidal(convert(Array{T}, A.data))
-convert{T}(::Type{UpperTrapezoidal{T}}, A::UpperTrapezoidal) =
+convert(::Type{UpperTrapezoidal{T}}, A::UpperTrapezoidal) where {T} =
   UpperTrapezoidal(convert(Array{T}, A.data))
-convert{T}(::Type{Trapezoidal{T}}, A::LowerTrapezoidal) =
+convert(::Type{Trapezoidal{T}}, A::LowerTrapezoidal) where {T} =
   convert(LowerTrapezoidal{T}, A)
-convert{T}(::Type{Trapezoidal{T}}, A::UpperTrapezoidal) =
+convert(::Type{Trapezoidal{T}}, A::UpperTrapezoidal) where {T} =
   convert(UpperTrapezoidal{T}, A)
 convert(::Type{Array}, A::Trapezoidal) = full(A)
-convert{T}(::Type{Array{T}}, A::Trapezoidal) = convert(Array{T}, full(A))
+convert(::Type{Array{T}}, A::Trapezoidal) where {T} = convert(Array{T}, full(A))
 
 copy(A::LowerTrapezoidal) = LowerTrapezoidal(copy(A.data))
 copy(A::UpperTrapezoidal) = UpperTrapezoidal(copy(A.data))
@@ -37,9 +37,9 @@ transpose(A::UpperTrapezoidal) = LowerTrapezoidal(A.data.')
 full(A::LowerTrapezoidal) = tril(A.data)
 full(A::UpperTrapezoidal) = triu(A.data)
 
-getindex{T}(A::LowerTrapezoidal{T}, i::Integer, j::Integer) =
+getindex(A::LowerTrapezoidal{T}, i::Integer, j::Integer) where {T} =
   i >= j ? A.data[i,j] : zero(T)
-getindex{T}(A::UpperTrapezoidal{T}, i::Integer, j::Integer) =
+getindex(A::UpperTrapezoidal{T}, i::Integer, j::Integer) where {T} =
   i <= j ? A.data[i,j] : zero(T)
 
 imag(A::LowerTrapezoidal) = LowerTrapezoidal(imag(A.data))
@@ -59,16 +59,16 @@ size(A::Trapezoidal, args...) = size(A.data, args...)
 
 ## LowerTrapezoidal left-multiplication
 
-function A_mul_B!{T}(
-    y::StridedVector{T}, A::LowerTrapezoidal{T}, x::StridedVector{T})
+function A_mul_B!(
+    y::StridedVector{T}, A::LowerTrapezoidal{T}, x::StridedVector{T}) where T
   m, n = size(A)
   y[1:n] = x
   A_mul_B!(LowerTriangular(view(A.data,1:n,:)), view(y,1:n))
   A_mul_B!(view(y,n+1:m), view(A.data,n+1:m,:), x)
   y
 end
-function A_mul_B!{T}(
-    C::StridedMatrix{T}, A::LowerTrapezoidal{T}, B::StridedMatrix{T})
+function A_mul_B!(
+    C::StridedMatrix{T}, A::LowerTrapezoidal{T}, B::StridedMatrix{T}) where T
   m, n = size(A)
   C[1:n,:] = B
   A_mul_B!(LowerTriangular(view(A.data,1:n,:)), view(C,1:n,:))
@@ -78,8 +78,8 @@ end
 
 for (f, g) in ((:A_mul_Bc!, :ctranspose!), (:A_mul_Bt!, :transpose!))
   @eval begin
-    function $f{T}(
-        C::StridedMatrix{T}, A::LowerTrapezoidal{T}, B::StridedMatrix{T})
+    function $f(
+        C::StridedMatrix{T}, A::LowerTrapezoidal{T}, B::StridedMatrix{T}) where T
       m, n = size(A)
       $g(view(C,1:n,:), B)
       A_mul_B!(LowerTriangular(view(A.data,1:n,:)), view(C,1:n,:))
@@ -91,15 +91,15 @@ end
 
 for (f, trans) in ((:Ac_mul_B!, 'C'), (:At_mul_B!, 'T'))
   @eval begin
-    function $f{T<:BlasFloat}(
-        y::StridedVector{T}, A::LowerTrapezoidal{T}, x::StridedVector{T})
+    function $f(
+        y::StridedVector{T}, A::LowerTrapezoidal{T}, x::StridedVector{T}) where T<:BlasFloat
       m, n = size(A)
       copy!(y, view(x,1:n))
       BLAS.trmv!('L', $trans, 'N', view(A.data,1:n,:), y)
       BLAS.gemv!($trans, one(T), view(A.data,n+1:m,:), view(x,n+1:m), one(T), y)
     end
-    function $f{T<:BlasFloat}(
-        C::StridedMatrix{T}, A::LowerTrapezoidal{T}, B::StridedMatrix{T})
+    function $f(
+        C::StridedMatrix{T}, A::LowerTrapezoidal{T}, B::StridedMatrix{T}) where T<:BlasFloat
       m, n = size(A)
       copy!(C, view(B,1:n,:))
       BLAS.trmm!('L', 'L', $trans, 'N', one(T), view(A.data,1:n,:), C)
@@ -112,8 +112,8 @@ end
 for (f, g, trans) in ((:Ac_mul_Bc!, :ctranspose!, 'C'),
                       (:At_mul_Bt!, :transpose!,  'T'))
   @eval begin
-    function $f{T<:BlasFloat}(
-        C::StridedMatrix{T}, A::LowerTrapezoidal{T}, B::StridedMatrix{T})
+    function $f(
+        C::StridedMatrix{T}, A::LowerTrapezoidal{T}, B::StridedMatrix{T}) where T<:BlasFloat
       m, n = size(A)
       $g(C, view(B,:,1:n))
       BLAS.trmm!(
@@ -126,8 +126,8 @@ end
 
 ## LowerTrapezoidal right-multiplication
 
-function A_mul_B!{T<:BlasFloat}(
-    C::StridedMatrix{T}, A::StridedMatrix{T}, B::LowerTrapezoidal{T})
+function A_mul_B!(
+    C::StridedMatrix{T}, A::StridedMatrix{T}, B::LowerTrapezoidal{T}) where T<:BlasFloat
   m, n = size(B)
   copy!(C, view(A,:,1:n))
   A_mul_B!(C, LowerTriangular(view(B.data,1:n,:)))
@@ -137,8 +137,8 @@ end
 
 for (f, trans) in ((:A_mul_Bc!, 'C'), (:A_mul_Bt!, 'T'))
   @eval begin
-    function $f{T<:BlasFloat}(
-        C::StridedMatrix{T}, A::StridedMatrix{T}, B::LowerTrapezoidal{T})
+    function $f(
+        C::StridedMatrix{T}, A::StridedMatrix{T}, B::LowerTrapezoidal{T}) where T<:BlasFloat
       m, n = size(B)
       copy!(view(C,:,1:n), A)
       BLAS.trmm!(
@@ -152,8 +152,8 @@ end
 for (f, g, trans) in ((:Ac_mul_B!, :ctranspose!, 'C'),
                       (:At_mul_B!, :transpose!,  'T'))
   @eval begin
-    function $f{T<:BlasFloat}(
-        C::StridedMatrix{T}, A::StridedMatrix{T}, B::LowerTrapezoidal{T})
+    function $f(
+        C::StridedMatrix{T}, A::StridedMatrix{T}, B::LowerTrapezoidal{T}) where T<:BlasFloat
       m, n = size(B)
       $g(C, view(A,1:n,:))
       BLAS.trmm!('R', 'L', 'N', 'N', one(T), view(B.data,1:n,:), C)
@@ -166,8 +166,8 @@ end
 for (f, g, trans) in ((:Ac_mul_Bc!, :ctranspose!, 'C'),
                       (:At_mul_Bt!, :transpose!,  'T'))
   @eval begin
-    function $f{T<:BlasFloat}(
-        C::StridedMatrix{T}, A::StridedMatrix{T}, B::LowerTrapezoidal{T})
+    function $f(
+        C::StridedMatrix{T}, A::StridedMatrix{T}, B::LowerTrapezoidal{T}) where T<:BlasFloat
       m, n = size(B)
       $g(view(C,:,1:n), A)
       BLAS.trmm!(
@@ -180,15 +180,15 @@ end
 
 ## UpperTrapezoidal left-multiplication
 
-function A_mul_B!{T<:BlasFloat}(
-    y::StridedVector{T}, A::UpperTrapezoidal{T}, x::StridedVector{T})
+function A_mul_B!(
+    y::StridedVector{T}, A::UpperTrapezoidal{T}, x::StridedVector{T}) where T<:BlasFloat
   m, n = size(A)
   copy!(y, view(x,1:m))
   A_mul_B!(UpperTriangular(view(A.data,:,1:m)), y)
   BLAS.gemv!('N', one(T), view(A.data,:,m+1:n), view(x,m+1:n), one(T), y)
 end
-function A_mul_B!{T<:BlasFloat}(
-    C::StridedMatrix{T}, A::UpperTrapezoidal{T}, B::StridedMatrix{T})
+function A_mul_B!(
+    C::StridedMatrix{T}, A::UpperTrapezoidal{T}, B::StridedMatrix{T}) where T<:BlasFloat
   m, n = size(A)
   copy!(C, view(B,1:m,:))
   A_mul_B!(UpperTriangular(view(A.data,:,1:m)), C)
@@ -199,8 +199,8 @@ end
 for (f, g, trans) in ((:A_mul_Bc!, :ctranspose!, 'C'),
                       (:A_mul_Bt!, :transpose!,  'T'))
   @eval begin
-    function $f{T<:BlasFloat}(
-        C::StridedMatrix{T}, A::UpperTrapezoidal{T}, B::StridedMatrix{T})
+    function $f(
+        C::StridedMatrix{T}, A::UpperTrapezoidal{T}, B::StridedMatrix{T}) where T<:BlasFloat
       m, n = size(A)
       $g(C, view(B,:,1:m))
       A_mul_B!(UpperTriangular(view(A.data,:,1:m)), C)
@@ -212,16 +212,16 @@ end
 
 for (f, trans) in ((:Ac_mul_B!, 'C'), (:At_mul_B!, 'T'))
   @eval begin
-    function $f{T<:BlasFloat}(
-        y::StridedVector{T}, A::UpperTrapezoidal{T}, x::StridedVector{T})
+    function $f(
+        y::StridedVector{T}, A::UpperTrapezoidal{T}, x::StridedVector{T}) where T<:BlasFloat
       m, n = size(A)
       y[1:m] = x
       BLAS.trmv!('U', $trans, 'N', view(A.data,:,1:m), view(y,1:m))
       $f(view(y,m+1:n), view(A.data,:,m+1:n), x)
       y
     end
-    function $f{T<:BlasFloat}(
-        C::StridedMatrix{T}, A::UpperTrapezoidal{T}, B::StridedMatrix{T})
+    function $f(
+        C::StridedMatrix{T}, A::UpperTrapezoidal{T}, B::StridedMatrix{T}) where T<:BlasFloat
       m, n = size(A)
       C[1:m,:] = B
       BLAS.trmm!(
@@ -235,8 +235,8 @@ end
 for (f, g, trans) in ((:Ac_mul_Bc!, :ctranspose!, 'C'),
                       (:At_mul_Bt!, :transpose!,  'T'))
   @eval begin
-    function $f{T<:BlasFloat}(
-        C::StridedMatrix{T}, A::UpperTrapezoidal{T}, B::StridedMatrix{T})
+    function $f(
+        C::StridedMatrix{T}, A::UpperTrapezoidal{T}, B::StridedMatrix{T}) where T<:BlasFloat
       m, n = size(A)
       $g(view(C,1:m,:), B)
       BLAS.trmm!(
@@ -249,8 +249,8 @@ end
 
 ## UpperTrapezoidal right-multiplication
 
-function A_mul_B!{T}(
-    C::StridedMatrix{T}, A::StridedMatrix{T}, B::UpperTrapezoidal{T})
+function A_mul_B!(
+    C::StridedMatrix{T}, A::StridedMatrix{T}, B::UpperTrapezoidal{T}) where T
   m, n = size(B)
   C[:,1:m] = A
   A_mul_B!(view(C,:,1:m), UpperTriangular(view(B.data,:,1:m)))
@@ -260,8 +260,8 @@ end
 
 for (f, trans) in ((:A_mul_Bc!, 'C'), (:A_mul_Bt!, 'T'))
   @eval begin
-    function $f{T<:BlasFloat}(
-        C::StridedMatrix{T}, A::StridedMatrix{T}, B::UpperTrapezoidal{T})
+    function $f(
+        C::StridedMatrix{T}, A::StridedMatrix{T}, B::UpperTrapezoidal{T}) where T<:BlasFloat
       m, n = size(B)
       copy!(C, view(A,:,1:m))
       BLAS.trmm!('R', 'U', $trans, 'N', one(T), view(B.data,:,1:m), C)
@@ -273,8 +273,8 @@ end
 
 for (f, g) in ((:Ac_mul_B!, :ctranspose!), (:At_mul_B!, :transpose!))
   @eval begin
-    function $f{T}(
-        C::StridedMatrix{T}, A::StridedMatrix{T}, B::UpperTrapezoidal{T})
+    function $f(
+        C::StridedMatrix{T}, A::StridedMatrix{T}, B::UpperTrapezoidal{T}) where T
       m, n = size(B)
       $g(view(C,:,1:m), A)
       A_mul_B!(view(C,:,1:m), UpperTriangular(view(B.data,:,1:m)))
@@ -287,8 +287,8 @@ end
 for (f, g, trans) in ((:Ac_mul_Bc!, :ctranspose!, 'C'),
                       (:At_mul_Bt!, :transpose!,  'T'))
   @eval begin
-    function $f{T<:BlasFloat}(
-        C::StridedMatrix{T}, A::StridedMatrix{T}, B::UpperTrapezoidal{T})
+    function $f(
+        C::StridedMatrix{T}, A::StridedMatrix{T}, B::UpperTrapezoidal{T}) where T<:BlasFloat
       m, n = size(B)
       $g(C, view(A,1:m,:))
       BLAS.trmm!('R', 'U', $trans, 'N', one(T), view(B.data,:,1:m), C)
@@ -307,7 +307,7 @@ for (f, f!, i) in ((:*,        :A_mul_B!,  1),
                    (:Ac_mul_B, :Ac_mul_B!, 2),
                    (:At_mul_B, :At_mul_B!, 2))
   @eval begin
-    function $f{TA,TB}(A::Trapezoidal{TA}, B::StridedVector{TB})
+    function $f(A::Trapezoidal{TA}, B::StridedVector{TB}) where {TA,TB}
       T = promote_type(TA, TB)
       AT = convert(Trapezoidal{T}, A)
       BT = (T == TB ? B : convert(Array{T}, B))
@@ -325,7 +325,7 @@ for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
                       (:At_mul_B,  :At_mul_B!,  2, 2),
                       (:At_mul_Bt, :At_mul_Bt!, 2, 1))
   @eval begin
-    function $f{TA,TB}(A::Trapezoidal{TA}, B::StridedMatrix{TB})
+    function $f(A::Trapezoidal{TA}, B::StridedMatrix{TB}) where {TA,TB}
       T = promote_type(TA, TB)
       AT = convert(Trapezoidal{T}, A)
       BT = (T == TB ? B : convert(Array{T}, B))
@@ -344,7 +344,7 @@ for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
                       (:At_mul_B,  :At_mul_B!,  2, 2),
                       (:At_mul_Bt, :At_mul_Bt!, 2, 1))
   @eval begin
-    function $f{TA,TB}(A::StridedMatrix{TA}, B::Trapezoidal{TB})
+    function $f(A::StridedMatrix{TA}, B::Trapezoidal{TB}) where {TA,TB}
       T = promote_type(TA, TB)
       AT = (T == TA ? A : convert(Array{T}, A))
       BT = convert(Trapezoidal{T}, B)

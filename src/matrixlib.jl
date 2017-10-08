@@ -1,7 +1,7 @@
 #= matrixlib.jl
 =#
 
-function matrixlib{T}(::Type{T}, name::Symbol, args...)
+function matrixlib(::Type{T}, name::Symbol, args...) where T
   if     name == :cauchy   return matrixlib_cauchy(T, args...)
   elseif name == :fourier  return matrixlib_fourier(T, args...)
   elseif name == :hilb     return matrixlib_hilb(T, args...)
@@ -10,7 +10,7 @@ function matrixlib{T}(::Type{T}, name::Symbol, args...)
 end
 matrixlib(name::Symbol, args...) = matrixlib(Float64, name, args...)
 
-function matrixlib_cauchy{T}(::Type{T}, x::AbstractVector, y::AbstractVector)
+function matrixlib_cauchy(::Type{T}, x::AbstractVector, y::AbstractVector) where T
   m = length(x)
   n = length(y)
   A = Array{T}(m, n)
@@ -22,7 +22,7 @@ function matrixlib_cauchy{T}(::Type{T}, x::AbstractVector, y::AbstractVector)
   A
 end
 
-function matrixlib_fourier{T}(::Type{T}, x::AbstractVector, y::AbstractVector)
+function matrixlib_fourier(::Type{T}, x::AbstractVector, y::AbstractVector) where T
   S = eltype(complex(zero(T)))
   m = length(x)
   n = length(y)
@@ -32,11 +32,11 @@ function matrixlib_fourier{T}(::Type{T}, x::AbstractVector, y::AbstractVector)
   end
   A
 end
-matrixlib_fourier{T}(::Type{T}, m::Integer, n::Integer) =
+matrixlib_fourier(::Type{T}, m::Integer, n::Integer) where {T} =
   matrixlib_fourier(T, 0:m-1, (0:n-1)/n)
-matrixlib_fourier{T}(::Type{T}, n::Integer) = matrixlib_fourier(T, n, n)
+matrixlib_fourier(::Type{T}, n::Integer) where {T} = matrixlib_fourier(T, n, n)
 
-function matrixlib_hilb{T}(::Type{T}, m::Integer, n::Integer)
+function matrixlib_hilb(::Type{T}, m::Integer, n::Integer) where T
   m >= 0 || throw(ArgumentError("m"))
   n >= 0 || throw(ArgumentError("n"))
   A = Array{T}(m, n)
@@ -45,4 +45,4 @@ function matrixlib_hilb{T}(::Type{T}, m::Integer, n::Integer)
   end
   A
 end
-matrixlib_hilb{T}(::Type{T}, n::Integer) = matrixlib_hilb(T, n, n)
+matrixlib_hilb(::Type{T}, n::Integer) where {T} = matrixlib_hilb(T, n, n)

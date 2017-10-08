@@ -11,14 +11,14 @@ References:
     2008.
 =#
 
-@compat abstract type SketchMatrix end
+abstract type SketchMatrix end
 
 size(A::SketchMatrix, dim::Integer...) = A.k
 
 for (f, f!, i) in ((:*,        :A_mul_B!,  2),
                    (:A_mul_Bc, :A_mul_Bc!, 1))
   @eval begin
-    function $f{T}(A::SketchMatrix, B::AbstractMatOrLinOp{T})
+    function $f(A::SketchMatrix, B::AbstractMatOrLinOp{T}) where T
       C = Array{T}(A.k, size(B,$i))
       $f!(C, A, B)
     end
@@ -28,16 +28,16 @@ end
 for (f, f!, i) in ((:*,        :A_mul_B!,  1),
                    (:Ac_mul_B, :Ac_mul_B!, 2))
   @eval begin
-    function $f{T}(A::AbstractMatOrLinOp{T}, B::SketchMatrix)
+    function $f(A::AbstractMatOrLinOp{T}, B::SketchMatrix) where T
       C = Array{T}(size(A,$i), B.k)
       $f!(C, A, B)
     end
   end
 end
 
-function sketch{T}(
+function sketch(
     side::Symbol, trans::Symbol, A::AbstractMatOrLinOp{T}, order::Integer,
-    opts::LRAOptions=LRAOptions(T); args...)
+    opts::LRAOptions=LRAOptions(T); args...) where T
   sketch_chkargs(side, trans, order)
   opts = copy(opts; args...)
   sketch_chkopts!(opts, A)
@@ -52,9 +52,9 @@ sketch(side::Symbol, trans::Symbol, A, order::Integer, args...; kwargs...) =
 sketch(A, order::Integer, args...; kwargs...) =
   sketch(:left, :n, A, order, args...; kwargs...)
 
-function sketchfact{T}(
+function sketchfact(
     side::Symbol, trans::Symbol, A::AbstractMatOrLinOp{T},
-    opts::LRAOptions=LRAOptions(T); args...)
+    opts::LRAOptions=LRAOptions(T); args...) where T
   sketchfact_chkargs(side, trans)
   opts = copy(opts; args...)
   sketch_chkopts!(opts, A)
@@ -87,24 +87,24 @@ end
 
 # RandomGaussian
 
-type RandomGaussian <: SketchMatrix
+mutable struct RandomGaussian <: SketchMatrix
   k::Int
 end
 
-function A_mul_B!{T}(C, A::RandomGaussian, B::AbstractMatOrLinOp{T})
+function A_mul_B!(C, A::RandomGaussian, B::AbstractMatOrLinOp{T}) where T
   S = crandn(T, A.k, size(B,1))
   A_mul_B!(C, S, B)
 end
-function A_mul_Bc!{T}(C, A::RandomGaussian, B::AbstractMatOrLinOp{T})
+function A_mul_Bc!(C, A::RandomGaussian, B::AbstractMatOrLinOp{T}) where T
   S = crandn(T, A.k, size(B,2))
   A_mul_Bc!(C, S, B)
 end
 
-function A_mul_B!{T}(C, A::AbstractMatOrLinOp{T}, B::RandomGaussian)
+function A_mul_B!(C, A::AbstractMatOrLinOp{T}, B::RandomGaussian) where T
   S = crandn(T, size(A,2), B.k)
   A_mul_B!(C, A, S)
 end
-function Ac_mul_B!{T}(C, A::AbstractMatOrLinOp{T}, B::RandomGaussian)
+function Ac_mul_B!(C, A::AbstractMatOrLinOp{T}, B::RandomGaussian) where T
   S = crandn(T, size(A,1), B.k)
   Ac_mul_B!(C, A, S)
 end
@@ -129,7 +129,7 @@ for (trans, p, q, g, h) in ((:n, :n, :m, :A_mul_B!,  :A_mul_Bc!),
                             (:c, :m, :n, :A_mul_Bc!, :A_mul_B! ))
   f = Symbol("sketch_randn_l", trans)
   @eval begin
-    function $f{T}(A::AbstractMatOrLinOp{T}, order::Integer, opts::LRAOptions)
+    function $f(A::AbstractMatOrLinOp{T}, order::Integer, opts::LRAOptions) where T
       S = RandomGaussian(order)
       m, n = size(A)
       isherm = ishermitian(A)
@@ -159,7 +159,7 @@ for (trans, p, q, g, h) in ((:n, :m, :n, :A_mul_B!,  :Ac_mul_B!),
                             (:c, :n, :m, :Ac_mul_B!, :A_mul_B! ))
   f = Symbol("sketch_randn_r", trans)
   @eval begin
-    function $f{T}(A::AbstractMatOrLinOp{T}, order::Integer, opts::LRAOptions)
+    function $f(A::AbstractMatOrLinOp{T}, order::Integer, opts::LRAOptions) where T
       S = RandomGaussian(order)
       m, n = size(A)
       isherm = ishermitian(A)
@@ -206,7 +206,7 @@ end
 
 # RandomSubset
 
-type RandomSubset <: SketchMatrix
+mutable struct RandomSubset <: SketchMatrix
   k::Int
 end
 
@@ -290,18 +290,18 @@ end
 
 # SRFT
 
-type SRFT <: SketchMatrix
+mutable struct SRFT <: SketchMatrix
   k::Int
 end
 
-function srft_rand{T<:Real}(::Type{T}, n::Integer)
+function srft_rand(::Type{T}, n::Integer) where T<:Real
   x = rand(n)
   @simd for i = 1:n
     @inbounds x[i] = 2*(x[i] > 0.5) - 1
   end
   x
 end
-function srft_rand{T<:Complex}(::Type{T}, n::Integer)
+function srft_rand(::Type{T}, n::Integer) where T<:Complex
   x = crandn(T, n)
   @inbounds for i = 1:n
     x[i] /= abs(x[i])
@@ -309,7 +309,7 @@ function srft_rand{T<:Complex}(::Type{T}, n::Integer)
   x
 end
 
-function srft_init{T<:Real}(::Type{T}, n::Integer, k::Integer)
+function srft_init(::Type{T}, n::Integer, k::Integer) where T<:Real
   l = k
   while n % l > 0
     l -= 1
@@ -321,7 +321,7 @@ function srft_init{T<:Real}(::Type{T}, n::Integer, k::Integer)
   r2rplan! = FFTW.plan_r2r!(X, FFTW.R2HC, 1)
   X, d, idx, r2rplan!
 end
-function srft_init{T<:Complex}(::Type{T}, n::Integer, k::Integer)
+function srft_init(::Type{T}, n::Integer, k::Integer) where T<:Complex
   l = k
   while n % l > 0
     l -= 1
@@ -352,9 +352,9 @@ function srft_reshape_conj!(
   end
 end
 
-function srft_apply!{T<:Real}(
+function srft_apply!(
     y::StridedVecOrMat{T}, X::StridedMatrix{T}, idx::AbstractVector,
-    r2rplan!::FFTW.r2rFFTWPlan)
+    r2rplan!::FFTW.r2rFFTWPlan) where T<:Real
   l, m = size(X)
   n = l*m
   k = length(idx)
@@ -408,9 +408,9 @@ function srft_apply!{T<:Real}(
   end
 end
 
-function srft_apply!{T<:Complex}(
+function srft_apply!(
     y::StridedVecOrMat{T}, X::StridedMatrix, idx::AbstractVector,
-    fftplan!::FFTW.FFTWPlan)
+    fftplan!::FFTW.FFTWPlan) where T<:Complex
   l, m = size(X)
   n = l*m
   k = length(idx)
@@ -430,7 +430,7 @@ function srft_apply!{T<:Complex}(
   end
 end
 
-function A_mul_B!{T}(C, A::SRFT, B::AbstractMatrix{T})
+function A_mul_B!(C, A::SRFT, B::AbstractMatrix{T}) where T
   m, n = size(B)
   k = A.k
   size(C) == (k, n) || throw(DimensionMismatch)
@@ -441,7 +441,7 @@ function A_mul_B!{T}(C, A::SRFT, B::AbstractMatrix{T})
   end
   C
 end
-function A_mul_Bc!{T}(C, A::SRFT, B::AbstractMatrix{T})
+function A_mul_Bc!(C, A::SRFT, B::AbstractMatrix{T}) where T
   m, n = size(B)
   k = A.k
   size(C) == (k, m) || throw(DimensionMismatch)
@@ -453,7 +453,7 @@ function A_mul_Bc!{T}(C, A::SRFT, B::AbstractMatrix{T})
   C
 end
 
-function A_mul_B!{T}(C, A::AbstractMatrix{T}, B::SRFT)
+function A_mul_B!(C, A::AbstractMatrix{T}, B::SRFT) where T
   m, n = size(A)
   k = B.k
   size(C) == (m, k) || throw(DimensionMismatch)
@@ -464,7 +464,7 @@ function A_mul_B!{T}(C, A::AbstractMatrix{T}, B::SRFT)
   end
   C
 end
-function Ac_mul_B!{T}(C, A::AbstractMatrix{T}, B::SRFT)
+function Ac_mul_B!(C, A::AbstractMatrix{T}, B::SRFT) where T
   m, n = size(A)
   k = B.k
   size(C) == (n, k) || throw(DimensionMismatch)
@@ -514,12 +514,12 @@ end
 
 # SparseRandomGaussian
 
-type SparseRandomGaussian <: SketchMatrix
+mutable struct SparseRandomGaussian <: SketchMatrix
   k::Int
 end
 const SparseRandGauss = SparseRandomGaussian
 
-function A_mul_B!{T}(C, A::SparseRandGauss, B::AbstractMatrix{T})
+function A_mul_B!(C, A::SparseRandGauss, B::AbstractMatrix{T}) where T
   k = A.k
   m, n = size(B)
   size(C) == (k, n) || throw(DimensionMismatch)
@@ -538,7 +538,7 @@ function A_mul_B!{T}(C, A::SparseRandGauss, B::AbstractMatrix{T})
   end
   C
 end
-function A_mul_Bc!{T}(C, A::SparseRandGauss, B::AbstractMatrix{T})
+function A_mul_Bc!(C, A::SparseRandGauss, B::AbstractMatrix{T}) where T
   k = A.k
   m, n = size(B)
   size(C) == (k, m) || throw(DimensionMismatch)
@@ -558,7 +558,7 @@ function A_mul_Bc!{T}(C, A::SparseRandGauss, B::AbstractMatrix{T})
   C
 end
 
-function A_mul_B!{T}(C, A::AbstractMatrix{T}, B::SparseRandGauss)
+function A_mul_B!(C, A::AbstractMatrix{T}, B::SparseRandGauss) where T
   k = B.k
   m, n = size(A)
   size(C) == (m, k) || throw(DimensionMismatch)
@@ -577,7 +577,7 @@ function A_mul_B!{T}(C, A::AbstractMatrix{T}, B::SparseRandGauss)
   end
   C
 end
-function Ac_mul_B!{T}(C, A::AbstractMatrix{T}, B::SparseRandGauss)
+function Ac_mul_B!(C, A::AbstractMatrix{T}, B::SparseRandGauss) where T
   k = B.k
   m, n = size(A)
   size(C) == (n, k) || throw(DimensionMismatch)

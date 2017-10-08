@@ -12,7 +12,7 @@ References:
 
 # IDPackedV
 
-type IDPackedV{S} <: Factorization{S}
+mutable struct IDPackedV{S} <: Factorization{S}
   sk::Vector{Int}
   rd::Vector{Int}
   T::Matrix{S}
@@ -21,15 +21,15 @@ end
 conj!(A::IDPackedV) = IDPackedV(A.sk, A.rd, conj!(A.T))
 conj(A::IDPackedV) = IDPackedV(A.sk, A.rd, conj(A.T))
 
-convert{T}(::Type{IDPackedV{T}}, A::IDPackedV) =
+convert(::Type{IDPackedV{T}}, A::IDPackedV) where {T} =
   IDPackedV(A.sk, A.rd, convert(Array{T}, A.T))
-convert{T}(::Type{Factorization{T}}, A::IDPackedV) = convert(IDPackedV{T}, A)
+convert(::Type{Factorization{T}}, A::IDPackedV) where {T} = convert(IDPackedV{T}, A)
 convert(::Type{Array}, A::IDPackedV) = full(A)
-convert{T}(::Type{Array{T}}, A::IDPackedV) = convert(Array{T}, full(A))
+convert(::Type{Array{T}}, A::IDPackedV) where {T} = convert(Array{T}, full(A))
 
 copy(A::IDPackedV) = IDPackedV(copy(A.sk), copy(A.rd), copy(A.T))
 
-function full!{T}(trans::Symbol, A::StridedMatrix{T}, V::IDPackedV{T})
+function full!(trans::Symbol, A::StridedMatrix{T}, V::IDPackedV{T}) where T
   chktrans(trans)
   k, n = size(V)
   if trans == :n
@@ -53,8 +53,8 @@ function full!{T}(trans::Symbol, A::StridedMatrix{T}, V::IDPackedV{T})
   end
   A
 end
-full!{T}(A::StridedMatrix{T}, V::IDPackedV{T}) = full!(:n, A, V)
-function full{T}(trans::Symbol, A::IDPackedV{T})
+full!(A::StridedMatrix{T}, V::IDPackedV{T}) where {T} = full!(:n, A, V)
+function full(trans::Symbol, A::IDPackedV{T}) where T
   chktrans(trans)
   k, n = size(A)
   if trans == :n  B = Array{T}(k, n)
@@ -78,7 +78,7 @@ end
 ishermitian(::IDPackedV) = false
 issym(::IDPackedV) = false
 
-isreal{T}(::IDPackedV{T}) = T <: Real
+isreal(::IDPackedV{T}) where {T} = T <: Real
 
 ndims(::IDPackedV) = 2
 
@@ -90,27 +90,27 @@ size(A::IDPackedV, dim::Integer) =
 
 ### left-multiplication
 
-function A_mul_B!!{T<:BlasFloat}(
-    y::StridedVector{T}, A::IDPackedV{T}, x::StridedVector{T})
+function A_mul_B!!(
+    y::StridedVector{T}, A::IDPackedV{T}, x::StridedVector{T}) where T<:BlasFloat
   k, n = size(A)
   Ac_mul_B!(A[:P], x)
   copy!(y, view(x,1:k))
   BLAS.gemv!('N', one(T), A[:T], view(x,k+1:n), one(T), y)
 end  # overwrites x
-function A_mul_B!!{T<:BlasFloat}(
-    C::StridedMatrix{T}, A::IDPackedV{T}, B::StridedMatrix{T})
+function A_mul_B!!(
+    C::StridedMatrix{T}, A::IDPackedV{T}, B::StridedMatrix{T}) where T<:BlasFloat
   k, n = size(A)
   Ac_mul_B!(A[:P], B)
   copy!(C, view(B,1:k,:))
   BLAS.gemm!('N', 'N', one(T), A[:T], view(B,k+1:n,:), one(T), C)
 end  # overwrites B
-A_mul_B!{T}(C::StridedVecOrMat{T}, A::IDPackedV{T}, B::StridedVecOrMat{T}) =
+A_mul_B!(C::StridedVecOrMat{T}, A::IDPackedV{T}, B::StridedVecOrMat{T}) where {T} =
   A_mul_B!!(C, A, copy(B))
 
 for (f!, g) in ((:A_mul_Bc!, :Ac_mul_Bc), (:A_mul_Bt!, :At_mul_Bt))
   @eval begin
-    function $f!{T<:BlasFloat}(
-        C::StridedMatrix{T}, A::IDPackedV{T}, B::StridedMatrix{T})
+    function $f!(
+        C::StridedMatrix{T}, A::IDPackedV{T}, B::StridedMatrix{T}) where T<:BlasFloat
       k, n = size(A)
       tmp = $g(A[:P], B)
       copy!(C, view(tmp,1:k,:))
@@ -121,8 +121,8 @@ end
 
 for f in (:Ac_mul_B!, :At_mul_B!)
   @eval begin
-    function $f{T}(
-        C::StridedVecOrMat{T}, A::IDPackedV{T}, B::StridedVecOrMat{T})
+    function $f(
+        C::StridedVecOrMat{T}, A::IDPackedV{T}, B::StridedVecOrMat{T}) where T
       k, n = size(A)
       copy!(view(C,1:k,:), B)
       $f(view(C,k+1:n,:), A[:T], B)
@@ -133,7 +133,7 @@ end
 
 for (f, g) in ((:Ac_mul_Bc!, :ctranspose!), (:At_mul_Bt!, :transpose!))
   @eval begin
-    function $f{T}(C::StridedMatrix{T}, A::IDPackedV{T}, B::StridedMatrix{T})
+    function $f(C::StridedMatrix{T}, A::IDPackedV{T}, B::StridedMatrix{T}) where T
       k, n = size(A)
       $g(view(C,1:k,:), B)
       $f(view(C,k+1:n,:), A[:T], B)
@@ -144,7 +144,7 @@ end
 
 ### right-multiplication
 
-function A_mul_B!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T})
+function A_mul_B!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T}) where T
   k, n = size(B)
   copy!(view(C,:,1:k), A)
   A_mul_B!(view(C,:,k+1:n), A, B[:T])
@@ -154,14 +154,14 @@ end
 for (f!, trans) in ((:A_mul_Bc!, 'C'), (:A_mul_Bt!, 'T'))
   f!! = Symbol(f!, "!")
   @eval begin
-    function $f!!{T<:BlasFloat}(
-        C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T})
+    function $f!!(
+        C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T}) where T<:BlasFloat
       k, n = size(B)
       A_mul_B!(A, B[:P])
       copy!(C, view(A,:,1:k))
       BLAS.gemm!('N', $trans, one(T), view(A,:,k+1:n), B[:T], one(T), C)
     end  # overwrites A
-    $f!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T}) =
+    $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T}) where {T} =
       $f!!(C, copy(A), B)
   end
 end
@@ -169,7 +169,7 @@ end
 for (f, g, h) in ((:Ac_mul_B!, :ctranspose!, :A_mul_Bc!),
                   (:At_mul_B!, :transpose!,  :A_mul_Bt!))
   @eval begin
-    function $f{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T})
+    function $f(C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T}) where T
       k, n = size(B)
       $g(view(C,:,1:k), A)
       $f(view(C,:,k+1:n), A, B[:T])
@@ -181,8 +181,8 @@ end
 for (f!, g, trans) in ((:Ac_mul_Bc!, :Ac_mul_B, 'C'),
                        (:At_mul_Bt!, :At_mul_B, 'T'))
   @eval begin
-    function $f!{T<:BlasFloat}(
-        C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T})
+    function $f!(
+        C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T}) where T<:BlasFloat
       k, n = size(B)
       tmp = $g(A, B[:P])
       copy!(C, view(tmp,:,1:k))
@@ -193,14 +193,14 @@ end
 
 # ID
 
-type ID{S} <: Factorization{S}
+mutable struct ID{S} <: Factorization{S}
   sk::Vector{Int}
   rd::Vector{Int}
   C::Matrix{S}
   T::Matrix{S}
 end
 
-function ID{T}(trans::Symbol, A::AbstractMatOrLinOp{T}, V::IDPackedV{T})
+function ID(trans::Symbol, A::AbstractMatOrLinOp{T}, V::IDPackedV{T}) where T
   chktrans(trans)
   ID(V.sk, V.rd, getcols(trans, A, V.sk), V.T)
 end
@@ -212,17 +212,17 @@ ID(A, args...) = ID(LinOp(A), args...)
 conj!(A::ID) = ID(A.sk, A.rd, conj!(A.C), conj!(A.T))
 conj(A::ID) = ID(A.sk, A.rd, conj(A.C), conj(A.T))
 
-convert{T}(::Type{ID{T}}, A::ID) =
+convert(::Type{ID{T}}, A::ID) where {T} =
   ID(A.sk, A.rd, convert(Array{T}, A.C), convert(Array{T}, A.T))
-convert{T}(::Factorization{T}, A::ID) = convert(ID{T}, A)
+convert(::Factorization{T}, A::ID) where {T} = convert(ID{T}, A)
 convert(::Type{Array}, A::ID) = full(A)
-convert{T}(::Type{Array{T}}, A::ID) = convert(Array{T}, full(A))
+convert(::Type{Array{T}}, A::ID) where {T} = convert(Array{T}, full(A))
 
 copy(A::ID) = ID(copy(A.sk), copy(A.rd), copy(A.C), copy(A.T))
 
 full(A::ID) = A[:C]*A[:V]
 
-function getindex{T}(A::ID{T}, d::Symbol)
+function getindex(A::ID{T}, d::Symbol) where T
   if     d == :C   return A.C
   elseif d == :P   return ColumnPermutation(A[:p])
   elseif d == :T   return A.T
@@ -238,7 +238,7 @@ end
 ishermitian(::ID) = false
 issym(::ID) = false
 
-isreal{T}(::ID{T}) = T <: Real
+isreal(::ID{T}) where {T} = T <: Real
 
 ndims(::ID) = 2
 
@@ -250,23 +250,23 @@ size(A::ID, dim::Integer) =
 
 ### left-multiplication
 
-function A_mul_B!!{T}(y::StridedVector{T}, A::ID{T}, x::StridedVector{T})
+function A_mul_B!!(y::StridedVector{T}, A::ID{T}, x::StridedVector{T}) where T
   tmp = Array{T}(A[:k])
   A_mul_B!!(tmp, A[:V], x)
   A_mul_B!(y, A[:C], tmp)
 end  # overwrites x
-function A_mul_B!!{T}(C::StridedMatrix{T}, A::ID{T}, B::StridedMatrix{T})
+function A_mul_B!!(C::StridedMatrix{T}, A::ID{T}, B::StridedMatrix{T}) where T
   tmp = Array{T}(A[:k], size(B,2))
   A_mul_B!!(tmp, A[:V], B)
   A_mul_B!(C, A[:C], tmp)
 end  # overwrites B
-A_mul_B!{T}(C::StridedVecOrMat{T}, A::ID{T}, B::StridedVecOrMat{T}) =
+A_mul_B!(C::StridedVecOrMat{T}, A::ID{T}, B::StridedVecOrMat{T}) where {T} =
   A_mul_B!!(C, A, copy(B))
 
 for f in (:A_mul_Bc, :A_mul_Bt)
   f! = Symbol(f, "!")
   @eval begin
-    function $f!{T}(C::StridedMatrix{T}, A::ID{T}, B::StridedMatrix{T})
+    function $f!(C::StridedMatrix{T}, A::ID{T}, B::StridedMatrix{T}) where T
       tmp = $f(A[:V], B)
       A_mul_B!(C, A[:C], tmp)
     end
@@ -276,7 +276,7 @@ end
 for f in (:Ac_mul_B, :At_mul_B)
   f! = Symbol(f, "!")
   @eval begin
-    function $f!{T}(C::StridedVecOrMat{T}, A::ID{T}, B::StridedVecOrMat{T})
+    function $f!(C::StridedVecOrMat{T}, A::ID{T}, B::StridedVecOrMat{T}) where T
       tmp = $f(A[:C], B)
       $f!(C, A[:V], tmp)
     end
@@ -286,7 +286,7 @@ end
 for (f, g!) in ((:Ac_mul_Bc, :Ac_mul_B!), (:At_mul_Bt, :At_mul_B!))
   f! = Symbol(f, "!")
   @eval begin
-    function $f!{T}(C::StridedMatrix{T}, A::ID{T}, B::StridedMatrix{T})
+    function $f!(C::StridedMatrix{T}, A::ID{T}, B::StridedMatrix{T}) where T
       tmp = $f(A[:C], B)
       $g!(C, A[:V], tmp)
     end
@@ -295,18 +295,18 @@ end
 
 ### right-multiplication
 
-A_mul_B!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::ID{T}) =
+A_mul_B!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::ID{T}) where {T} =
   A_mul_B!(C, A*B[:C], B[:V])
 
 for f! in (:A_mul_Bc!, :A_mul_Bt!)
   f!! = Symbol(f!, "!")
   @eval begin
-    function $f!!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::ID{T})
+    function $f!!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::ID{T}) where T
       tmp = Array{T}(size(A,1), B[:k])
       $f!!(tmp, A, B[:V])
       $f!(C, tmp, B[:C])
     end  # overwrites A
-    $f!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::ID{T}) =
+    $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::ID{T}) where {T} =
       $f!!(C, copy(A), B)
   end
 end
@@ -314,7 +314,7 @@ end
 for f in (:Ac_mul_B, :At_mul_B)
   f! = Symbol(f, "!")
   @eval begin
-    function $f!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::ID{T})
+    function $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::ID{T}) where T
       tmp = $f(A, B[:C])
       A_mul_B!(C, tmp, B[:V])
     end
@@ -324,7 +324,7 @@ end
 for (f, g!) in ((:Ac_mul_Bc, :A_mul_Bc!), (:At_mul_Bt, :A_mul_Bt!))
   f! = Symbol(f, "!")
   @eval begin
-    function $f!{T}(C::StridedMatrix{T}, A::StridedMatrix{T}, B::ID{T})
+    function $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::ID{T}) where T
       tmp = $f(A, B[:V])
       $g!(C, tmp, B[:C])
     end
@@ -340,7 +340,7 @@ for (f, f!, i) in ((:*,        :A_mul_B!,  1),
                    (:At_mul_B, :At_mul_B!, 2))
   for t in (:IDPackedV, :ID)
     @eval begin
-      function $f{TA,TB}(A::$t{TA}, B::StridedVector{TB})
+      function $f(A::$t{TA}, B::StridedVector{TB}) where {TA,TB}
         T = promote_type(TA, TB)
         AT = convert($t{T}, A)
         BT = (T == TB ? B : convert(Array{T}, B))
@@ -360,7 +360,7 @@ for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
                       (:At_mul_Bt, :At_mul_Bt!, 2, 1))
   for t in (:IDPackedV, :ID)
     @eval begin
-      function $f{TA,TB}(A::$t{TA}, B::StridedMatrix{TB})
+      function $f(A::$t{TA}, B::StridedMatrix{TB}) where {TA,TB}
         T = promote_type(TA, TB)
         AT = convert($t{T}, A)
         BT = (T == TB ? B : convert(Array{T}, B))
@@ -381,7 +381,7 @@ for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
                       (:At_mul_Bt, :At_mul_Bt!, 2, 1))
   for t in (:IDPackedV, :ID)
     @eval begin
-      function $f{TA,TB}(A::StridedMatrix{TA}, B::$t{TB})
+      function $f(A::StridedMatrix{TA}, B::$t{TB}) where {TA,TB}
         T = promote_type(TA, TB)
         AT = (T == TA ? A : convert(Array{T}, A))
         BT = convert($t{T}, B)
@@ -399,9 +399,9 @@ for sfx in ("", "!")
   g = Symbol("pqrfact", sfx)
   h = Symbol("id", sfx)
   @eval begin
-    function $f{T}(
+    function $f(
         trans::Symbol, A::AbstractMatOrLinOp{T}, opts::LRAOptions=LRAOptions(T);
-        args...)
+        args...) where T
       opts = copy(opts; args...)
       opts.pqrfact_retval = "t"
       chkopts!(opts, A)

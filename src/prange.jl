@@ -15,9 +15,9 @@ for sfx in ("", "!")
   f = Symbol("prange", sfx)
   g = Symbol("pqrfact", sfx)
   @eval begin
-    function $f{T}(
+    function $f(
         trans::Symbol, A::AbstractMatOrLinOp{T}, opts::LRAOptions=LRAOptions(T);
-        args...)
+        args...) where T
       prange_chktrans(trans)
       opts = copy(opts; args...)
       chkopts!(opts, A)
@@ -61,7 +61,7 @@ for sfx in ("", "!")
   end
 end
 
-function prange_sub{T}(trans::Symbol, A::AbstractMatrix{T}, opts::LRAOptions)
+function prange_sub(trans::Symbol, A::AbstractMatrix{T}, opts::LRAOptions) where T
   F = sketchfact(:left, trans, A, opts)
   k = F[:k]
   if trans == :n
