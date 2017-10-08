@@ -18,7 +18,7 @@ type PartialQRFactors
   k::Int
   T::Nullable{Matrix}
 end
-@compat const PQRFactors = PartialQRFactors
+const PQRFactors = PartialQRFactors
 
 function getindex(A::PQRFactors, d::Symbol)
   if     d == :P  return ColumnPermutation(A.p)

@@ -21,14 +21,14 @@ end
 type HermitianCURPackedU <: AbstractCURPackedU
   cols::Vector{Int}
 end
-@compat const HermCURPackedU = HermitianCURPackedU
+const HermCURPackedU = HermitianCURPackedU
 
 type SymmetricCURPackedU <: AbstractCURPackedU
   cols::Vector{Int}
 end
-@compat const SymCURPackedU = SymmetricCURPackedU
+const SymCURPackedU = SymmetricCURPackedU
 
-@compat const HermOrSymCURPackedU = Union{HermCURPackedU, SymCURPackedU}
+const HermOrSymCURPackedU = Union{HermCURPackedU, SymCURPackedU}
 
 copy(A::CURPackedU) = CURPackedU(copy(rows), copy(cols))
 copy(A::SymCURPackedU) = SymCURPackedU(copy(cols))
@@ -71,14 +71,14 @@ type HermitianCUR{T} <: AbstractCUR{T}
   C::Matrix{T}
   U::Factorization{T}
 end
-@compat const HermCUR = HermitianCUR
+const HermCUR = HermitianCUR
 
 type SymmetricCUR{T} <: AbstractCUR{T}
   cols::Vector{Int}
   C::Matrix{T}
   U::Factorization{T}
 end
-@compat const SymCUR = SymmetricCUR
+const SymCUR = SymmetricCUR
 
 @compat const HermOrSymCUR{T} = Union{HermCUR{T}, SymCUR{T}}
 

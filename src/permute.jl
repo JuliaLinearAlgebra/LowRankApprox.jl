@@ -2,17 +2,17 @@
 =#
 
 @compat abstract type PermutationMatrix <: AbstractMatrix{Int} end
-@compat const PermMat = PermutationMatrix
+const PermMat = PermutationMatrix
 
 type RowPermutation <: PermMat
   p::Vector{Int}
 end
-@compat const RowPerm = RowPermutation
+const RowPerm = RowPermutation
 
 type ColumnPermutation <: PermMat
   p::Vector{Int}
 end
-@compat const ColPerm = ColumnPermutation
+const ColPerm = ColumnPermutation
 
 convert(::Type{Array}, A::PermMat) = full(A)
 convert{T}(::Type{Array{T}}, A::PermMat) = convert(Array{T}, full(A))

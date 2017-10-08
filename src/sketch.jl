@@ -517,7 +517,7 @@ end
 type SparseRandomGaussian <: SketchMatrix
   k::Int
 end
-@compat const SparseRandGauss = SparseRandomGaussian
+const SparseRandGauss = SparseRandomGaussian
 
 function A_mul_B!{T}(C, A::SparseRandGauss, B::AbstractMatrix{T})
   k = A.k
