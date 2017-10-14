@@ -76,7 +76,7 @@ function A_mul_B!(
   C
 end
 
-for (f, g) in ((:A_mul_Bc!, :ctranspose!), (:A_mul_Bt!, :transpose!))
+for (f, g) in ((:A_mul_Bc!, :adjoint!), (:A_mul_Bt!, :transpose!))
   @eval begin
     function $f(
         C::StridedMatrix{T}, A::LowerTrapezoidal{T}, B::StridedMatrix{T}) where T
@@ -109,7 +109,7 @@ for (f, trans) in ((:Ac_mul_B!, 'C'), (:At_mul_B!, 'T'))
   end
 end
 
-for (f, g, trans) in ((:Ac_mul_Bc!, :ctranspose!, 'C'),
+for (f, g, trans) in ((:Ac_mul_Bc!, :adjoint!, 'C'),
                       (:At_mul_Bt!, :transpose!,  'T'))
   @eval begin
     function $f(
@@ -149,7 +149,7 @@ for (f, trans) in ((:A_mul_Bc!, 'C'), (:A_mul_Bt!, 'T'))
   end
 end
 
-for (f, g, trans) in ((:Ac_mul_B!, :ctranspose!, 'C'),
+for (f, g, trans) in ((:Ac_mul_B!, :adjoint!, 'C'),
                       (:At_mul_B!, :transpose!,  'T'))
   @eval begin
     function $f(
@@ -163,7 +163,7 @@ for (f, g, trans) in ((:Ac_mul_B!, :ctranspose!, 'C'),
   end
 end
 
-for (f, g, trans) in ((:Ac_mul_Bc!, :ctranspose!, 'C'),
+for (f, g, trans) in ((:Ac_mul_Bc!, :adjoint!, 'C'),
                       (:At_mul_Bt!, :transpose!,  'T'))
   @eval begin
     function $f(
@@ -196,7 +196,7 @@ function A_mul_B!(
     'N', 'N', one(T), view(A.data,:,m+1:n), view(B,m+1:n,:), one(T), C)
 end
 
-for (f, g, trans) in ((:A_mul_Bc!, :ctranspose!, 'C'),
+for (f, g, trans) in ((:A_mul_Bc!, :adjoint!, 'C'),
                       (:A_mul_Bt!, :transpose!,  'T'))
   @eval begin
     function $f(
@@ -232,7 +232,7 @@ for (f, trans) in ((:Ac_mul_B!, 'C'), (:At_mul_B!, 'T'))
   end
 end
 
-for (f, g, trans) in ((:Ac_mul_Bc!, :ctranspose!, 'C'),
+for (f, g, trans) in ((:Ac_mul_Bc!, :adjoint!, 'C'),
                       (:At_mul_Bt!, :transpose!,  'T'))
   @eval begin
     function $f(
@@ -271,7 +271,7 @@ for (f, trans) in ((:A_mul_Bc!, 'C'), (:A_mul_Bt!, 'T'))
   end
 end
 
-for (f, g) in ((:Ac_mul_B!, :ctranspose!), (:At_mul_B!, :transpose!))
+for (f, g) in ((:Ac_mul_B!, :adjoint!), (:At_mul_B!, :transpose!))
   @eval begin
     function $f(
         C::StridedMatrix{T}, A::StridedMatrix{T}, B::UpperTrapezoidal{T}) where T
@@ -284,7 +284,7 @@ for (f, g) in ((:Ac_mul_B!, :ctranspose!), (:At_mul_B!, :transpose!))
   end
 end
 
-for (f, g, trans) in ((:Ac_mul_Bc!, :ctranspose!, 'C'),
+for (f, g, trans) in ((:Ac_mul_Bc!, :adjoint!, 'C'),
                       (:At_mul_Bt!, :transpose!,  'T'))
   @eval begin
     function $f(

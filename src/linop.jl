@@ -43,8 +43,8 @@ end
 convert(::Type{Array}, A::AbstractLinOp) = full(A)
 convert(::Type{Array{T}}, A::AbstractLinOp) where {T} = convert(Array{T}, full(A))
 
-ctranspose(A::LinOp{T}) where {T} = LinOp{T}(A.n, A.m, A.mulc!, A.mul!, nothing)
-ctranspose(A::HermLinOp) = A
+adjoint(A::LinOp{T}) where {T} = LinOp{T}(A.n, A.m, A.mulc!, A.mul!, nothing)
+adjoint(A::HermLinOp) = A
 
 eltype(::AbstractLinOp{T}) where {T} = T
 

@@ -21,8 +21,8 @@ convert(::Type{Array{T}}, A::PartialSVD) where {T} = convert(Array{T}, full(A))
 
 copy(A::PartialSVD) = PartialSVD(copy(A.U), copy(A.S), copy(A.Vt))
 
-ctranspose!(A::PartialSVD) = PartialSVD(A.Vt', A.S, A.U')
-ctranspose(A::PartialSVD) = PartialSVD(A.Vt', copy(A.S), A.U')
+adjoint!(A::PartialSVD) = PartialSVD(A.Vt', A.S, A.U')
+adjoint(A::PartialSVD) = PartialSVD(A.Vt', copy(A.S), A.U')
 transpose!(A::PartialSVD) = PartialSVD(A.Vt.', A.S, A.U.')
 transpose(A::PartialSVD) = PartialSVD(A.Vt.', copy(A.S), A.U.')
 

@@ -18,7 +18,9 @@ n = 10
     @eval @test isa($L, $t)
 
     F = full(L)
+
     @test A ≈ F
+    @test F' ≈ full(L')
     @test A ≈ L*eye(n)
     @test A ≈ eye(n)*L
 

@@ -48,7 +48,7 @@ function full!(trans::Symbol, A::StridedMatrix{T}, V::IDPackedV{T}) where T
         A[i,j] = i == j ? 1 : 0
       end
     end
-    ctranspose!(view(A,k+1:n,:), V[:T])
+    adjoint!(view(A,k+1:n,:), V[:T])
     A_mul_B!(V[:P], A)
   end
   A
@@ -131,7 +131,7 @@ for f in (:Ac_mul_B!, :At_mul_B!)
   end
 end
 
-for (f, g) in ((:Ac_mul_Bc!, :ctranspose!), (:At_mul_Bt!, :transpose!))
+for (f, g) in ((:Ac_mul_Bc!, :adjoint!), (:At_mul_Bt!, :transpose!))
   @eval begin
     function $f(C::StridedMatrix{T}, A::IDPackedV{T}, B::StridedMatrix{T}) where T
       k, n = size(A)
@@ -166,7 +166,7 @@ for (f!, trans) in ((:A_mul_Bc!, 'C'), (:A_mul_Bt!, 'T'))
   end
 end
 
-for (f, g, h) in ((:Ac_mul_B!, :ctranspose!, :A_mul_Bc!),
+for (f, g, h) in ((:Ac_mul_B!, :adjoint!, :A_mul_Bc!),
                   (:At_mul_B!, :transpose!,  :A_mul_Bt!))
   @eval begin
     function $f(C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T}) where T
