@@ -55,7 +55,7 @@ export
 
 # common
 
-type LRAOptions
+mutable struct LRAOptions
   atol::Float64
   maxdet_niter::Int
   maxdet_tol::Float64
@@ -74,7 +74,7 @@ type LRAOptions
   verb::Bool
 end
 
-function LRAOptions{T}(::Type{T}; args...)
+function LRAOptions(::Type{T}; args...) where T
   opts = LRAOptions(
     0,                  # atol
     -1,                 # maxdet_niter

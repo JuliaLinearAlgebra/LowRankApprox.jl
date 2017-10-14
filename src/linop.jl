@@ -1,11 +1,11 @@
 #= src/linop.jl
 =#
 
-@compat abstract type AbstractLinearOperator{T} end
+abstract type AbstractLinearOperator{T} end
 const AbstractLinOp = AbstractLinearOperator
-@compat const AbstractMatOrLinOp{T} = Union{AbstractMatrix{T}, AbstractLinOp{T}}
+const AbstractMatOrLinOp{T} = Union{AbstractMatrix{T}, AbstractLinOp{T}}
 
-type LinearOperator{T} <: AbstractLinOp{T}
+mutable struct LinearOperator{T} <: AbstractLinOp{T}
   m::Int
   n::Int
   mul!::Function
@@ -14,7 +14,7 @@ type LinearOperator{T} <: AbstractLinOp{T}
 end
 const LinOp = LinearOperator
 
-type HermitianLinearOperator{T} <: AbstractLinOp{T}
+mutable struct HermitianLinearOperator{T} <: AbstractLinOp{T}
   n::Int
   mul!::Function
   _tmp::Nullable{Array{T}}
@@ -41,17 +41,17 @@ function HermLinOp(A)
 end
 
 convert(::Type{Array}, A::AbstractLinOp) = full(A)
-convert{T}(::Type{Array{T}}, A::AbstractLinOp) = convert(Array{T}, full(A))
+convert(::Type{Array{T}}, A::AbstractLinOp) where {T} = convert(Array{T}, full(A))
 
-ctranspose{T}(A::LinOp{T}) = LinOp{T}(A.n, A.m, A.mulc!, A.mul!, nothing)
+ctranspose(A::LinOp{T}) where {T} = LinOp{T}(A.n, A.m, A.mulc!, A.mul!, nothing)
 ctranspose(A::HermLinOp) = A
 
-eltype{T}(::AbstractLinOp{T}) = T
+eltype(::AbstractLinOp{T}) where {T} = T
 
-full{T}(A::AbstractLinOp{T}) = A*eye(T, size(A,2))
+full(A::AbstractLinOp{T}) where {T} = A*eye(T, size(A,2))
 
 getindex(A::AbstractLinOp, ::Colon, ::Colon) = full(A)
-function getindex{T}(A::AbstractLinOp{T}, ::Colon, cols)
+function getindex(A::AbstractLinOp{T}, ::Colon, cols) where T
   k = length(cols)
   S = zeros(T, size(A,2), k)
   for i = 1:k
@@ -59,7 +59,7 @@ function getindex{T}(A::AbstractLinOp{T}, ::Colon, cols)
   end
   A*S
 end
-function getindex{T}(A::AbstractLinOp{T}, rows, ::Colon)
+function getindex(A::AbstractLinOp{T}, rows, ::Colon) where T
   k = length(rows)
   S = zeros(T, size(A,1), k)
   for i = 1:k
@@ -67,7 +67,7 @@ function getindex{T}(A::AbstractLinOp{T}, rows, ::Colon)
   end
   (A'*S)'
 end
-function getindex{T}(A::AbstractLinOp{T}, rows, cols)
+function getindex(A::AbstractLinOp{T}, rows, cols) where T
   if length(rows) >= length(cols)  return A[:,cols][rows,:]
   else                             return A[rows,:][:,cols]
   end
@@ -78,20 +78,20 @@ ishermitian(::HermLinOp) = true
 issym(::LinOp) = false
 issym(A::HermLinOp) = isreal(A)
 
-isreal{T}(::AbstractLinOp{T}) = T <: Real
+isreal(::AbstractLinOp{T}) where {T} = T <: Real
 
 size(A::LinOp) = (A.m, A.n)
 size(A::LinOp, dim::Integer) = dim == 1 ? A.m : (dim == 2 ? A.n : 1)
 size(A::HermLinOp) = (A.n, A.n)
 size(A::HermLinOp, dim::Integer) = (dim == 1 || dim == 2) ? A.n : 1
 
-function transpose{T}(A::LinOp{T})
+function transpose(A::LinOp{T}) where T
   n, m = size(A)
   mul!  = (y, L, x) -> (A.mulc!(y, L, conj(x)); conj!(y))
   mulc! = (y, L, x) -> ( A.mul!(y, L, conj(x)); conj!(y))
   LinOp{T}(m, n, mul!, mulc!, nothing)
 end
-function transpose{T}(A::HermLinOp{T})
+function transpose(A::HermLinOp{T}) where T
   n = size(A, 1)
   mul! = (y, L, x) -> (A.mul!(y, L, conj(x)); conj!(y))
   HermLinOp{T}(n, mul!, nothing)
@@ -106,11 +106,11 @@ Ac_mul_B!(C, A::HermLinOp, B::AbstractVecOrMat) = A_mul_B!(C, A, B)
 A_mul_B!(C, A::AbstractMatrix, B::AbstractLinOp) = ctranspose!(C, B'*A')
 A_mul_Bc!(C, A::AbstractMatrix, B::AbstractLinOp) = ctranspose!(C, B*A')
 
-*{T}(A::AbstractLinOp{T}, x::AbstractVector) =
+*(A::AbstractLinOp{T}, x::AbstractVector) where {T} =
   (y = Array{T}(size(A,1)); A_mul_B!(y, A, x))
-*{T}(A::AbstractLinOp{T}, B::AbstractMatrix) =
+*(A::AbstractLinOp{T}, B::AbstractMatrix) where {T} =
   (C = Array{T}(size(A,1), size(B,2)); A_mul_B!(C, A, B))
-*{T}(A::AbstractMatrix, B::AbstractLinOp{T}) =
+*(A::AbstractMatrix, B::AbstractLinOp{T}) where {T} =
   (C = Array{T}(size(A,1), size(B,2)); A_mul_B!(C, A, B))
 
 # scalar multiplication/division
@@ -147,7 +147,7 @@ end
 
 for (f, a) in ((:+, 1), (:-, -1))
   @eval begin
-    function $f{T}(A::AbstractLinOp{T}, B::AbstractLinOp{T})
+    function $f(A::AbstractLinOp{T}, B::AbstractLinOp{T}) where T
       size(A) == size(B) || throw(DimensionMismatch)
       m, n = size(A)
       alpha = T($a)
@@ -156,7 +156,7 @@ for (f, a) in ((:+, 1), (:-, -1))
       LinOp{T}(m, n, mul!, mulc!, nothing)
     end
 
-    function $f{T}(A::HermLinOp{T}, B::HermLinOp{T})
+    function $f(A::HermLinOp{T}, B::HermLinOp{T}) where T
       size(A) == size(B) || throw(DimensionMismatch)
       n = size(A, 1)
       alpha = T($a)
@@ -170,9 +170,9 @@ for (f, g) in ((:axpy, :A_mul_B!), (:axpyc, :Ac_mul_B!))
   gen = Symbol("gen_linop_", f)
   fcn = Symbol("linop_", f, "!")
   @eval begin
-    function $gen{T}(A::AbstractLinOp{T}, B::AbstractLinOp{T}, alpha::T)
-      function $fcn{T}(
-          y::StridedVecOrMat{T}, L::AbstractLinOp{T}, x::StridedVecOrMat{T})
+    function $gen(A::AbstractLinOp{T}, B::AbstractLinOp{T}, alpha::T) where T
+      function $fcn(
+          y::StridedVecOrMat{T}, L::AbstractLinOp{T}, x::StridedVecOrMat{T}) where T
         if isnull(L._tmp) || size(get(L._tmp)) != size(y)
           L._tmp = similar(y)
         end
@@ -187,7 +187,7 @@ end
 
 # operator composition
 
-function *{T}(A::AbstractLinOp{T}, B::AbstractLinOp{T})
+function *(A::AbstractLinOp{T}, B::AbstractLinOp{T}) where T
   mA, nA = size(A)
   mB, nB = size(B)
   nA == mB || throw(DimensionMismatch)
@@ -200,9 +200,9 @@ for (f, g) in ((:comp, :A_mul_B!), (:compc, :Ac_mul_B!))
   gen = Symbol("gen_linop_", f)
   fcn = Symbol("linop_", f, "!")
   @eval begin
-    function $gen{T}(A::AbstractLinOp{T}, B::AbstractLinOp{T})
-      function $fcn{T}(
-          y::StridedVector{T}, L::AbstractLinOp{T}, x::StridedVector{T})
+    function $gen(A::AbstractLinOp{T}, B::AbstractLinOp{T}) where T
+      function $fcn(
+          y::StridedVector{T}, L::AbstractLinOp{T}, x::StridedVector{T}) where T
         n = size(B, 1)
         if isnull(L._tmp) || length(get(L._tmp)) != n
           L._tmp = Array{T}(n)
@@ -211,8 +211,8 @@ for (f, g) in ((:comp, :A_mul_B!), (:compc, :Ac_mul_B!))
         $g(tmp, B,  x )
         $g( y , A, tmp)
       end
-      function $fcn{T}(
-          Y::StridedMatrix{T}, L::AbstractLinOp{T}, X::StridedMatrix{T})
+      function $fcn(
+          Y::StridedMatrix{T}, L::AbstractLinOp{T}, X::StridedMatrix{T}) where T
         m = size(B, 1)
         n = size(X, 2)
         if isnull(L._tmp) || size(get(L._tmp)) != (m, n)

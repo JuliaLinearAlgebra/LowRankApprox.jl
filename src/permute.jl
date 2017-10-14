@@ -1,21 +1,21 @@
 #= src/permute.jl
 =#
 
-@compat abstract type PermutationMatrix <: AbstractMatrix{Int} end
+abstract type PermutationMatrix <: AbstractMatrix{Int} end
 const PermMat = PermutationMatrix
 
-type RowPermutation <: PermMat
+mutable struct RowPermutation <: PermMat
   p::Vector{Int}
 end
 const RowPerm = RowPermutation
 
-type ColumnPermutation <: PermMat
+mutable struct ColumnPermutation <: PermMat
   p::Vector{Int}
 end
 const ColPerm = ColumnPermutation
 
 convert(::Type{Array}, A::PermMat) = full(A)
-convert{T}(::Type{Array{T}}, A::PermMat) = convert(Array{T}, full(A))
+convert(::Type{Array{T}}, A::PermMat) where {T} = convert(Array{T}, full(A))
 
 copy(A::RowPerm) = RowPerm(copy(A.p))
 copy(A::ColPerm) = ColPerm(copy(A.p))
