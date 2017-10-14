@@ -5,7 +5,7 @@ type PartialHermitianEigen{T,Tr<:Real} <: Factorization{T}
   values::Vector{Tr}
   vectors::Matrix{T}
 end
-@compat const PartialHermEigen = PartialHermitianEigen
+const PartialHermEigen = PartialHermitianEigen
 
 conj!(A::PartialHermEigen) = PartialHermEigen(conj!(A.values), conj!(A.vectors))
 conj(A::PartialHermEigen) = conj!(copy(A))

@@ -2,7 +2,7 @@
 =#
 
 @compat abstract type AbstractLinearOperator{T} end
-@compat const AbstractLinOp = AbstractLinearOperator
+const AbstractLinOp = AbstractLinearOperator
 @compat const AbstractMatOrLinOp{T} = Union{AbstractMatrix{T}, AbstractLinOp{T}}
 
 type LinearOperator{T} <: AbstractLinOp{T}
@@ -12,14 +12,14 @@ type LinearOperator{T} <: AbstractLinOp{T}
   mulc!::Function
   _tmp::Nullable{Array{T}}
 end
-@compat const LinOp = LinearOperator
+const LinOp = LinearOperator
 
 type HermitianLinearOperator{T} <: AbstractLinOp{T}
   n::Int
   mul!::Function
   _tmp::Nullable{Array{T}}
 end
-@compat const HermLinOp = HermitianLinearOperator
+const HermLinOp = HermitianLinearOperator
 
 function LinOp(A)
   try
