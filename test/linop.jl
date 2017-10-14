@@ -2,11 +2,10 @@
 =#
 
 println("linop.jl")
-tic()
 
 n = 10
 
-for (t, herm) in ((:LinearOperator, false), (:HermitianLinearOperator, true))
+@time for (t, herm) in ((:LinearOperator, false), (:HermitianLinearOperator, true))
   for T in (Float32, Float64, Complex64, Complex128)
     println("  $t/$T")
 
@@ -66,5 +65,3 @@ for (t, herm) in ((:LinearOperator, false), (:HermitianLinearOperator, true))
     @test A*(A*x) ≈ M*x
   end
 end
-
-toc()

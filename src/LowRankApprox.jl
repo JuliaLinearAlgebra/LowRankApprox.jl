@@ -2,11 +2,23 @@
 =#
 __precompile__()
 module LowRankApprox
+using FFTW
 
-importall Base
-using Base.LinAlg: BlasFloat, BlasInt, checksquare, chkstride1
+using Base
+
+import Base: convert,
+             eltype, size, getindex, setindex!, full, sparse, copy,
+             ishermitian, issymmetric, isreal, real, imag,
+             A_mul_B!, Ac_mul_B, Ac_mul_B!, Ac_mul_Bc, A_mul_Bc, A_mul_Bc!, axpy!, Ac_mul_Bc!,
+             At_mul_B, At_mul_B!, A_mul_Bt!, At_mul_Bt, At_mul_Bt!, A_mul_Bt, A_mul_Bt!,
+             A_ldiv_B!,
+             +, -, *, /, \,
+             ctranspose, transpose, ctranspose!, transpose!, conj, conj!
+import Base.LinAlg: BlasFloat, BlasInt, checksquare, chkstride1
+import FFTW: r2rFFTWPlan, FFTWPlan
 
 using Compat
+import Compat: adjoint, adjoint!
 
 export
 

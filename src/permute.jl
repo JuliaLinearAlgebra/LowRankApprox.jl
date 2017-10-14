@@ -20,7 +20,7 @@ convert(::Type{Array{T}}, A::PermMat) where {T} = convert(Array{T}, full(A))
 copy(A::RowPerm) = RowPerm(copy(A.p))
 copy(A::ColPerm) = ColPerm(copy(A.p))
 
-ctranspose(A::PermMat) = transpose(A)
+adjoint(A::PermMat) = transpose(A)
 transpose(A::RowPerm) = ColPerm(A.p)
 transpose(A::ColPerm) = RowPerm(A.p)
 
@@ -47,7 +47,7 @@ getindex(A::RowPerm, i::Integer, j::Integer) = A.p[i] == j ? 1 : 0
 getindex(A::ColPerm, i::Integer, j::Integer) = A.p[j] == i ? 1 : 0
 
 ishermitian(A::PermMat) = issym(A)
-function issym(A::PermMat)
+function issymmetric(A::PermMat)
   for i = 1:length(A.p)
     i != A.p[A.p[i]] && return false
   end

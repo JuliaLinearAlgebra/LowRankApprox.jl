@@ -75,8 +75,8 @@ end
 
 ishermitian(::LinOp) = false
 ishermitian(::HermLinOp) = true
-issym(::LinOp) = false
-issym(A::HermLinOp) = isreal(A)
+issymmetric(::LinOp) = false
+issymmetric(A::HermLinOp) = isreal(A)
 
 isreal(::AbstractLinOp{T}) where {T} = T <: Real
 
@@ -103,8 +103,8 @@ A_mul_B!(C, A::AbstractLinOp, B::AbstractVecOrMat) = A.mul!(C, A, B)
 Ac_mul_B!(C, A::LinOp, B::AbstractVecOrMat) = A.mulc!(C, A, B)
 Ac_mul_B!(C, A::HermLinOp, B::AbstractVecOrMat) = A_mul_B!(C, A, B)
 
-A_mul_B!(C, A::AbstractMatrix, B::AbstractLinOp) = ctranspose!(C, B'*A')
-A_mul_Bc!(C, A::AbstractMatrix, B::AbstractLinOp) = ctranspose!(C, B*A')
+A_mul_B!(C, A::AbstractMatrix, B::AbstractLinOp) = adjoint!(C, B'*A')
+A_mul_Bc!(C, A::AbstractMatrix, B::AbstractLinOp) = adjoint!(C, B*A')
 
 *(A::AbstractLinOp{T}, x::AbstractVector) where {T} =
   (y = Array{T}(size(A,1)); A_mul_B!(y, A, x))

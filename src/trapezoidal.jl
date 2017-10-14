@@ -29,8 +29,8 @@ convert(::Type{Array{T}}, A::Trapezoidal) where {T} = convert(Array{T}, full(A))
 copy(A::LowerTrapezoidal) = LowerTrapezoidal(copy(A.data))
 copy(A::UpperTrapezoidal) = UpperTrapezoidal(copy(A.data))
 
-ctranspose(A::LowerTrapezoidal) = UpperTrapezoidal(A.data')
-ctranspose(A::UpperTrapezoidal) = LowerTrapezoidal(A.data')
+adjoint(A::LowerTrapezoidal) = UpperTrapezoidal(A.data')
+adjoint(A::UpperTrapezoidal) = LowerTrapezoidal(A.data')
 transpose(A::LowerTrapezoidal) = UpperTrapezoidal(A.data.')
 transpose(A::UpperTrapezoidal) = LowerTrapezoidal(A.data.')
 

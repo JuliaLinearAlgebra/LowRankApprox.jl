@@ -21,8 +21,8 @@ convert(::Type{Array{T}}, A::PartialHermEigen) where {T} = convert(Array{T}, ful
 
 copy(A::PartialHermEigen) = PartialHermEigen(copy(A.values), copy(A.vectors))
 
-ctranspose!(A::PartialHermEigen) = A
-ctranspose(A::PartialHermEigen) = copy(A)
+adjoint!(A::PartialHermEigen) = A
+adjoint(A::PartialHermEigen) = copy(A)
 transpose!(A::PartialHermEigen) = conj!(A.vectors)
 transpose(A::PartialHermEigen) = PartialHermEigen(A.values, conj(A.vectors))
 
@@ -37,7 +37,7 @@ function getindex(A::PartialHermEigen, d::Symbol)
 end
 
 ishermitian(::PartialHermEigen) = true
-issym(A::PartialHermEigen{T}) where {T} = isreal(A)
+issymmetric(A::PartialHermEigen{T}) where {T} = isreal(A)
 
 isreal(::PartialHermEigen{T}) where {T} = T <: Real
 

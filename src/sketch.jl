@@ -354,7 +354,7 @@ end
 
 function srft_apply!(
     y::StridedVecOrMat{T}, X::StridedMatrix{T}, idx::AbstractVector,
-    r2rplan!::FFTW.r2rFFTWPlan) where T<:Real
+    r2rplan!::r2rFFTWPlan) where T<:Real
   l, m = size(X)
   n = l*m
   k = length(idx)
@@ -410,7 +410,7 @@ end
 
 function srft_apply!(
     y::StridedVecOrMat{T}, X::StridedMatrix, idx::AbstractVector,
-    fftplan!::FFTW.FFTWPlan) where T<:Complex
+    fftplan!::FFTWPlan) where T<:Complex
   l, m = size(X)
   n = l*m
   k = length(idx)

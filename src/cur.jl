@@ -88,7 +88,7 @@ function CUR(A::AbstractMatOrLinOp, U::CURPackedU)
   C = A[:,cols]
   R = A[rows,:]
   F = svdfact!(C[rows,:])
-  U = PartialSVD(F[:V], 1./F[:S], F[:U]')
+  U = PartialSVD(F[:V], 1 ./ F[:S], F[:U]')
   CUR(rows, cols, C, U, R)
 end
 CUR(A::AbstractMatOrLinOp, U::HermCURPackedU) = HermCUR(A, U)
@@ -100,7 +100,7 @@ function HermCUR(A::AbstractMatOrLinOp, U::HermCURPackedU)
   cols = U[:cols]
   C = A[:,cols]
   F = eigfact!(Hermitian(C[cols,:]))
-  U = PartialHermEigen(1./F[:values], F[:vectors])
+  U = PartialHermEigen(1 ./ F[:values], F[:vectors])
   HermCUR(cols, C, U)
 end
 HermCUR(A::AbstractMatOrLinOp, cols) = HermCUR(A, HermCURPackedU(cols))
@@ -110,7 +110,7 @@ function SymCUR(A::AbstractMatOrLinOp, U::SymCURPackedU)
   cols = U[:cols]
   C = A[:,cols]
   F = svdfact!(C[cols,:])
-  U = PartialSVD(F[:V], 1./F[:S], F[:U]')
+  U = PartialSVD(F[:V], 1 ./ F[:S], F[:U]')
   SymCUR(cols, C, U)
 end
 SymCUR(A::AbstractMatOrLinOp, cols) = SymCUR(A, SymCURPackedU(cols))
