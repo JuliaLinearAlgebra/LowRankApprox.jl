@@ -2,17 +2,16 @@
 =#
 
 println("prange.jl")
-tic()
 
 n = 128
 M = matrixlib(:fourier, rand(n), rand(n))
 opts = LRAOptions(maxdet_tol=0., sketch_randn_niter=1)
 
-for (t, s) in ((:none,                 :none ),
-               (:RandomGaussian,       :randn),
-               (:RandomSubset,         :sub  ),
-               (:SRFT,                 :srft ),
-               (:SparseRandomGaussian, :sprn ))
+@time for (t, s) in ((:none,                 :none ),
+                     (:RandomGaussian,       :randn),
+                     (:RandomSubset,         :sub  ),
+                     (:SRFT,                 :srft ),
+                     (:SparseRandomGaussian, :sprn ))
   opts.sketch = s
   for T in (Float32, Float64, Complex64, Complex128)
     println("  $t/$T")
@@ -32,5 +31,3 @@ for (t, s) in ((:none,                 :none ),
     @test norm(A - Q*(Q'*A*Q)*Q') < approx_rtol*nrm
   end
 end
-
-toc()

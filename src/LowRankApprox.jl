@@ -2,9 +2,7 @@
 =#
 __precompile__()
 module LowRankApprox
-using FFTW
-
-using Base
+using FFTW, Compat
 
 import Base: convert,
              eltype, size, getindex, setindex!, full, sparse, copy,
@@ -15,9 +13,7 @@ import Base: convert,
              +, -, *, /, \,
              transpose, transpose!, conj, conj!
 import Base.LinAlg: BlasFloat, BlasInt, checksquare, chkstride1
-import FFTW: r2rFFTWPlan, FFTWPlan
-
-using Compat
+import FFTW: plan_r2r!, R2HC, r2rFFTWPlan, FFTWPlan
 import Compat: adjoint, adjoint!
 
 export
@@ -114,7 +110,7 @@ LRAOptions(; args...) = LRAOptions(Float64; args...)
 
 function copy(opts::LRAOptions; args...)
   opts_ = LRAOptions()
-  for field in fieldnames(opts)
+  for field in fieldnames(typeof(opts))
     setfield!(opts_, field, getfield(opts, field))
   end
   for (key, value) in args

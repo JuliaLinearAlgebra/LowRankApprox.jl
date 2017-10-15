@@ -318,7 +318,7 @@ function srft_init(::Type{T}, n::Integer, k::Integer) where T<:Real
   X = Array{T}(l, m)
   d = srft_rand(T, n)
   idx = rand(1:n, k)
-  r2rplan! = FFTW.plan_r2r!(X, FFTW.R2HC, 1)
+  r2rplan! = plan_r2r!(X, R2HC, 1)
   X, d, idx, r2rplan!
 end
 function srft_init(::Type{T}, n::Integer, k::Integer) where T<:Complex

@@ -65,5 +65,10 @@ n = 10
 
     M = L^2
     @test A*(A*x) ≈ M*x
+
+    M = convert(LinearOperator{T}, L)
+    @test A*x == M*x
+    M = convert(LinearOperator, L)
+    @test A*x == M*x
   end
 end

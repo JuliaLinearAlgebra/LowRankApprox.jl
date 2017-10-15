@@ -5,7 +5,8 @@ crandn(::Type{T}, dims::Integer...) where {T<:Real} = convert(Array{T}, randn(di
 for (elty, relty) in ((:Complex64, :Float32), (:Complex128, :Float64))
   @eval begin
     crandn(::Type{$elty}, dims::Integer...) =
-      reinterpret($elty, crandn($relty, 2*dims[1], dims[2:end]...), (dims...))
+      reshape(reinterpret($elty, vec(crandn($relty, 2*dims[1], dims[2:end]...))),
+              (dims...))
   end
 end
 
