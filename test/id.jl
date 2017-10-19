@@ -2,18 +2,17 @@
 =#
 
 println("id.jl")
-tic()
 
 m = 128
 n =  64
 M = matrixlib(:fourier, rand(m), rand(n))
 opts = LRAOptions(maxdet_tol=0., sketch_randn_niter=1)
 
-for (t, s) in ((:none,                 :none ),
-               (:RandomGaussian,       :randn),
-               (:RandomSubset,         :sub  ),
-               (:SRFT,                 :srft ),
-               (:SparseRandomGaussian, :sprn ))
+@time for (t, s) in ((:none,                 :none ),
+                     (:RandomGaussian,       :randn),
+                     (:RandomSubset,         :sub  ),
+                     (:SRFT,                 :srft ),
+                     (:SparseRandomGaussian, :sprn ))
   opts.sketch = s
   for T in (Float32, Float64, Complex64, Complex128)
     println("  $t/$T")
@@ -32,14 +31,14 @@ for (t, s) in ((:none,                 :none ),
     @test norm(A  - full(F )) < approx_rtol*nrm
     @test norm(A' - full(Fc)) < approx_rtol*nrm
 
-    for (N, G, p, q) in ((full(V), V, V[:k], n), (A, F, m, n))
-      xp = rand(T, p)
+    for (N, G, ρ, q) in ((full(V), V, V[:k], n), (A, F, m, n))
+      xp = rand(T, ρ)
       xq = rand(T, q)
       y = N  *xq; @test norm(y - G  *xq) < approx_rtol*norm(y)
       y = N' *xp; @test norm(y - G' *xp) < approx_rtol*norm(y)
       y = N.'*xp; @test norm(y - G.'*xp) < approx_rtol*norm(y)
 
-      Bp = rand(T, p, p)
+      Bp = rand(T, ρ, ρ)
       Bq = rand(T, q, q)
       C = N   *Bq  ; @test norm(C - G   *Bq  ) < approx_rtol*norm(C)
       C = N   *Bq' ; @test norm(C - G   *Bq' ) < approx_rtol*norm(C)
@@ -58,5 +57,3 @@ for (t, s) in ((:none,                 :none ),
     end
   end
 end
-
-toc()

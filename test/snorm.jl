@@ -2,12 +2,11 @@
 =#
 
 println("snorm.jl")
-tic()
 
 m = 20
 n = 10
 
-for T in (Float32, Float64, Complex64, Complex128)
+@time for T in (Float32, Float64, Complex64, Complex128)
   println("  $T")
 
   rtol = 100*eps(real(T))
@@ -25,5 +24,3 @@ for T in (Float32, Float64, Complex64, Complex128)
   nrm = norm(A - B)
   @test ≈(nrm, snormdiff(A, B); atol = rtol*nrm)
 end
-
-toc()

@@ -2,11 +2,19 @@
 =#
 __precompile__()
 module LowRankApprox
+using FFTW, Compat
 
-importall Base
-using Base.LinAlg: BlasFloat, BlasInt, checksquare, chkstride1
-
-using Compat
+import Base: convert,
+             eltype, size, getindex, setindex!, full, sparse, copy,
+             ishermitian, issymmetric, isreal, real, imag,
+             A_mul_B!, Ac_mul_B, Ac_mul_B!, Ac_mul_Bc, A_mul_Bc, A_mul_Bc!, axpy!, Ac_mul_Bc!,
+             At_mul_B, At_mul_B!, A_mul_Bt!, At_mul_Bt, At_mul_Bt!, A_mul_Bt, A_mul_Bt!,
+             A_ldiv_B!,
+             +, -, *, /, \,
+             transpose, transpose!, conj, conj!
+import Base.LinAlg: BlasFloat, BlasInt, checksquare, chkstride1
+import FFTW: plan_r2r!, R2HC, r2rFFTWPlan, FFTWPlan
+import Compat: adjoint, adjoint!
 
 export
 
@@ -55,7 +63,7 @@ export
 
 # common
 
-type LRAOptions
+mutable struct LRAOptions
   atol::Float64
   maxdet_niter::Int
   maxdet_tol::Float64
@@ -74,7 +82,7 @@ type LRAOptions
   verb::Bool
 end
 
-function LRAOptions{T}(::Type{T}; args...)
+function LRAOptions(::Type{T}; args...) where T
   opts = LRAOptions(
     0,                  # atol
     -1,                 # maxdet_niter
@@ -102,7 +110,7 @@ LRAOptions(; args...) = LRAOptions(Float64; args...)
 
 function copy(opts::LRAOptions; args...)
   opts_ = LRAOptions()
-  for field in fieldnames(opts)
+  for field in fieldnames(typeof(opts))
     setfield!(opts_, field, getfield(opts, field))
   end
   for (key, value) in args

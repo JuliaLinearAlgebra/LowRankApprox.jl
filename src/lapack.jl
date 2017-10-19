@@ -24,10 +24,10 @@ for (geqrf, gelqf, orgqr, orglq, elty) in
       info  = Ref{BlasInt}()
       for i = 1:2
         ccall((@blasfunc($geqrf), liblapack), Void,
-              (Ptr{BlasInt}, Ptr{BlasInt}, Ptr{$elty}, Ptr{BlasInt},
-               Ptr{$elty}, Ptr{$elty}, Ptr{BlasInt}, Ptr{BlasInt}),
-              &m, &n, A, &max(1,stride(A,2)),
-              tau, work, &lwork, info)
+              (Ref{BlasInt}, Ref{BlasInt}, Ptr{$elty}, Ref{BlasInt},
+               Ptr{$elty}, Ptr{$elty}, Ref{BlasInt}, Ptr{BlasInt}),
+              m, n, A, max(1,stride(A,2)),
+              tau, work, lwork, info)
         if i == 1
           lwork = BlasInt(real(work[1]))
           work  = length(work) < lwork ? Array{$elty}(lwork) : work
@@ -47,10 +47,10 @@ for (geqrf, gelqf, orgqr, orglq, elty) in
       info  = Ref{BlasInt}()
       for i = 1:2
         ccall((@blasfunc($gelqf), liblapack), Void,
-              (Ptr{BlasInt}, Ptr{BlasInt}, Ptr{$elty}, Ptr{BlasInt},
-               Ptr{$elty}, Ptr{$elty}, Ptr{BlasInt}, Ptr{BlasInt}),
-              &m, &n, A, &max(1,stride(A,2)),
-              tau, work, &lwork, info)
+              (Ref{BlasInt}, Ref{BlasInt}, Ptr{$elty}, Ref{BlasInt},
+               Ptr{$elty}, Ptr{$elty}, Ref{BlasInt}, Ptr{BlasInt}),
+              m, n, A, max(1,stride(A,2)),
+              tau, work, lwork, info)
         if i == 1
             lwork = BlasInt(real(work[1]))
             work  = length(work) < lwork ? Array{$elty}(lwork) : work
@@ -71,11 +71,11 @@ for (geqrf, gelqf, orgqr, orglq, elty) in
       info  = Ref{BlasInt}()
       for i = 1:2
           ccall((@blasfunc($orglq), liblapack), Void,
-                (Ptr{BlasInt}, Ptr{BlasInt}, Ptr{BlasInt}, Ptr{$elty},
-                 Ptr{BlasInt}, Ptr{$elty}, Ptr{$elty}, Ptr{BlasInt},
+                (Ref{BlasInt}, Ref{BlasInt}, Ref{BlasInt}, Ptr{$elty},
+                 Ref{BlasInt}, Ptr{$elty}, Ptr{$elty}, Ref{BlasInt},
                  Ptr{BlasInt}),
-                &m, &n, &k, A,
-                &max(1,stride(A,2)), tau, work, &lwork,
+                m, n, k, A,
+                max(1,stride(A,2)), tau, work, lwork,
                 info)
           if i == 1
               lwork = BlasInt(real(work[1]))
@@ -97,11 +97,11 @@ for (geqrf, gelqf, orgqr, orglq, elty) in
       info  = Ref{BlasInt}()
       for i = 1:2
         ccall((@blasfunc($orgqr), liblapack), Void,
-              (Ptr{BlasInt}, Ptr{BlasInt}, Ptr{BlasInt}, Ptr{$elty},
-               Ptr{BlasInt}, Ptr{$elty}, Ptr{$elty}, Ptr{BlasInt},
+              (Ref{BlasInt}, Ref{BlasInt}, Ref{BlasInt}, Ptr{$elty},
+               Ref{BlasInt}, Ptr{$elty}, Ptr{$elty}, Ref{BlasInt},
                Ptr{BlasInt}),
-              &m, &n, &k, A,
-              &max(1,stride(A,2)), tau, work, &lwork,
+              m, n, k, A,
+              max(1,stride(A,2)), tau, work, lwork,
               info)
         if i == 1
           lwork = BlasInt(real(work[1]))
@@ -128,12 +128,12 @@ for (laqps, elty, relty) in ((:slaqps_, :Float32,    :Float32),
       m, n = size(A)
       ccall(
         (@blasfunc($laqps), liblapack), Void,
-        (Ptr{BlasInt}, Ptr{BlasInt}, Ptr{BlasInt}, Ptr{BlasInt}, Ptr{BlasInt},
-         Ptr{$elty}, Ptr{BlasInt}, Ptr{BlasInt}, Ptr{$elty},
-         Ptr{$relty}, Ptr{$relty}, Ptr{$elty}, Ptr{$elty}, Ptr{BlasInt}),
-        &m, &n, &offset, &nb, kb,
-        A, &max(1,stride(A,2)), jpvt, tau,
-        vn1, vn2, auxv, F, &max(1,n))
+        (Ref{BlasInt}, Ref{BlasInt}, Ref{BlasInt}, Ref{BlasInt}, Ptr{BlasInt},
+         Ptr{$elty}, Ref{BlasInt}, Ptr{BlasInt}, Ptr{$elty},
+         Ptr{$relty}, Ptr{$relty}, Ptr{$elty}, Ptr{$elty}, Ref{BlasInt}),
+        m, n, offset, nb, kb,
+        A, max(1,stride(A,2)), jpvt, tau,
+        vn1, vn2, auxv, F, max(1,n))
     end
   end
 end

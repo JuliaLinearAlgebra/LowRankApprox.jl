@@ -2,12 +2,12 @@
 =#
 
 println("permute.jl")
-tic()
+
 
 n = 10
 p = randperm(n)
 
-for t in (:RowPermutation, :ColumnPermutation)
+@time for t in (:RowPermutation, :ColumnPermutation)
   println("  $t")
 
   @eval A = $t(p)
@@ -37,5 +37,3 @@ for t in (:RowPermutation, :ColumnPermutation)
   @test B.'*A   == B.'*P
   @test B.'*A.' == B.'*P.'
 end
-
-toc()

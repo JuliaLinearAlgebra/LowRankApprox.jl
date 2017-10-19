@@ -2,11 +2,10 @@
 =#
 
 println("linop.jl")
-tic()
 
 n = 10
 
-for (t, herm) in ((:LinearOperator, false), (:HermitianLinearOperator, true))
+@time for (t, herm) in ((:LinearOperator, false), (:HermitianLinearOperator, true))
   for T in (Float32, Float64, Complex64, Complex128)
     println("  $t/$T")
 
@@ -19,7 +18,9 @@ for (t, herm) in ((:LinearOperator, false), (:HermitianLinearOperator, true))
     @eval @test isa($L, $t)
 
     F = full(L)
+
     @test A ≈ F
+    @test F' ≈ full(L')
     @test A ≈ L*eye(n)
     @test A ≈ eye(n)*L
 
@@ -64,7 +65,10 @@ for (t, herm) in ((:LinearOperator, false), (:HermitianLinearOperator, true))
 
     M = L^2
     @test A*(A*x) ≈ M*x
+
+    M = convert(LinearOperator{T}, L)
+    @test A*x == M*x
+    M = convert(LinearOperator, L)
+    @test A*x == M*x
   end
 end
-
-toc()

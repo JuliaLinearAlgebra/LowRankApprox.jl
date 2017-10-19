@@ -11,7 +11,7 @@ References:
 =#
 
 # spectral norm
-function snorm{T}(A::AbstractLinOp{T}, opts::LRAOptions=LRAOptions(T); args...)
+function snorm(A::AbstractLinOp{T}, opts::LRAOptions=LRAOptions(T); args...) where T
   opts = isempty(args) ? opts : copy(opts; args)
   m, n   = size(A)
   isherm = ishermitian(A)
@@ -44,7 +44,7 @@ end
 snorm(A, args...; kwargs...) = snorm(LinOp(A), args...; kwargs...)
 
 # spectral norm difference
-snormdiff{T}(A::AbstractLinOp{T}, B::AbstractLinOp{T}, args...; kwargs...) =
+snormdiff(A::AbstractLinOp{T}, B::AbstractLinOp{T}, args...; kwargs...) where {T} =
   snorm(A - B, args...; kwargs...)
 snormdiff(A, B, args...; kwargs...) =
   snormdiff(LinOp(A), LinOp(B), args...; kwargs...)

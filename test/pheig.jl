@@ -2,18 +2,18 @@
 =#
 
 println("pheig.jl")
-tic()
+
 
 n = 128
 M = matrixlib(:fourier, rand(n), rand(n))
 M += M'
 opts = LRAOptions(maxdet_tol=0., sketch_randn_niter=1)
 
-for (t, s) in ((:none,                 :none ),
-               (:RandomGaussian,       :randn),
-               (:RandomSubset,         :sub  ),
-               (:SRFT,                 :srft ),
-               (:SparseRandomGaussian, :sprn ))
+@time for (t, s) in ((:none,                 :none ),
+                    (:RandomGaussian,       :randn),
+                    (:RandomSubset,         :sub  ),
+                    (:SRFT,                 :srft ),
+                    (:SparseRandomGaussian, :sprn ))
   opts.sketch = s
   for T in (Float32, Float64, Complex64, Complex128)
     println("  $t/$T")
@@ -57,5 +57,3 @@ for (t, s) in ((:none,                 :none ),
     C = F\X; @test norm(X - A*C) < approx_rtol*norm(X)
   end
 end
-
-toc()
