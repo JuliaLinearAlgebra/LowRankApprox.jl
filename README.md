@@ -1,6 +1,6 @@
 # LowRankApprox
 
-[![Build Status](https://travis-ci.org/klho/LowRankApprox.jl.svg?branch=master)](https://travis-ci.org/klho/LowRankApprox.jl)
+[![Build Status](https://travis-ci.org/JuliaMatrices/LowRankApprox.jl.svg?branch=master)](https://travis-ci.org/JuliaMatrices/LowRankApprox.jl)
 
 This Julia package provides fast low-rank approximation algorithms for BLAS/LAPACK-compatible matrices based on some of the latest technology in adaptive randomized matrix sketching. Currently implemented algorithms include:
 
@@ -29,8 +29,6 @@ This package has been developed with performance in mind, and early tests have s
 - ~0.3 s in MATLAB
 
 This difference can be attributed in part to both algorithmic improvements as well as to some low-level optimizations.
-
-**Note**: LowRankApprox was last tested with Julia v0.5.0 and is no longer under active development.
 
 ## Contents
 
