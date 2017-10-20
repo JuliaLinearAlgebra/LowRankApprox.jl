@@ -28,8 +28,6 @@ This package has been developed with performance in mind, and early tests have s
 
 This difference can be attributed in part to both algorithmic improvements as well as to some low-level optimizations.
 
-**Note**: LowRankApprox was last tested with Julia v0.5.0 and is no longer under active development.
-
 ## Contents
 
 - [Installation](#installation)
@@ -60,7 +58,7 @@ This difference can be attributed in part to both algorithmic improvements as we
 To install LowRankApprox, simply type:
 
 ```julia
-Pkg.clone("git://github.com/klho/LowRankApprox.jl.git")
+Pkg.add("LowRankApprox")
 ```
 
 at the Julia prompt. The package can then be imported as usual with `using` or `import`.
