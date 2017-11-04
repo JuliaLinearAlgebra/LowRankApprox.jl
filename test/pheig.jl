@@ -16,44 +16,46 @@ opts = LRAOptions(maxdet_tol=0., sketch_randn_niter=1)
                     (:SparseRandomGaussian, :sprn ))
   opts.sketch = s
   for T in (Float32, Float64, Complex64, Complex128)
-    println("  $t/$T")
+    let A
+        println("  $t/$T")
 
-    rtol = 5*eps(real(T))
-    approx_rtol = 100*rtol
-    opts.rtol = rtol
+        rtol = 5*eps(real(T))
+        approx_rtol = 100*rtol
+        opts.rtol = rtol
 
-    A = convert(Array{T}, T <: Real ? real(M) : M)
-    F = pheigfact(A, opts)
-    @test norm(A - full(F)) < approx_rtol*norm(A)
+        A = convert(Array{T}, T <: Real ? real(M) : M)
+        F = pheigfact(A, opts)
+        @test norm(A - full(F)) < approx_rtol*norm(A)
 
-    s = pheigvals(A, opts, rank=F[:k], rtol=0.)
-    @test norm(s - F[:values]) < approx_rtol*norm(s)
+        s = pheigvals(A, opts, rank=F[:k], rtol=0.)
+        @test norm(s - F[:values]) < approx_rtol*norm(s)
 
-    x = rand(T, n)
-    y = A  *x; @test norm(y - F  *x) < approx_rtol*norm(y)
-    y = A' *x; @test norm(y - F' *x) < approx_rtol*norm(y)
-    y = A.'*x; @test norm(y - F.'*x) < approx_rtol*norm(y)
+        x = rand(T, n)
+        y = A  *x; @test norm(y - F  *x) < approx_rtol*norm(y)
+        y = A' *x; @test norm(y - F' *x) < approx_rtol*norm(y)
+        y = A.'*x; @test norm(y - F.'*x) < approx_rtol*norm(y)
 
-    X = rand(T, n, n)
-    C = A  *X  ; @test norm(C - F  *X  ) < approx_rtol*norm(C)
-    C = A  *X' ; @test norm(C - F  *X' ) < approx_rtol*norm(C)
-    C = A  *X.'; @test norm(C - F  *X.') < approx_rtol*norm(C)
-    C = A' *X  ; @test norm(C - F' *X  ) < approx_rtol*norm(C)
-    C = A' *X' ; @test norm(C - F' *X' ) < approx_rtol*norm(C)
-    C = A.'*X  ; @test norm(C - F.'*X  ) < approx_rtol*norm(C)
-    C = A.'*X.'; @test norm(C - F.'*X.') < approx_rtol*norm(C)
-    C = X  *A  ; @test norm(C - X  *F  ) < approx_rtol*norm(C)
-    C = X  *A' ; @test norm(C - X  *F' ) < approx_rtol*norm(C)
-    C = X  *A.'; @test norm(C - X  *F.') < approx_rtol*norm(C)
-    C = X' *A  ; @test norm(C - X' *F  ) < approx_rtol*norm(C)
-    C = X' *A' ; @test norm(C - X' *F' ) < approx_rtol*norm(C)
-    C = X.'*A  ; @test norm(C - X.'*F  ) < approx_rtol*norm(C)
-    C = X.'*A.'; @test norm(C - X.'*F.') < approx_rtol*norm(C)
+        X = rand(T, n, n)
+        C = A  *X  ; @test norm(C - F  *X  ) < approx_rtol*norm(C)
+        C = A  *X' ; @test norm(C - F  *X' ) < approx_rtol*norm(C)
+        C = A  *X.'; @test norm(C - F  *X.') < approx_rtol*norm(C)
+        C = A' *X  ; @test norm(C - F' *X  ) < approx_rtol*norm(C)
+        C = A' *X' ; @test norm(C - F' *X' ) < approx_rtol*norm(C)
+        C = A.'*X  ; @test norm(C - F.'*X  ) < approx_rtol*norm(C)
+        C = A.'*X.'; @test norm(C - F.'*X.') < approx_rtol*norm(C)
+        C = X  *A  ; @test norm(C - X  *F  ) < approx_rtol*norm(C)
+        C = X  *A' ; @test norm(C - X  *F' ) < approx_rtol*norm(C)
+        C = X  *A.'; @test norm(C - X  *F.') < approx_rtol*norm(C)
+        C = X' *A  ; @test norm(C - X' *F  ) < approx_rtol*norm(C)
+        C = X' *A' ; @test norm(C - X' *F' ) < approx_rtol*norm(C)
+        C = X.'*A  ; @test norm(C - X.'*F  ) < approx_rtol*norm(C)
+        C = X.'*A.'; @test norm(C - X.'*F.') < approx_rtol*norm(C)
 
-    x = A*rand(T, n)
-    y = F\x; @test norm(x - A*y) < approx_rtol*norm(x)
+        x = A*rand(T, n)
+        y = F\x; @test norm(x - A*y) < approx_rtol*norm(x)
 
-    X = A*rand(T, n, n)
-    C = F\X; @test norm(X - A*C) < approx_rtol*norm(X)
+        X = A*rand(T, n, n)
+        C = F\X; @test norm(X - A*C) < approx_rtol*norm(X)
+    end
   end
 end

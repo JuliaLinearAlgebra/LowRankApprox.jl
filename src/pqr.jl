@@ -259,7 +259,7 @@ for sfx in ("", "!")
       retq = contains(opts.pqrfact_retval, "q")
       retr = contains(opts.pqrfact_retval, "r")
       rett = contains(opts.pqrfact_retval, "t")
-      Q = retq ? full(F[:Q]) : nothing
+      Q = retq ? Matrix(F[:Q]) : nothing
       R = retr ? pqrr(F[:R], V[:T]) : nothing
       T = rett ? V[:T] : nothing
       retq && retr && !rett && return PartialQR(Q, R, V[:p])

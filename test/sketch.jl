@@ -15,17 +15,19 @@ opts = LRAOptions(sketch_randn_niter=1)
                      (:SparseRandomGaussian, :sprn ))
   opts.sketch = s
   for T in (Float32, Float64, Complex64, Complex128)
-    println("  $t/$T")
+    let A
+        println("  $t/$T")
 
-    A = convert(Array{T}, T <: Real ? real(M) : M)
+        A = convert(Array{T}, T <: Real ? real(M) : M)
 
-    S = sketch(:left,  :n, A, rank, opts)
-    @test size(S) == (rank, n)
-    S = sketch(:left,  :c, A, rank, opts)
-    @test size(S) == (rank, m)
-    S = sketch(:right, :n, A, rank, opts)
-    @test size(S) == (m, rank)
-    S = sketch(:right, :c, A, rank, opts)
-    @test size(S) == (n, rank)
+        S = sketch(:left,  :n, A, rank, opts)
+        @test size(S) == (rank, n)
+        S = sketch(:left,  :c, A, rank, opts)
+        @test size(S) == (rank, m)
+        S = sketch(:right, :n, A, rank, opts)
+        @test size(S) == (m, rank)
+        S = sketch(:right, :c, A, rank, opts)
+        @test size(S) == (n, rank)
+    end
   end
 end
