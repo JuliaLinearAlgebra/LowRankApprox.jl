@@ -2,7 +2,7 @@
 =#
 __precompile__()
 module LowRankApprox
-using FFTW, Compat
+using Compat
 
 import Base: convert,
              eltype, size, getindex, setindex!, full, sparse, copy,
@@ -13,7 +13,12 @@ import Base: convert,
              +, -, *, /, \,
              transpose, transpose!, conj, conj!
 import Base.LinAlg: BlasFloat, BlasInt, checksquare, chkstride1
-import FFTW: plan_r2r!, R2HC, r2rFFTWPlan, FFTWPlan
+if VERSION < v"0.7-"
+    import Base.FFTW: plan_r2r!, R2HC, r2rFFTWPlan, FFTWPlan
+else
+    using FFTW
+    import FFTW: plan_r2r!, R2HC, r2rFFTWPlan, FFTWPlan
+end
 import Compat: adjoint, adjoint!
 
 export
