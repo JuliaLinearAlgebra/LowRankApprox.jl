@@ -181,7 +181,7 @@ for (f, f!, i) in ((:*,        :A_mul_B!,  1),
       T = promote_type(TA, TB)
       AT = convert(PartialQR{T}, A)
       BT = (T == TB ? B : convert(Array{T}, B))
-      CT = Array{T}(size(A,$i))
+      CT = Array{T}(uninitialized, size(A,$i))
       $f!(CT, AT, BT)
     end
   end
@@ -199,7 +199,7 @@ for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
       T = promote_type(TA, TB)
       AT = convert(PartialQR{T}, A)
       BT = (T == TB ? B : convert(Array{T}, B))
-      CT = Array{T}(size(A,$i), size(B,$j))
+      CT = Array{T}(uninitialized, size(A,$i), size(B,$j))
       $f!(CT, AT, BT)
     end
   end
@@ -218,7 +218,7 @@ for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
       T = promote_type(TA, TB)
       AT = (T == TA ? A : convert(Array{T}, A))
       BT = convert(PartialQR{T}, B)
-      CT = Array{T}(size(A,$i), size(B,$j))
+      CT = Array{T}(uninitialized, size(A,$i), size(B,$j))
       $f!(CT, AT, BT)
     end
   end
@@ -229,14 +229,14 @@ function \(A::PartialQR{TA}, B::StridedVector{TB}) where {TA,TB}
   T = promote_type(TA, TB)
   AT = convert(PartialQR{T}, A)
   BT = (T == TB ? B : convert(Array{T}, B))
-  CT = Array{T}(size(A,2))
+  CT = Array{T}(uninitialized, size(A,2))
   A_ldiv_B!(CT, AT, BT)
 end
 function \(A::PartialQR{TA}, B::StridedMatrix{TB}) where {TA,TB}
   T = promote_type(TA, TB)
   AT = convert(PartialQR{T}, A)
   BT = (T == TB ? B : convert(Array{T}, B))
-  CT = Array{T}(size(A,2), size(B,2))
+  CT = Array{T}(uninitialized, size(A,2), size(B,2))
   A_ldiv_B!(CT, AT, BT)
 end
 
@@ -306,7 +306,7 @@ function geqp3_adap!(A::StridedMatrix{T}, opts::LRAOptions) where T
   jpvt = collect(BlasInt, 1:n)
   l    = min(m, n)
   k    = (opts.rank < 0 || opts.rank > l) ? l : opts.rank
-  tau  = Array{T}(k)
+  tau  = Array{T}(uninitialized, k)
   if k > 0
     k = geqp3_adap_main!(A, jpvt, tau, opts)
   end
@@ -326,7 +326,7 @@ function geqp3_adap_main!(
   nb      = min(opts.nb, k)
   is_real = T <: Real
   lwork   = 2*n*is_real + (n + 1)*nb
-  work    = Array{T}(lwork)
+  work    = Array{T}(uninitialized, lwork)
 
   # initialize column norms
   if is_real
@@ -399,11 +399,11 @@ end
 
 ## rank-revealing QR determinant maximization
 function maxdet_swapcols!(
-    Q::Union{Matrix{S}, Void}, R::Matrix{S}, p::Vector{Int}, T::Matrix{S},
+    Q::Union{Matrix{S}, Nothing}, R::Matrix{S}, p::Vector{Int}, T::Matrix{S},
     opts::LRAOptions) where S
   k, n  = size(R)
   R1    = view(R, :, 1:k)
-  work  = Array{S}(max(n, 2*k))
+  work  = Array{S}(uninitialized, max(n, 2*k))
   retq  = contains(opts.pqrfact_retval, "q")
   retr  = contains(opts.pqrfact_retval, "r")
   niter = 0
@@ -416,7 +416,7 @@ function maxdet_swapcols!(
       break
     end
     niter += 1
-    i, j = ind2sub((k, n-k), idx)
+    i, j = Tuple(ind2sub((k, n-k), idx))
     maxdet_update!(R1, p, T, work, i, j, retr)
   end
   niter == 0 && return

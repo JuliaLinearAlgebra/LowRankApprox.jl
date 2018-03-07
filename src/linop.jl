@@ -109,11 +109,11 @@ A_mul_B!(C, A::AbstractMatrix, B::AbstractLinOp) = adjoint!(C, B'*A')
 A_mul_Bc!(C, A::AbstractMatrix, B::AbstractLinOp) = adjoint!(C, B*A')
 
 *(A::AbstractLinOp{T}, x::AbstractVector) where {T} =
-  (y = Array{T}(size(A,1)); A_mul_B!(y, A, x))
+  (y = Array{T}(uninitialized, size(A,1)); A_mul_B!(y, A, x))
 *(A::AbstractLinOp{T}, B::AbstractMatrix) where {T} =
-  (C = Array{T}(size(A,1), size(B,2)); A_mul_B!(C, A, B))
+  (C = Array{T}(uninitialized, size(A,1), size(B,2)); A_mul_B!(C, A, B))
 *(A::AbstractMatrix, B::AbstractLinOp{T}) where {T} =
-  (C = Array{T}(size(A,1), size(B,2)); A_mul_B!(C, A, B))
+  (C = Array{T}(uninitialized, size(A,1), size(B,2)); A_mul_B!(C, A, B))
 
 # scalar multiplication/division
 
@@ -207,7 +207,7 @@ for (f, g) in ((:comp, :A_mul_B!), (:compc, :Ac_mul_B!))
           y::StridedVector{T}, L::AbstractLinOp{T}, x::StridedVector{T}) where T
         n = size(B, 1)
         if isnull(L._tmp) || length(get(L._tmp)) != n
-          L._tmp = Array{T}(n)
+          L._tmp = Array{T}(uninitialized, n)
         end
         tmp = get(L._tmp)
         $g(tmp, B,  x )
@@ -218,7 +218,7 @@ for (f, g) in ((:comp, :A_mul_B!), (:compc, :Ac_mul_B!))
         m = size(B, 1)
         n = size(X, 2)
         if isnull(L._tmp) || size(get(L._tmp)) != (m, n)
-          L._tmp = Array{T}(m, n)
+          L._tmp = Array{T}(uninitialized, m, n)
         end
         tmp = get(L._tmp)
         $g(tmp, B,  X )

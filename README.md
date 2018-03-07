@@ -339,7 +339,7 @@ which returns a `CUR` factorization (or `HermitianCUR` if `A` is Hermitian or `S
 - `F[:U]`: `U` factor as type `Factorization`
 - `F[:R]`: `R` factor as type `Matrix`
 
-in addition to those defined for `CURPackedU`. If `F` is of type `HermitianCUR`, then `F[:R] = F[:C]'`, while if `F` has type `SymmetricCUR`, then `F[:R] = F[:C].'`. Note that because of conditioning issues, `U` is not stored explicitly but rather in factored form, nominally as type `SVD` but practically as `PartialHermitianEigen` if `U` has type `HermitianCURPackedU` or `PartialSVD` otherwise (for convenient arithmetic operations).
+in addition to those defined for `CURPackedU`. If `F` is of type `HermitianCUR`, then `F[:R] = F[:C]'`, while if `F` has type `SymmetricCUR`, then `F[:R] = transpose(F[:C])`. Note that because of conditioning issues, `U` is not stored explicitly but rather in factored form, nominally as type `SVD` but practically as `PartialHermitianEigen` if `U` has type `HermitianCURPackedU` or `PartialSVD` otherwise (for convenient arithmetic operations).
 
 Modifying versions of the above are available as `curfact!` and `cur!`.
 

@@ -2,17 +2,17 @@
 =#
 
 module _LAPACK
-
-using Base.BLAS.@blasfunc
-using Base.LinAlg: BlasFloat, BlasInt, chkstride1
-
+using Compat
+using Compat.LinearAlgebra.BLAS.@blasfunc
+using Compat.LinearAlgebra: BlasFloat, BlasInt, chkstride1
+using Compat: Nothing
 const liblapack = Base.liblapack_name
 
 for (geqrf, gelqf, orgqr, orglq, elty) in
       ((:sgeqrf_, :sgelqf_, :sorgqr_, :sorglq_, :Float32   ),
        (:dgeqrf_, :dgelqf_, :dorgqr_, :dorglq_, :Float64   ),
-       (:cgeqrf_, :cgelqf_, :cungqr_, :cunglq_, :Complex64 ),
-       (:zgeqrf_, :zgelqf_, :zungqr_, :zunglq_, :Complex128))
+       (:cgeqrf_, :cgelqf_, :cungqr_, :cunglq_, :ComplexF32 ),
+       (:zgeqrf_, :zgelqf_, :zungqr_, :zunglq_, :ComplexF64))
   @eval begin
     function geqrf!(
         A::StridedMatrix{$elty}, tau::Vector{$elty}, work::Vector{$elty})
@@ -23,7 +23,7 @@ for (geqrf, gelqf, orgqr, orglq, elty) in
       lwork = BlasInt(-1)
       info  = Ref{BlasInt}()
       for i = 1:2
-        ccall((@blasfunc($geqrf), liblapack), Void,
+        ccall((@blasfunc($geqrf), liblapack), Nothing,
               (Ref{BlasInt}, Ref{BlasInt}, Ptr{$elty}, Ref{BlasInt},
                Ptr{$elty}, Ptr{$elty}, Ref{BlasInt}, Ptr{BlasInt}),
               m, n, A, max(1,stride(A,2)),
@@ -46,7 +46,7 @@ for (geqrf, gelqf, orgqr, orglq, elty) in
       lwork = BlasInt(-1)
       info  = Ref{BlasInt}()
       for i = 1:2
-        ccall((@blasfunc($gelqf), liblapack), Void,
+        ccall((@blasfunc($gelqf), liblapack), Nothing,
               (Ref{BlasInt}, Ref{BlasInt}, Ptr{$elty}, Ref{BlasInt},
                Ptr{$elty}, Ptr{$elty}, Ref{BlasInt}, Ptr{BlasInt}),
               m, n, A, max(1,stride(A,2)),
@@ -70,7 +70,7 @@ for (geqrf, gelqf, orgqr, orglq, elty) in
       lwork = BlasInt(-1)
       info  = Ref{BlasInt}()
       for i = 1:2
-          ccall((@blasfunc($orglq), liblapack), Void,
+          ccall((@blasfunc($orglq), liblapack), Nothing,
                 (Ref{BlasInt}, Ref{BlasInt}, Ref{BlasInt}, Ptr{$elty},
                  Ref{BlasInt}, Ptr{$elty}, Ptr{$elty}, Ref{BlasInt},
                  Ptr{BlasInt}),
@@ -96,7 +96,7 @@ for (geqrf, gelqf, orgqr, orglq, elty) in
       lwork = BlasInt(-1)
       info  = Ref{BlasInt}()
       for i = 1:2
-        ccall((@blasfunc($orgqr), liblapack), Void,
+        ccall((@blasfunc($orgqr), liblapack), Nothing,
               (Ref{BlasInt}, Ref{BlasInt}, Ref{BlasInt}, Ptr{$elty},
                Ref{BlasInt}, Ptr{$elty}, Ptr{$elty}, Ref{BlasInt},
                Ptr{BlasInt}),
@@ -116,8 +116,8 @@ end
 
 for (laqps, elty, relty) in ((:slaqps_, :Float32,    :Float32),
                              (:dlaqps_, :Float64,    :Float64),
-                             (:claqps_, :Complex64,  :Float32),
-                             (:zlaqps_, :Complex128, :Float64))
+                             (:claqps_, :ComplexF32,  :Float32),
+                             (:zlaqps_, :ComplexF64, :Float64))
   @eval begin
     function laqps!(
         offset::BlasInt, nb::BlasInt, kb::Ref{BlasInt},
@@ -127,7 +127,7 @@ for (laqps, elty, relty) in ((:slaqps_, :Float32,    :Float32),
         auxv::StridedVector{$elty}, F::StridedVector{$elty})
       m, n = size(A)
       ccall(
-        (@blasfunc($laqps), liblapack), Void,
+        (@blasfunc($laqps), liblapack), Nothing,
         (Ref{BlasInt}, Ref{BlasInt}, Ref{BlasInt}, Ref{BlasInt}, Ptr{BlasInt},
          Ptr{$elty}, Ref{BlasInt}, Ptr{BlasInt}, Ptr{$elty},
          Ptr{$relty}, Ptr{$relty}, Ptr{$elty}, Ptr{$elty}, Ref{BlasInt}),

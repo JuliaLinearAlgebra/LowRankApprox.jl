@@ -6,7 +6,7 @@ println("snorm.jl")
 m = 20
 n = 10
 
-@time for T in (Float32, Float64, Complex64, Complex128)
+@time for T in (Float32, Float64, ComplexF32, ComplexF64)
   let A
     println("  $T")
 

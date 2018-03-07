@@ -13,7 +13,7 @@ opts = LRAOptions(maxdet_tol=0., sketch_randn_niter=1)
                      (:SRFT,                 :srft ),
                      (:SparseRandomGaussian, :sprn ))
   opts.sketch = s
-  for T in (Float32, Float64, Complex64, Complex128)
+  for T in (Float32, Float64, ComplexF32, ComplexF64)
     println("  $t/$T")
 
     rtol = 5*eps(real(T))

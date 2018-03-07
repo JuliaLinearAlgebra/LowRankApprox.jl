@@ -12,11 +12,11 @@ References:
 
 # spectral norm
 function snorm(A::AbstractLinOp{T}, opts::LRAOptions=LRAOptions(T); args...) where T
-  opts = isempty(args) ? opts : copy(opts; args)
+  opts = isempty(args) ? opts : copy(opts; args...)
   m, n   = size(A)
   isherm = ishermitian(A)
   xn     = crandn(T, n)
-  xm     = Array{T}(m)
+  xm     = Array{T}(uninitialized, m)
   xnrm   = vecnorm(xn)
   s      = one(real(T))
   t      = 0

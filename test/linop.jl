@@ -6,7 +6,7 @@ println("linop.jl")
 n = 10
 
 @time for (t, herm) in ((:LinearOperator, false), (:HermitianLinearOperator, true))
-  for T in (Float32, Float64, Complex64, Complex128)
+  for T in (Float32, Float64, ComplexF32, ComplexF64)
     println("  $t/$T")
 
     A = rand(T, n, n)

@@ -5,7 +5,7 @@ println("sketch.jl")
 
 m = 20
 n = 10
-M = rand(Complex128, m, n)
+M = rand(ComplexF64, m, n)
 rank = 5
 opts = LRAOptions(sketch_randn_niter=1)
 
@@ -14,7 +14,7 @@ opts = LRAOptions(sketch_randn_niter=1)
                      (:SRFT,                 :srft ),
                      (:SparseRandomGaussian, :sprn ))
   opts.sketch = s
-  for T in (Float32, Float64, Complex64, Complex128)
+  for T in (Float32, Float64, ComplexF32, ComplexF64)
     let A
         println("  $t/$T")
 

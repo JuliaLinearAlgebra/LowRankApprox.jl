@@ -34,7 +34,7 @@ for sfx in ("", "!")
         end
         kr = Fr[:k]
         kc = Fc[:k]
-        B = Array{T}(size(A,1), kr+kc)
+        B = Array{T}(uninitialized, size(A,1), kr+kc)
         B[:,   1:kr   ] = Fr[:Q]
         B[:,kr+1:kr+kc] = Fc[:Q]
         Rr = view(Fr.R, 1:kr, 1:kr)
@@ -68,7 +68,7 @@ function prange_sub(trans::Symbol, A::AbstractMatrix{T}, opts::LRAOptions) where
     B = A[:,F[:p][1:k]]
   else
     n = size(A, 2)
-    B = Array{T}(n, k)
+    B = Array{T}(uninitialized, n, k)
     @inbounds for j = 1:k, i = 1:n
       B[i,j] = conj(A[F[:p][j],i])
     end

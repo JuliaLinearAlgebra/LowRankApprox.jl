@@ -19,7 +19,7 @@ for (f, f!, i) in ((:*,        :A_mul_B!,  2),
                    (:A_mul_Bc, :A_mul_Bc!, 1))
   @eval begin
     function $f(A::SketchMatrix, B::AbstractMatOrLinOp{T}) where T
-      C = Array{T}(A.k, size(B,$i))
+      C = Array{T}(uninitialized, A.k, size(B,$i))
       $f!(C, A, B)
     end
   end
@@ -29,7 +29,7 @@ for (f, f!, i) in ((:*,        :A_mul_B!,  1),
                    (:Ac_mul_B, :Ac_mul_B!, 2))
   @eval begin
     function $f(A::AbstractMatOrLinOp{T}, B::SketchMatrix) where T
-      C = Array{T}(size(A,$i), B.k)
+      C = Array{T}(uninitialized, size(A,$i), B.k)
       $f!(C, A, B)
     end
   end
@@ -133,11 +133,11 @@ for (trans, p, q, g, h) in ((:n, :n, :m, :A_mul_B!,  :A_mul_Bc!),
       S = RandomGaussian(order)
       m, n = size(A)
       isherm = ishermitian(A)
-      Bp = Array{T}(order, $p)
+      Bp = Array{T}(uninitialized, order, $p)
       if opts.sketch_randn_niter > 0
-        Bq   = Array{T}(order, $q)
-        tau  = Array{T}(1)
-        work = Array{T}(1)
+        Bq   = Array{T}(uninitialized, order, $q)
+        tau  = Array{T}(uninitialized, 1)
+        work = Array{T}(uninitialized, 1)
       end
       $g(Bp, S, A)
       for i = 1:opts.sketch_randn_niter
@@ -163,11 +163,11 @@ for (trans, p, q, g, h) in ((:n, :m, :n, :A_mul_B!,  :Ac_mul_B!),
       S = RandomGaussian(order)
       m, n = size(A)
       isherm = ishermitian(A)
-      Bp = Array{T}($p, order)
+      Bp = Array{T}(uninitialized, $p, order)
       if opts.sketch_randn_niter > 0
-        Bq   = Array{T}($q, order)
-        tau  = Array{T}(1)
-        work = Array{T}(1)
+        Bq   = Array{T}(uninitialized, $q, order)
+        tau  = Array{T}(uninitialized, 1)
+        work = Array{T}(uninitialized, 1)
       end
       $g(Bp, A, S)
       for i = 1:opts.sketch_randn_niter
@@ -315,7 +315,7 @@ function srft_init(::Type{T}, n::Integer, k::Integer) where T<:Real
     l -= 1
   end
   m = div(n, l)
-  X = Array{T}(l, m)
+  X = Array{T}(uninitialized, l, m)
   d = srft_rand(T, n)
   idx = rand(1:n, k)
   r2rplan! = plan_r2r!(X, R2HC, 1)
@@ -327,7 +327,7 @@ function srft_init(::Type{T}, n::Integer, k::Integer) where T<:Complex
     l -= 1
   end
   m = div(n, l)
-  X = Array{T}(l, m)
+  X = Array{T}(uninitialized, l, m)
   d = srft_rand(T, n)
   idx = rand(1:n, k)
   fftplan! = plan_fft!(X, 1)

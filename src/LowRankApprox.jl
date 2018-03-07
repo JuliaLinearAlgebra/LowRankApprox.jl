@@ -3,23 +3,32 @@
 __precompile__()
 module LowRankApprox
 using Compat
+using Compat.LinearAlgebra, Compat.SparseArrays
 
 import Base: convert,
-             eltype, size, getindex, setindex!, full, sparse, copy,
-             ishermitian, issymmetric, isreal, real, imag,
-             A_mul_B!, Ac_mul_B, Ac_mul_B!, Ac_mul_Bc, A_mul_Bc, A_mul_Bc!, axpy!, Ac_mul_Bc!,
-             At_mul_B, At_mul_B!, A_mul_Bt!, At_mul_Bt, At_mul_Bt!, A_mul_Bt, A_mul_Bt!,
-             A_ldiv_B!,
-             +, -, *, /, \,
-             transpose, transpose!, conj, conj!
-import Base.LinAlg: BlasFloat, BlasInt, checksquare, chkstride1
+             eltype, size, getindex, setindex!, full, copy,
+             isreal, real, imag,
+             +, -, *, /, \, conj, conj!
+import Compat.LinearAlgebra: BlasFloat, BlasInt, checksquare, chkstride1
+import Compat: Nothing
 if VERSION < v"0.7-"
     import Base.FFTW: plan_r2r!, R2HC, r2rFFTWPlan, FFTWPlan
+    import Base: transpose, transpose!, axpy!, ishermitian, issymmetric,
+                A_mul_B!, Ac_mul_B, Ac_mul_B!, Ac_mul_Bc, A_mul_Bc, A_mul_Bc!, Ac_mul_Bc!,
+                At_mul_B, At_mul_B!, A_mul_Bt!, At_mul_Bt, At_mul_Bt!, A_mul_Bt, A_mul_Bt!,
+                A_ldiv_B!
+    import Base: sparse
+    import Compat: adjoint, adjoint!
 else
     using FFTW
     import FFTW: plan_r2r!, R2HC, r2rFFTWPlan, FFTWPlan
+    using Nullables
+    import LinearAlgebra: mul!, ldiv!, transpose, transpose!, axpy!, ishermitian, issymmetric,
+                A_mul_B!, Ac_mul_B, Ac_mul_B!, Ac_mul_Bc, A_mul_Bc, A_mul_Bc!, Ac_mul_Bc!,
+                At_mul_B, At_mul_B!, A_mul_Bt!, At_mul_Bt, At_mul_Bt!, A_mul_Bt, A_mul_Bt!,
+                A_ldiv_B!, adjoint, adjoint!
+    import SparseArrays: sparse
 end
-import Compat: adjoint, adjoint!
 
 export
 

@@ -16,6 +16,7 @@ function convert(::Type{PartialSVD{T}}, A::PartialSVD) where T
     convert(Array{T}, A.U), convert(Array{Tr}, A.S), convert(Array{T}, A.Vt))
 end
 convert(::Type{Factorization{T}}, A::PartialSVD) where {T} = convert(PartialSVD{T}, A)
+convert(::Type{Factorization{T}}, A::PartialSVD{T2,Tr}) where {T,T2,Tr<:Real} = convert(PartialSVD{T}, A)
 convert(::Type{Array}, A::PartialSVD) = full(A)
 convert(::Type{Array{T}}, A::PartialSVD) where {T} = convert(Array{T}, full(A))
 
@@ -154,7 +155,7 @@ for (f, f!, i) in ((:*,        :A_mul_B!,  1),
       T = promote_type(TA, TB)
       AT = convert(PartialSVD{T}, A)
       BT = (T == TB ? B : convert(Array{T}, B))
-      CT = Array{T}(size(A,$i))
+      CT = Array{T}(uninitialized, size(A,$i))
       $f!(CT, AT, BT)
     end
   end
@@ -172,7 +173,7 @@ for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
       T = promote_type(TA, TB)
       AT = convert(PartialSVD{T}, A)
       BT = (T == TB ? B : convert(Array{T}, B))
-      CT = Array{T}(size(A,$i), size(B,$j))
+      CT = Array{T}(uninitialized, size(A,$i), size(B,$j))
       $f!(CT, AT, BT)
     end
   end
@@ -191,7 +192,7 @@ for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
       T = promote_type(TA, TB)
       AT = (T == TA ? A : convert(Array{T}, A))
       BT = convert(PartialSVD{T}, B)
-      CT = Array{T}(size(A,$i), size(B,$j))
+      CT = Array{T}(uninitialized, size(A,$i), size(B,$j))
       $f!(CT, AT, BT)
     end
   end
@@ -202,14 +203,14 @@ function \(A::PartialSVD{TA}, B::StridedVector{TB}) where {TA,TB}
   T = promote_type(TA, TB)
   AT = convert(PartialSVD{T}, A)
   BT = (T == TB ? B : convert(Array{T}, B))
-  CT = Array{T}(size(A,2))
+  CT = Array{T}(uninitialized, size(A,2))
   A_ldiv_B!(CT, AT, BT)
 end
 function \(A::PartialSVD{TA}, B::StridedMatrix{TB}) where {TA,TB}
   T = promote_type(TA, TB)
   AT = convert(PartialSVD{T}, A)
   BT = (T == TB ? B : convert(Array{T}, B))
-  CT = Array{T}(size(A,2), size(B,2))
+  CT = Array{T}(uninitialized, size(A,2), size(B,2))
   A_ldiv_B!(CT, AT, BT)
 end
 
