@@ -147,6 +147,11 @@ full(A::CUR{T}) where {T} = A[:C]*(A[:U]*A[:R])
 full(A::HermCUR{T}) where {T} = A[:C]*(A[:U]*A[:C]')
 full(A::SymCUR{T}) where {T} = A[:C]*(A[:U]*transpose(A[:C]))
 
+if VERSION ≥ v"0.7-"
+  adjoint(A::AbstractCUR) = Adjoint(A)
+  transpose(A::AbstractCUR) = Transpose(A)
+end
+
 function getindex(A::CUR{T}, d::Symbol) where T
   if     d == :C     return A.C
   elseif d == :R     return A.R
@@ -193,265 +198,346 @@ size(A::CUR, dim::Integer) =
 size(A::HermOrSymCUR) = (size(A.C,1), size(A.C,1))
 size(A::HermOrSymCUR, dim::Integer) = dim == 1 || dim == 2 ? size(A.C,1) : 1
 
-# BLAS/LAPACK multiplication routines
+if VERSION < v"0.7-"
+  # BLAS/LAPACK multiplication routines
 
-## CUR left-multiplication
+  ## CUR left-multiplication
 
-A_mul_B!(C::StridedVecOrMat{T}, A::CUR{T}, B::StridedVecOrMat{T}) where {T} =
-  A_mul_B!(C, A[:C], A[:U]*(A[:R]*B))
+  A_mul_B!(C::StridedVecOrMat{T}, A::CUR{T}, B::StridedVecOrMat{T}) where {T} =
+    A_mul_B!(C, A[:C], A[:U]*(A[:R]*B))
 
-for f in (:A_mul_Bc, :A_mul_Bt)
-  f! = Symbol(f, "!")
-  @eval begin
-    function $f!(C::StridedMatrix{T}, A::CUR{T}, B::StridedMatrix{T}) where T
-      tmp = $f(A[:R], B)
-      A_mul_B!(C, A[:C], A[:U]*tmp)
+  for f in (:A_mul_Bc, :A_mul_Bt)
+    f! = Symbol(f, "!")
+    @eval begin
+      function $f!(C::StridedMatrix{T}, A::CUR{T}, B::StridedMatrix{T}) where T
+        tmp = $f(A[:R], B)
+        A_mul_B!(C, A[:C], A[:U]*tmp)
+      end
     end
   end
-end
 
-for f in (:Ac_mul_B, :At_mul_B)
-  f! = Symbol(f, "!")
-  @eval begin
-    function $f!(C::StridedVecOrMat{T}, A::CUR{T}, B::StridedVecOrMat{T}) where T
-      tmp = $f(A[:C], B)
-      tmp = $f(A[:U], tmp)
-      $f!(C, A[:R], tmp)
+  for f in (:Ac_mul_B, :At_mul_B)
+    f! = Symbol(f, "!")
+    @eval begin
+      function $f!(C::StridedVecOrMat{T}, A::CUR{T}, B::StridedVecOrMat{T}) where T
+        tmp = $f(A[:C], B)
+        tmp = $f(A[:U], tmp)
+        $f!(C, A[:R], tmp)
+      end
     end
   end
-end
 
-for (f, g) in ((:Ac_mul_Bc, :Ac_mul_B), (:At_mul_Bt, :At_mul_B))
-  f! = Symbol(f, "!")
-  g! = Symbol(g, "!")
-  @eval begin
-    function $f!(C::StridedMatrix{T}, A::CUR{T}, B::StridedMatrix{T}) where T
-      tmp = $f(A[:C], B)
-      tmp = $g(A[:U], tmp)
-      $g!(C, A[:R], tmp)
+  for (f, g) in ((:Ac_mul_Bc, :Ac_mul_B), (:At_mul_Bt, :At_mul_B))
+    f! = Symbol(f, "!")
+    g! = Symbol(g, "!")
+    @eval begin
+      function $f!(C::StridedMatrix{T}, A::CUR{T}, B::StridedMatrix{T}) where T
+        tmp = $f(A[:C], B)
+        tmp = $g(A[:U], tmp)
+        $g!(C, A[:R], tmp)
+      end
     end
   end
-end
 
-## CUR right-multiplication
+  ## CUR right-multiplication
 
-A_mul_B!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::CUR{T}) where {T} =
-  A_mul_B!(C, (A*B[:C])*B[:U], B[:R])
+  A_mul_B!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::CUR{T}) where {T} =
+    A_mul_B!(C, (A*B[:C])*B[:U], B[:R])
 
-for f in (:A_mul_Bc, :A_mul_Bt)
-  f! = Symbol(f, "!")
-  @eval begin
-    function $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::CUR{T}) where T
-      tmp = $f(A, B[:R])
-      tmp = $f(tmp, B[:U])
-      $f!(C, tmp, B[:C])
+  for f in (:A_mul_Bc, :A_mul_Bt)
+    f! = Symbol(f, "!")
+    @eval begin
+      function $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::CUR{T}) where T
+        tmp = $f(A, B[:R])
+        tmp = $f(tmp, B[:U])
+        $f!(C, tmp, B[:C])
+      end
     end
   end
-end
 
-for f in (:Ac_mul_B, :At_mul_B)
-  f! = Symbol(f, "!")
-  @eval begin
-    function $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::CUR{T}) where T
-      tmp = $f(A, B[:C])
-      A_mul_B!(C, tmp*B[:U], B[:R])
+  for f in (:Ac_mul_B, :At_mul_B)
+    f! = Symbol(f, "!")
+    @eval begin
+      function $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::CUR{T}) where T
+        tmp = $f(A, B[:C])
+        A_mul_B!(C, tmp*B[:U], B[:R])
+      end
     end
   end
-end
 
-for (f, g) in ((:Ac_mul_Bc, :A_mul_Bc), (:At_mul_Bt, :A_mul_Bt))
-  f! = Symbol(f, "!")
-  g! = Symbol(g, "!")
-  @eval begin
-    function $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::CUR{T}) where T
-      tmp = $f(A, B[:R])
-      tmp = $g(tmp, B[:U])
-      $g!(C, tmp, B[:C])
+  for (f, g) in ((:Ac_mul_Bc, :A_mul_Bc), (:At_mul_Bt, :A_mul_Bt))
+    f! = Symbol(f, "!")
+    g! = Symbol(g, "!")
+    @eval begin
+      function $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::CUR{T}) where T
+        tmp = $f(A, B[:R])
+        tmp = $g(tmp, B[:U])
+        $g!(C, tmp, B[:C])
+      end
     end
   end
-end
 
-## HermCUR left-multiplication
+  ## HermCUR left-multiplication
 
-A_mul_B!(C::StridedVecOrMat{T}, A::HermCUR{T}, B::StridedVecOrMat{T}) where {T} =
-  A_mul_B!(C, A[:C], A[:U]*(A[:C]'*B))
+  A_mul_B!(C::StridedVecOrMat{T}, A::HermCUR{T}, B::StridedVecOrMat{T}) where {T} =
+    A_mul_B!(C, A[:C], A[:U]*(A[:C]'*B))
 
-A_mul_Bc!(C::StridedMatrix{T}, A::HermCUR{T}, B::StridedMatrix{T}) where {T} =
-  A_mul_B!(C, A[:C], A[:U]*(A[:C]'*B'))
-A_mul_Bt!(C::StridedMatrix{T}, A::HermCUR{T}, B::StridedMatrix{T}) where {T<:Real} =
-  A_mul_B!(C, A[:C], A[:U]*(A[:C].'*transpose(B)))
-A_mul_Bt!!(
-C::StridedMatrix{T}, A::HermCUR{T}, B::StridedMatrix{T}) where {T<:Complex} =
-  A_mul_Bc!(C, A, conj!(B))  # overwrites B
-function A_mul_Bt!(
-    C::StridedMatrix{T}, A::HermCUR{T}, B::StridedMatrix{T}) where T<:Complex
-  size(B, 1) <= A[:k] && return A_mul_Bt!!(C, A, copy(B))
-  A_mul_B!(C, A[:C], A[:U]*((A[:C]')*transpose(B)))
-end
+  A_mul_Bc!(C::StridedMatrix{T}, A::HermCUR{T}, B::StridedMatrix{T}) where {T} =
+    A_mul_B!(C, A[:C], A[:U]*(A[:C]'*B'))
+  A_mul_Bt!(C::StridedMatrix{T}, A::HermCUR{T}, B::StridedMatrix{T}) where {T<:Real} =
+    A_mul_B!(C, A[:C], A[:U]*(A[:C].'*transpose(B)))
+  A_mul_Bt!!(
+  C::StridedMatrix{T}, A::HermCUR{T}, B::StridedMatrix{T}) where {T<:Complex} =
+    A_mul_Bc!(C, A, conj!(B))  # overwrites B
+  function A_mul_Bt!(
+      C::StridedMatrix{T}, A::HermCUR{T}, B::StridedMatrix{T}) where T<:Complex
+    size(B, 1) <= A[:k] && return A_mul_Bt!!(C, A, copy(B))
+    A_mul_B!(C, A[:C], A[:U]*((A[:C]')*transpose(B)))
+  end
 
-Ac_mul_B!(C::StridedVecOrMat{T}, A::HermCUR{T}, B::StridedVecOrMat{T}) where {T} =
-  A_mul_B!(C, A, B)
-function At_mul_B!(
-    C::StridedVecOrMat{T}, A::HermCUR{T}, B::StridedVecOrMat{T}) where T
-  tmp = A[:U].'*(A[:C].'*B)
-  A_mul_B!(C, A[:C], conj!(tmp))
-  conj!(C)
-end
+  Ac_mul_B!(C::StridedVecOrMat{T}, A::HermCUR{T}, B::StridedVecOrMat{T}) where {T} =
+    A_mul_B!(C, A, B)
+  function At_mul_B!(
+      C::StridedVecOrMat{T}, A::HermCUR{T}, B::StridedVecOrMat{T}) where T
+    tmp = A[:U].'*(A[:C].'*B)
+    A_mul_B!(C, A[:C], conj!(tmp))
+    conj!(C)
+  end
 
-Ac_mul_Bc!(C::StridedMatrix{T}, A::HermCUR{T}, B::StridedMatrix{T}) where {T} =
-  A_mul_Bc!(C, A, B)
-function At_mul_Bt!(C::StridedMatrix{T}, A::HermCUR{T}, B::StridedMatrix{T}) where T
-  tmp = A[:U].'*(A[:C].'*transpose(B))
-  A_mul_B!(C, A[:C], conj!(tmp))
-  conj!(C)
-end
+  Ac_mul_Bc!(C::StridedMatrix{T}, A::HermCUR{T}, B::StridedMatrix{T}) where {T} =
+    A_mul_Bc!(C, A, B)
+  function At_mul_Bt!(C::StridedMatrix{T}, A::HermCUR{T}, B::StridedMatrix{T}) where T
+    tmp = A[:U].'*(A[:C].'*transpose(B))
+    A_mul_B!(C, A[:C], conj!(tmp))
+    conj!(C)
+  end
 
-## HermCUR right-multiplication
+  ## HermCUR right-multiplication
 
-A_mul_B!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::HermCUR{T}) where {T} =
-  A_mul_Bc!(C, (A*B[:C])*B[:U], B[:C])
+  A_mul_B!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::HermCUR{T}) where {T} =
+    A_mul_Bc!(C, (A*B[:C])*B[:U], B[:C])
 
-A_mul_Bc!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::HermCUR{T}) where {T} =
-  A_mul_B!(C, A, B)
-function A_mul_Bt!!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::HermCUR{T}) where T
-  tmp = conj!(A)*B[:C]
-  A_mul_Bt!(C, conj!(tmp)*transpose(B[:U]), B[:C])
-end  # overwrites A
-function A_mul_Bt!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::HermCUR{T}) where T
-  size(A, 1) <= B[:k] && return A_mul_Bt!!(C, copy(A), B)
-  A_mul_Bt!(C, (A*conj(B[:C]))*transpose(B[:U]), B[:C])
-end
+  A_mul_Bc!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::HermCUR{T}) where {T} =
+    A_mul_B!(C, A, B)
+  function A_mul_Bt!!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::HermCUR{T}) where T
+    tmp = conj!(A)*B[:C]
+    A_mul_Bt!(C, conj!(tmp)*transpose(B[:U]), B[:C])
+  end  # overwrites A
+  function A_mul_Bt!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::HermCUR{T}) where T
+    size(A, 1) <= B[:k] && return A_mul_Bt!!(C, copy(A), B)
+    A_mul_Bt!(C, (A*conj(B[:C]))*transpose(B[:U]), B[:C])
+  end
 
-for f in (:Ac_mul_B, :At_mul_B)
-  f! = Symbol(f, "!")
-  @eval begin
-    function $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::HermCUR{T}) where T
-      tmp = $f(A, B[:C])
-      A_mul_Bc!(C, tmp*B[:U], B[:C])
+  for f in (:Ac_mul_B, :At_mul_B)
+    f! = Symbol(f, "!")
+    @eval begin
+      function $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::HermCUR{T}) where T
+        tmp = $f(A, B[:C])
+        A_mul_Bc!(C, tmp*B[:U], B[:C])
+      end
     end
   end
-end
 
-Ac_mul_Bc!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::HermCUR{T}) where {T} =
-  Ac_mul_B!(C, A, B)
-At_mul_Bt!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::HermCUR{T}) where {T} =
-  A_mul_Bt!(C, conj!(A'*B[:C])*transpose(B[:U]), B[:C])
+  Ac_mul_Bc!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::HermCUR{T}) where {T} =
+    Ac_mul_B!(C, A, B)
+  At_mul_Bt!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::HermCUR{T}) where {T} =
+    A_mul_Bt!(C, conj!(A'*B[:C])*transpose(B[:U]), B[:C])
 
-## SymCUR left-multiplication
+  ## SymCUR left-multiplication
 
-A_mul_B!(C::StridedVecOrMat{T}, A::SymCUR{T}, B::StridedVecOrMat{T}) where {T} =
-  A_mul_B!(C, A[:C], A[:U]*(A[:C].'*B))
-A_mul_Bc!(C::StridedMatrix{T}, A::SymCUR{T}, B::StridedMatrix{T}) where {T<:Real} =
-  A_mul_B!(C, A[:C], A[:U]*(A[:C]'*B'))
-A_mul_Bc!!(C::StridedMatrix{T}, A::SymCUR{T}, B::StridedMatrix{T}) where {T<:Complex} =
-  A_mul_Bt!(C, A, conj!(B))  # overwrites B
-function A_mul_Bc!(
-    C::StridedMatrix{T}, A::SymCUR{T}, B::StridedMatrix{T}) where T<:Complex
-  size(B, 1) <= A[:k] && return A_mul_Bc!!(C, A, copy(B))
-  A_mul_B!(C, A[:C], A[:U]*(transpose(A[:C])*B'))
-end
-A_mul_Bt!(C::StridedMatrix{T}, A::SymCUR{T}, B::StridedMatrix{T}) where {T} =
-  A_mul_B!(C, A[:C], A[:U]*(A[:C].'*transpose(B)))
+  A_mul_B!(C::StridedVecOrMat{T}, A::SymCUR{T}, B::StridedVecOrMat{T}) where {T} =
+    A_mul_B!(C, A[:C], A[:U]*(A[:C].'*B))
+  A_mul_Bc!(C::StridedMatrix{T}, A::SymCUR{T}, B::StridedMatrix{T}) where {T<:Real} =
+    A_mul_B!(C, A[:C], A[:U]*(A[:C]'*B'))
+  A_mul_Bc!!(C::StridedMatrix{T}, A::SymCUR{T}, B::StridedMatrix{T}) where {T<:Complex} =
+    A_mul_Bt!(C, A, conj!(B))  # overwrites B
+  function A_mul_Bc!(
+      C::StridedMatrix{T}, A::SymCUR{T}, B::StridedMatrix{T}) where T<:Complex
+    size(B, 1) <= A[:k] && return A_mul_Bc!!(C, A, copy(B))
+    A_mul_B!(C, A[:C], A[:U]*(transpose(A[:C])*B'))
+  end
+  A_mul_Bt!(C::StridedMatrix{T}, A::SymCUR{T}, B::StridedMatrix{T}) where {T} =
+    A_mul_B!(C, A[:C], A[:U]*(A[:C].'*transpose(B)))
 
-function Ac_mul_B!(
-    C::StridedVecOrMat{T}, A::SymCUR{T}, B::StridedVecOrMat{T}) where T
-  tmp = A[:U]'*(A[:C]'*B)
-  A_mul_B!(C, A[:C], conj!(tmp))
-  conj!(C)
-end
-At_mul_B!(C::StridedVecOrMat{T}, A::SymCUR{T}, B::StridedVecOrMat{T}) where {T} =
-  A_mul_B!(C, A, B)
+  function Ac_mul_B!(
+      C::StridedVecOrMat{T}, A::SymCUR{T}, B::StridedVecOrMat{T}) where T
+    tmp = A[:U]'*(A[:C]'*B)
+    A_mul_B!(C, A[:C], conj!(tmp))
+    conj!(C)
+  end
+  At_mul_B!(C::StridedVecOrMat{T}, A::SymCUR{T}, B::StridedVecOrMat{T}) where {T} =
+    A_mul_B!(C, A, B)
 
-function Ac_mul_Bc!(C::StridedMatrix{T}, A::SymCUR{T}, B::StridedMatrix{T}) where T
-  tmp = A[:U]'*(A[:C]'*B')
-  A_mul_B!(C, A[:C], conj!(tmp))
-  conj!(C)
-end
-At_mul_Bt!(C::StridedMatrix{T}, A::SymCUR{T}, B::StridedMatrix{T}) where {T} =
-  A_mul_Bt!(C, A, B)
+  function Ac_mul_Bc!(C::StridedMatrix{T}, A::SymCUR{T}, B::StridedMatrix{T}) where T
+    tmp = A[:U]'*(A[:C]'*B')
+    A_mul_B!(C, A[:C], conj!(tmp))
+    conj!(C)
+  end
+  At_mul_Bt!(C::StridedMatrix{T}, A::SymCUR{T}, B::StridedMatrix{T}) where {T} =
+    A_mul_Bt!(C, A, B)
 
-## SymCUR right-multiplication
+  ## SymCUR right-multiplication
 
-A_mul_B!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T}) where {T} =
-  A_mul_Bt!(C, (A*B[:C])*B[:U], B[:C])
+  A_mul_B!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T}) where {T} =
+    A_mul_Bt!(C, (A*B[:C])*B[:U], B[:C])
 
-function A_mul_Bc!!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T}) where T
-  tmp = conj!(A)*B[:C]
-  A_mul_Bt!(C, conj!(tmp)*transpose(B[:U]), B[:C])
-end  # overwrites A
-function A_mul_Bc!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T}) where T
-  size(A, 1) <= B[:k] && return A_mul_Bc!!(C, copy(A), B)
-  A_mul_Bc!(C, (A*conj(B[:C]))*B[:U]', B[:C])
-end
-A_mul_Bt!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T}) where {T} =
-  A_mul_B!(C, A, B)
+  function A_mul_Bc!!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T}) where T
+    tmp = conj!(A)*B[:C]
+    A_mul_Bt!(C, conj!(tmp)*transpose(B[:U]), B[:C])
+  end  # overwrites A
+  function A_mul_Bc!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T}) where T
+    size(A, 1) <= B[:k] && return A_mul_Bc!!(C, copy(A), B)
+    A_mul_Bc!(C, (A*conj(B[:C]))*B[:U]', B[:C])
+  end
+  A_mul_Bt!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T}) where {T} =
+    A_mul_B!(C, A, B)
 
-for f in (:Ac_mul_B, :At_mul_B)
-  f! = Symbol(f, "!")
-  @eval begin
-    function $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T}) where T
-      tmp = $f(A, B[:C])
-      A_mul_Bt!(C, tmp*B[:U], B[:C])
+  for f in (:Ac_mul_B, :At_mul_B)
+    f! = Symbol(f, "!")
+    @eval begin
+      function $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T}) where T
+        tmp = $f(A, B[:C])
+        A_mul_Bt!(C, tmp*B[:U], B[:C])
+      end
     end
   end
-end
 
-Ac_mul_Bc!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T}) where {T} =
-  A_mul_Bc!(C, conj!(A.'*B[:C])*B[:U]', B[:C])
-At_mul_Bt!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T}) where {T} =
-  At_mul_B!(C, A, B)
+  Ac_mul_Bc!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T}) where {T} =
+    A_mul_Bc!(C, conj!(A.'*B[:C])*B[:U]', B[:C])
+  At_mul_Bt!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T}) where {T} =
+    At_mul_B!(C, A, B)
 
-# standard operations
+  # standard operations
 
-## left-multiplication
+  ## left-multiplication
 
-for (f, f!, i) in ((:*,        :A_mul_B!,  1),
-                   (:Ac_mul_B, :Ac_mul_B!, 2),
-                   (:At_mul_B, :At_mul_B!, 2))
-  @eval begin
-    function $f(A::AbstractCUR{TA}, B::StridedVector{TB}) where {TA,TB}
-      T = promote_type(TA, TB)
-      AT = convert(AbstractCUR{T}, A)
-      BT = (T == TB ? B : convert(Array{T}, B))
-      CT = Array{T}(uninitialized, size(A,$i))
-      $f!(CT, AT, BT)
+  for (f, f!, i) in ((:*,        :A_mul_B!,  1),
+                     (:Ac_mul_B, :Ac_mul_B!, 2),
+                     (:At_mul_B, :At_mul_B!, 2))
+    @eval begin
+      function $f(A::AbstractCUR{TA}, B::StridedVector{TB}) where {TA,TB}
+        T = promote_type(TA, TB)
+        AT = convert(AbstractCUR{T}, A)
+        BT = (T == TB ? B : convert(Array{T}, B))
+        CT = Array{T}(uninitialized, size(A,$i))
+        $f!(CT, AT, BT)
+      end
     end
   end
-end
 
-for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
-                      (:A_mul_Bc,  :A_mul_Bc!,  1, 1),
-                      (:A_mul_Bt,  :A_mul_Bt!,  1, 1),
-                      (:Ac_mul_B,  :Ac_mul_B!,  2, 2),
-                      (:Ac_mul_Bc, :Ac_mul_Bc!, 2, 1),
-                      (:At_mul_B,  :At_mul_B!,  2, 2),
-                      (:At_mul_Bt, :At_mul_Bt!, 2, 1))
-  @eval begin
-    function $f(A::AbstractCUR{TA}, B::StridedMatrix{TB}) where {TA,TB}
-      T = promote_type(TA, TB)
-      AT = convert(AbstractCUR{T}, A)
-      BT = (T == TB ? B : convert(Array{T}, B))
-      CT = Array{T}(uninitialized, size(A,$i), size(B,$j))
-      $f!(CT, AT, BT)
+  for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
+                        (:A_mul_Bc,  :A_mul_Bc!,  1, 1),
+                        (:A_mul_Bt,  :A_mul_Bt!,  1, 1),
+                        (:Ac_mul_B,  :Ac_mul_B!,  2, 2),
+                        (:Ac_mul_Bc, :Ac_mul_Bc!, 2, 1),
+                        (:At_mul_B,  :At_mul_B!,  2, 2),
+                        (:At_mul_Bt, :At_mul_Bt!, 2, 1))
+    @eval begin
+      function $f(A::AbstractCUR{TA}, B::StridedMatrix{TB}) where {TA,TB}
+        T = promote_type(TA, TB)
+        AT = convert(AbstractCUR{T}, A)
+        BT = (T == TB ? B : convert(Array{T}, B))
+        CT = Array{T}(uninitialized, size(A,$i), size(B,$j))
+        $f!(CT, AT, BT)
+      end
     end
   end
-end
 
-## right-multiplication
-for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
-                      (:A_mul_Bc,  :A_mul_Bc!,  1, 1),
-                      (:A_mul_Bt,  :A_mul_Bt!,  1, 1),
-                      (:Ac_mul_B,  :Ac_mul_B!,  2, 2),
-                      (:Ac_mul_Bc, :Ac_mul_Bc!, 2, 1),
-                      (:At_mul_B,  :At_mul_B!,  2, 2),
-                      (:At_mul_Bt, :At_mul_Bt!, 2, 1))
-  @eval begin
-    function $f(A::StridedMatrix{TA}, B::AbstractCUR{TB}) where {TA,TB}
-      T = promote_type(TA, TB)
-      AT = (T == TA ? A : convert(Array{T}, A))
-      BT = convert(AbstractCUR{T}, B)
-      CT = Array{T}(uninitialized, size(A,$i), size(B,$j))
-      $f!(CT, AT, BT)
+  ## right-multiplication
+  for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
+                        (:A_mul_Bc,  :A_mul_Bc!,  1, 1),
+                        (:A_mul_Bt,  :A_mul_Bt!,  1, 1),
+                        (:Ac_mul_B,  :Ac_mul_B!,  2, 2),
+                        (:Ac_mul_Bc, :Ac_mul_Bc!, 2, 1),
+                        (:At_mul_B,  :At_mul_B!,  2, 2),
+                        (:At_mul_Bt, :At_mul_Bt!, 2, 1))
+    @eval begin
+      function $f(A::StridedMatrix{TA}, B::AbstractCUR{TB}) where {TA,TB}
+        T = promote_type(TA, TB)
+        AT = (T == TA ? A : convert(Array{T}, A))
+        BT = convert(AbstractCUR{T}, B)
+        CT = Array{T}(uninitialized, size(A,$i), size(B,$j))
+        $f!(CT, AT, BT)
+      end
+    end
+  end
+else # VERSION > v"0.7-"
+  ## left-multiplication
+  mul!(C::StridedVecOrMat{T}, A::CUR{T}, B::StridedVecOrMat{T}) where {T} =
+    mul!(C, A[:C], A[:U]*(A[:R]*B))
+
+  for (adj, Adj) in ((:transpose, :Transpose), (:adjoint, :Adjoint))
+    @eval begin
+      function mul!(C::StridedVecOrMat{T}, adjA::$Adj{T,<:AbstractCUR{T}}, B::StridedVecOrMat{T}) where T
+          A = parent(adjA)
+          tmp = $adj(A[:C]) * B
+          tmp = $adj(A[:U]) * tmp
+          mul!(C, $adj(A[:R]), tmp)
+      end
+      function mul!(C::StridedVecOrMat{T}, A::$AbstractCUR{T}, adjB::$Adj{T,<:StridedMatrix{T}}) where T
+          tmp = A[:R] * adjB
+          mul!(C, A[:C], A[:U]*tmp)
+      end
+      function mul!(C::StridedVecOrMat{T}, adjA::$Adj{T,<:$AbstractCUR{T}}, adjB::$Adj{T,<:StridedMatrix{T}}) where T
+          A = parent(adjA)
+          tmp = $adj(A[:C]) * adjB
+          tmp = $adj(A[:U]) * tmp
+          mul!(C, $adj(A[:R]), tmp)
+      end
+    end
+  end
+
+  function *(A::AbstractCUR{TA}, B::StridedVector{TB}) where {TA,TB}
+    T = promote_type(TA, TB)
+    AT = convert(AbstractCUR{T}, A)
+    BT = (T == TB ? B : convert(Array{T}, B))
+    CT = Array{T}(uninitialized, size(A,1))
+    mul!(CT, AT, BT)
+  end
+
+  function *(A::AbstractCUR{TA}, B::StridedMatrix{TB}) where {TA,TB}
+    T = promote_type(TA, TB)
+    AT = convert(AbstractCUR{T}, A)
+    BT = (T == TB ? B : convert(Array{T}, B))
+    CT = Array{T}(uninitialized, size(A,1), size(B,2))
+    mul!(CT, AT, BT)
+  end
+
+  function *(A::StridedMatrix{TA}, B::AbstractCUR{TB}) where {TA,TB}
+    T = promote_type(TA, TB)
+    AT = (T == TA ? A : convert(Array{T}, A))
+    BT = convert(AbstractCUR{T}, B)
+    CT = Array{T}(uninitialized, size(A,1), size(B,2))
+    mul!(CT, AT, BT)
+  end
+
+  for Adj in (:Transpose, :Adjoint)
+    @eval begin
+      function *(adjA::$Adj{TA,<:AbstractCUR{TA}}, B::StridedVector{TB}) where {TA,TB}
+        A = parent(adjA)
+        T = promote_type(TA, TB)
+        AT = convert(AbstractCUR{T}, A)
+        BT = (T == TB ? B : convert(Array{T}, B))
+        CT = Array{T}(uninitialized, size(A,2))
+        mul!(CT, $Adj(AT), BT)
+      end
+
+      function *(adjA::$Adj{TA,<:AbstractCUR{TA}}, B::StridedMatrix{TB}) where {TA,TB}
+        A = parent(adjA)
+        T = promote_type(TA, TB)
+        AT = convert(AbstractCUR{T}, A)
+        BT = (T == TB ? B : convert(Array{T}, B))
+        CT = Array{T}(uninitialized, size(A,2), size(B,2))
+        mul!(CT, $Adj(AT), BT)
+      end
+      function *(A::AbstractCUR{TA}, adjB::$Adj{TB,<:StridedMatrix{TB}}) where {TA,TB}
+        B = parent(adjB)
+        T = promote_type(TA, TB)
+        AT = convert(AbstractCUR{T}, A)
+        BT = (T == TB ? B : convert(Array{T}, B))
+        CT = Array{T}(uninitialized, size(A,1), size(B,1))
+        mul!(CT, AT, $Adj(BT))
+      end
     end
   end
 end

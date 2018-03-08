@@ -7,6 +7,9 @@ mutable struct PartialSVD{T,Tr<:Real} <: Factorization{T}
   Vt::Matrix{T}
 end
 
+PartialSVD(U::AbstractMatrix{T}, S::AbstractVector, Vt::AbstractMatrix{T}) where T =
+  PartialSVD(Matrix(U), Vector(S), Matrix(Vt))
+
 conj!(A::PartialSVD) = PartialSVD(conj!(A.U), A.S, conj!(A.Vt))
 conj(A::PartialSVD) = PartialSVD(conj(A.U), A.S, conj(A.Vt))
 
@@ -16,7 +19,7 @@ function convert(::Type{PartialSVD{T}}, A::PartialSVD) where T
     convert(Array{T}, A.U), convert(Array{Tr}, A.S), convert(Array{T}, A.Vt))
 end
 convert(::Type{Factorization{T}}, A::PartialSVD) where {T} = convert(PartialSVD{T}, A)
-convert(::Type{Factorization{T}}, A::PartialSVD{T2,Tr}) where {T,T2,Tr<:Real} = convert(PartialSVD{T}, A)
+convert(::Type{Factorization{T}}, A::PartialSVD{T,Tr}) where {T,Tr<:Real} = convert(PartialSVD{T}, A)
 convert(::Type{Array}, A::PartialSVD) = full(A)
 convert(::Type{Array{T}}, A::PartialSVD) where {T} = convert(Array{T}, full(A))
 

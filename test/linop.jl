@@ -21,8 +21,8 @@ n = 10
 
     @test A ≈ F
     @test F' ≈ full(L')
-    @test A ≈ L*eye(n)
-    @test A ≈ eye(n)*L
+    @test A ≈ L*Matrix(1.0I,n,n)
+    @test A ≈ Matrix(1.0I,n,n)*L
 
     x = rand(T, n)
     @test A  *x ≈ L  *x
