@@ -1,39 +1,38 @@
 #= test/permute.jl
 =#
 
-println("permute.jl")
+@testset "permute" begin
+  n = 10
+  p = randperm(n)
 
+  @time for t in (RowPermutation, ColumnPermutation)
+    println("  $t")
 
-n = 10
-p = randperm(n)
+    A = t(p)
+    P = full(A)
+    @test P == sparse(A)
+    @test P == A*eye(n)
+    @test P == eye(n)*A
 
-@time for t in (:RowPermutation, :ColumnPermutation)
-  println("  $t")
+    x = rand(n)
+    @test A  *x == P  *x
+    @test A' *x == P' *x
+    @test A.'*x == P.'*x
 
-  @eval A = $t(p)
-  P = full(A)
-  @test P == sparse(A)
-  @test P == A*eye(n)
-  @test P == eye(n)*A
-
-  x = rand(n)
-  @test A  *x == P  *x
-  @test A' *x == P' *x
-  @test A.'*x == P.'*x
-
-  B = rand(n, n)
-  @test A  *B   == P  *B
-  @test A  *B'  == P  *B'
-  @test A  *B.' == P  *B.'
-  @test A' *B   == P' *B
-  @test A' *B'  == P' *B'
-  @test A.'*B   == P.'*B
-  @test A.'*B.' == P.'*B.'
-  @test B  *A   == B  *P
-  @test B  *A'  == B  *P'
-  @test B  *A.' == B  *P.'
-  @test B' *A   == B' *P
-  @test B' *A'  == B' *P'
-  @test B.'*A   == B.'*P
-  @test B.'*A.' == B.'*P.'
+    B = rand(n, n)
+    @test A  *B   == P  *B
+    @test A  *B'  == P  *B'
+    @test A  *B.' == P  *B.'
+    @test A' *B   == P' *B
+    @test A' *B'  == P' *B'
+    @test A.'*B   == P.'*B
+    @test A.'*B.' == P.'*B.'
+    @test B  *A   == B  *P
+    @test B  *A'  == B  *P'
+    @test B  *A.' == B  *P.'
+    @test B' *A   == B' *P
+    @test B' *A'  == B' *P'
+    @test B.'*A   == B.'*P
+    @test B.'*A.' == B.'*P.'
+  end
 end
