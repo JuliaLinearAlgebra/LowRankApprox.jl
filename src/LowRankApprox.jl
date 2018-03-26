@@ -2,13 +2,13 @@
 =#
 __precompile__()
 module LowRankApprox
-using Compat
+using Compat, FillArrays
 using Compat.LinearAlgebra, Compat.SparseArrays
 
 import Base: convert,
              eltype, size, getindex, setindex!, full, copy,
              isreal, real, imag,
-             +, -, *, /, \, conj, conj!
+             +, -, *, /, \, conj, conj!, rank, promote_rule, similar, fill!, full
 import Compat.LinearAlgebra: BlasFloat, BlasInt, checksquare, chkstride1
 import Compat: Nothing
 if VERSION < v"0.7-"
@@ -29,6 +29,7 @@ else
                 A_ldiv_B!, adjoint, adjoint!
     import SparseArrays: sparse
 end
+import FillArrays: AbstractFill
 
 export
 
@@ -73,7 +74,10 @@ export
   snorm, snormdiff,
 
   # trapezoidal.jl
-  Trapezoidal, LowerTrapezoidal, UpperTrapezoidal
+  Trapezoidal, LowerTrapezoidal, UpperTrapezoidal,
+
+  # aca.jl
+  LowRankMatrix
 
 # common
 
@@ -169,5 +173,7 @@ include("pqr.jl")
 include("prange.jl")
 include("psvd.jl")
 include("sketch.jl")
+
+include("lowrankmatrix.jl")
 
 end  # module
