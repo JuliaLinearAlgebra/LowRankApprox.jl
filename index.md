@@ -1,5 +1,7 @@
 # LowRankApprox
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1254147.svg)](https://doi.org/10.5281/zenodo.1254147)
+
 This Julia package provides fast low-rank approximation algorithms for BLAS/LAPACK-compatible matrices based on some of the latest technology in adaptive randomized matrix sketching. Currently implemented algorithms include:
 
 - sketch methods:
