@@ -34,13 +34,13 @@ for sfx in ("", "!")
         end
         kr = Fr[:k]
         kc = Fc[:k]
-        B = Array{T}(uninitialized, size(A,1), kr+kc)
+        B = Array{T}(undef, size(A,1), kr+kc)
         B[:,   1:kr   ] = Fr[:Q]
         B[:,kr+1:kr+kc] = Fc[:Q]
         Rr = view(Fr.R, 1:kr, 1:kr)
         Rc = view(Fc.R, 1:kc, 1:kc)
-        A_mul_B!(view(B,:,   1:kr   ), UpperTriangular(Rr))
-        A_mul_B!(view(B,:,kr+1:kr+kc), UpperTriangular(Rc))
+        mul!(view(B,:,   1:kr   ), UpperTriangular(Rr))
+        mul!(view(B,:,kr+1:kr+kc), UpperTriangular(Rc))
         opts.pqrfact_retval="q"
         return pqrfact_backend!(B, opts)[:Q]
       else
@@ -68,7 +68,7 @@ function prange_sub(trans::Symbol, A::AbstractMatrix{T}, opts::LRAOptions) where
     B = A[:,F[:p][1:k]]
   else
     n = size(A, 2)
-    B = Array{T}(uninitialized, n, k)
+    B = Array{T}(undef, n, k)
     @inbounds for j = 1:k, i = 1:n
       B[i,j] = conj(A[F[:p][j],i])
     end

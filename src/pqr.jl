@@ -77,19 +77,19 @@ size(A::PartialQR, dim::Integer) =
 
 ## left-multiplication
 
-function A_mul_B!!(
+function mul!!(
     C::StridedVecOrMat{T}, A::PartialQR{T}, B::StridedVecOrMat{T}) where T
   Ac_mul_B!(A[:P], B)
-  A_mul_B!(C, A[:Q], A[:R]*B)
+  mul!(C, A[:Q], A[:R]*B)
 end  # overwrites B
-A_mul_B!(C::StridedVecOrMat{T}, A::PartialQR{T}, B::StridedVecOrMat{T}) where {T} =
-  A_mul_B!!(C, A, copy(B))
+mul!(C::StridedVecOrMat{T}, A::PartialQR{T}, B::StridedVecOrMat{T}) where {T} =
+  mul!!(C, A, copy(B))
 
 for (f!, g) in ((:A_mul_Bc!, :Ac_mul_Bc), (:A_mul_Bt!, :At_mul_Bt))
   @eval begin
     function $f!(C::StridedMatrix{T}, A::PartialQR{T}, B::StridedMatrix{T}) where T
       tmp = $g(A[:P], B)
-      A_mul_B!(C, A[:Q], A[:R]*tmp)
+      mul!(C, A[:Q], A[:R]*tmp)
     end
   end
 end
@@ -101,7 +101,7 @@ for f in (:Ac_mul_B, :At_mul_B)
         C::StridedVecOrMat{T}, A::PartialQR{T}, B::StridedVecOrMat{T}) where T
       tmp = $f(A[:Q], B)
       $f!(C, A[:R], tmp)
-      A_mul_B!(A[:P], C)
+      mul!(A[:P], C)
     end
   end
 end
@@ -112,15 +112,15 @@ for (f, g!) in ((:Ac_mul_Bc, :Ac_mul_B!), (:At_mul_Bt, :At_mul_B!))
     function $f!(C::StridedMatrix{T}, A::PartialQR{T}, B::StridedMatrix{T}) where T
       tmp = $f(A[:Q], B)
       $g!(C, A[:R], tmp)
-      A_mul_B!(A[:P], C)
+      mul!(A[:P], C)
     end
   end
 end
 
 ## right-multiplication
 
-function A_mul_B!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialQR{T}) where T
-  A_mul_B!(C, A*B[:Q], B[:R])
+function mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialQR{T}) where T
+  mul!(C, A*B[:Q], B[:R])
   A_mul_Bc!(C, B[:P])
 end
 
@@ -129,7 +129,7 @@ for f in (:A_mul_Bc, :A_mul_Bt)
   f!! = Symbol(f, "!!")
   @eval begin
     function $f!!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialQR{T}) where T
-      A_mul_B!(A, B[:P])
+      mul!(A, B[:P])
       tmp = $f(A, B[:R])
       $f!(C, tmp, B[:Q])
     end  # overwrites A
@@ -143,7 +143,7 @@ for f in (:Ac_mul_B, :At_mul_B)
   @eval begin
     function $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialQR{T}) where T
       tmp = $f(A, B[:Q])
-      A_mul_B!(C, tmp, B[:R])
+      mul!(C, tmp, B[:R])
       A_mul_Bc!(C, B[:P])
     end
   end
@@ -166,14 +166,14 @@ function A_ldiv_B!(
     C::StridedVecOrMat{T}, A::PartialQR{T}, B::StridedVecOrMat{T}) where T
   tmp = (A[:R]*A.R')\(A[:Q]'*B)
   Ac_mul_B!(C, A[:R], tmp);
-  A_mul_B!(A[:P], C)
+  mul!(A[:P], C)
 end
 
 # standard operations
 
 ## left-multiplication
 
-for (f, f!, i) in ((:*,        :A_mul_B!,  1),
+for (f, f!, i) in ((:*,        :mul!,  1),
                    (:Ac_mul_B, :Ac_mul_B!, 2),
                    (:At_mul_B, :At_mul_B!, 2))
   @eval begin
@@ -181,13 +181,13 @@ for (f, f!, i) in ((:*,        :A_mul_B!,  1),
       T = promote_type(TA, TB)
       AT = convert(PartialQR{T}, A)
       BT = (T == TB ? B : convert(Array{T}, B))
-      CT = Array{T}(uninitialized, size(A,$i))
+      CT = Array{T}(undef, size(A,$i))
       $f!(CT, AT, BT)
     end
   end
 end
 
-for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
+for (f, f!, i, j) in ((:*,         :mul!,   1, 2),
                       (:A_mul_Bc,  :A_mul_Bc!,  1, 1),
                       (:A_mul_Bt,  :A_mul_Bt!,  1, 1),
                       (:Ac_mul_B,  :Ac_mul_B!,  2, 2),
@@ -199,14 +199,14 @@ for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
       T = promote_type(TA, TB)
       AT = convert(PartialQR{T}, A)
       BT = (T == TB ? B : convert(Array{T}, B))
-      CT = Array{T}(uninitialized, size(A,$i), size(B,$j))
+      CT = Array{T}(undef, size(A,$i), size(B,$j))
       $f!(CT, AT, BT)
     end
   end
 end
 
 ## right-multiplication
-for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
+for (f, f!, i, j) in ((:*,         :mul!,   1, 2),
                       (:A_mul_Bc,  :A_mul_Bc!,  1, 1),
                       (:A_mul_Bt,  :A_mul_Bt!,  1, 1),
                       (:Ac_mul_B,  :Ac_mul_B!,  2, 2),
@@ -218,7 +218,7 @@ for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
       T = promote_type(TA, TB)
       AT = (T == TA ? A : convert(Array{T}, A))
       BT = convert(PartialQR{T}, B)
-      CT = Array{T}(uninitialized, size(A,$i), size(B,$j))
+      CT = Array{T}(undef, size(A,$i), size(B,$j))
       $f!(CT, AT, BT)
     end
   end
@@ -229,14 +229,14 @@ function \(A::PartialQR{TA}, B::StridedVector{TB}) where {TA,TB}
   T = promote_type(TA, TB)
   AT = convert(PartialQR{T}, A)
   BT = (T == TB ? B : convert(Array{T}, B))
-  CT = Array{T}(uninitialized, size(A,2))
+  CT = Array{T}(undef, size(A,2))
   A_ldiv_B!(CT, AT, BT)
 end
 function \(A::PartialQR{TA}, B::StridedMatrix{TB}) where {TA,TB}
   T = promote_type(TA, TB)
   AT = convert(PartialQR{T}, A)
   BT = (T == TB ? B : convert(Array{T}, B))
-  CT = Array{T}(uninitialized, size(A,2), size(B,2))
+  CT = Array{T}(undef, size(A,2), size(B,2))
   A_ldiv_B!(CT, AT, BT)
 end
 
@@ -291,7 +291,7 @@ function pqrr(R::Matrix{S}, T::Matrix{S}) where S
   R2 = view(R_, :, k+1:n)
   copy!(R1, R)
   copy!(R2, T)
-  A_mul_B!(UpperTriangular(R1), R2)
+  mul!(UpperTriangular(R1), R2)
   R_
 end
 
@@ -306,7 +306,7 @@ function geqp3_adap!(A::StridedMatrix{T}, opts::LRAOptions) where T
   jpvt = collect(BlasInt, 1:n)
   l    = min(m, n)
   k    = (opts.rank < 0 || opts.rank > l) ? l : opts.rank
-  tau  = Array{T}(uninitialized, k)
+  tau  = Array{T}(undef, k)
   if k > 0
     k = geqp3_adap_main!(A, jpvt, tau, opts)
   end
@@ -326,7 +326,7 @@ function geqp3_adap_main!(
   nb      = min(opts.nb, k)
   is_real = T <: Real
   lwork   = 2*n*is_real + (n + 1)*nb
-  work    = Array{T}(uninitialized, lwork)
+  work    = Array{T}(undef, lwork)
 
   # initialize column norms
   if is_real
@@ -403,7 +403,7 @@ function maxdet_swapcols!(
     opts::LRAOptions) where S
   k, n  = size(R)
   R1    = view(R, :, 1:k)
-  work  = Array{S}(uninitialized, max(n, 2*k))
+  work  = Array{S}(undef, max(n, 2*k))
   retq  = contains(opts.pqrfact_retval, "q")
   retr  = contains(opts.pqrfact_retval, "r")
   niter = 0
@@ -426,7 +426,7 @@ function maxdet_swapcols!(
     triu!(R1)
     R2 = view(R, :, k+1:n)
     copy!(R2, T)
-    A_mul_B!(UpperTriangular(R1), R2)
+    mul!(UpperTriangular(R1), R2)
   end
 end
 
@@ -448,7 +448,7 @@ function maxdet_update!(
   end
   BLAS.ger!(-1/(1 + work[i]), view(work,1:k), view(work,k+1:n), T)
   if retr
-    A_mul_B!(view(work,k+1:2*k), R1, view(work,1:k))
+    mul!(view(work,k+1:2*k), R1, view(work,1:k))
     @inbounds @simd for l = 1:k
       R1[l,i] += work[k+l]
     end

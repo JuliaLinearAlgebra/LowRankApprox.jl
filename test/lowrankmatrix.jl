@@ -63,7 +63,7 @@ using LowRankApprox, Compat, FillArrays, Compat.Test
         @test Matrix(A)*Matrix(B) ≈ Matrix(A*Matrix(B)) ≈ Matrix(Matrix(A)*B) ≈ Matrix(A*B)
 
         v = randn(12)
-        @test all(Base.A_mul_B!(randn(size(A,1)), A, v) .=== A*v )
+        @test all(Base.mul!(randn(size(A,1)), A, v) .=== A*v )
         @test A*v ≈ Matrix(A)*v
     end
 end

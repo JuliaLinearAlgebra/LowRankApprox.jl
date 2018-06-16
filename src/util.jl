@@ -6,7 +6,7 @@ for (elty, relty) in ((:ComplexF32, :Float32), (:ComplexF64, :Float64))
   @eval begin
     crandn(::Type{$elty}, dims::Integer...) =
       reshape(reinterpret($elty, vec(crandn($relty, 2*dims[1], dims[2:end]...))),
-              (dims...))
+              (dims...,))
   end
 end
 
@@ -82,7 +82,7 @@ function orthcols!(
   A, tau, work
 end
 orthcols!(A::StridedMatrix{T}; thin::Bool=true) where {T} =
-  orthcols!(A, Array{T}(uninitialized, 1), Array{T}(uninitialized, 1), thin=thin)[1]
+  orthcols!(A, Array{T}(undef, 1), Array{T}(undef, 1), thin=thin)[1]
 
 function orthrows!(
     A::StridedMatrix{T}, tau::Vector{T}, work::Vector{T}; thin::Bool=true) where T<:BlasFloat
@@ -96,7 +96,7 @@ function orthrows!(
   A, tau, work
 end
 orthrows!(A::StridedMatrix{T}; thin::Bool=true) where {T} =
-  orthrows!(A, Array{T}(uninitialized, 1), Array{T}(uninitialized, 1), thin=thin)[1]
+  orthrows!(A, Array{T}(undef, 1), Array{T}(undef, 1), thin=thin)[1]
 
 function scalevec!(s::AbstractVector, x::AbstractVector)
   n = length(x)

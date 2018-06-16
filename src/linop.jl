@@ -22,22 +22,20 @@ end
 const HermLinOp = HermitianLinearOperator
 
 function LinOp(A)
-  try
-    ishermitian(A) && return HermLinOp(A)
-  end
+  ishermitian(A) && return HermLinOp(A)
   T = eltype(A)
   m, n = size(A)
-  mul!  = (y, _, x) ->  A_mul_B!(y, A, x)
+  ml!  = (y, _, x) ->  mul!(y, A, x)
   mulc! = (y, _, x) -> Ac_mul_B!(y, A, x)
-  LinOp{T}(m, n, mul!, mulc!, nothing)
+  LinOp{T}(m, n, ml!, mulc!, nothing)
 end
 
 function HermLinOp(A)
   T = eltype(A)
   m, n = size(A)
   m == n || throw(DimensionMismatch)
-  mul! = (y, _, x) ->  A_mul_B!(y, A, x)
-  HermLinOp{T}(n, mul!, nothing)
+  ml! = (y, _, x) ->  mul!(y, A, x)
+  HermLinOp{T}(n, ml!, nothing)
 end
 
 convert(::Type{Array}, A::AbstractLinOp) = full(A)
@@ -50,7 +48,7 @@ adjoint(A::HermLinOp) = A
 
 eltype(::AbstractLinOp{T}) where {T} = T
 
-full(A::AbstractLinOp{T}) where {T} = A*eye(T, size(A,2))
+full(A::AbstractLinOp{T}) where {T} = A*Matrix{T}(I, size(A)...)
 
 getindex(A::AbstractLinOp, ::Colon, ::Colon) = full(A)
 function getindex(A::AbstractLinOp{T}, ::Colon, cols) where T
@@ -101,19 +99,19 @@ end
 
 # matrix multiplication
 
-A_mul_B!(C, A::AbstractLinOp, B::AbstractVecOrMat) = A.mul!(C, A, B)
+mul!(C, A::AbstractLinOp, B::AbstractVecOrMat) = A.mul!(C, A, B)
 Ac_mul_B!(C, A::LinOp, B::AbstractVecOrMat) = A.mulc!(C, A, B)
-Ac_mul_B!(C, A::HermLinOp, B::AbstractVecOrMat) = A_mul_B!(C, A, B)
+Ac_mul_B!(C, A::HermLinOp, B::AbstractVecOrMat) = mul!(C, A, B)
 
-A_mul_B!(C, A::AbstractMatrix, B::AbstractLinOp) = adjoint!(C, B'*A')
+mul!(C, A::AbstractMatrix, B::AbstractLinOp) = adjoint!(C, B'*A')
 A_mul_Bc!(C, A::AbstractMatrix, B::AbstractLinOp) = adjoint!(C, B*A')
 
 *(A::AbstractLinOp{T}, x::AbstractVector) where {T} =
-  (y = Array{T}(uninitialized, size(A,1)); A_mul_B!(y, A, x))
+  (y = Array{T}(undef, size(A,1)); mul!(y, A, x))
 *(A::AbstractLinOp{T}, B::AbstractMatrix) where {T} =
-  (C = Array{T}(uninitialized, size(A,1), size(B,2)); A_mul_B!(C, A, B))
+  (C = Array{T}(undef, size(A,1), size(B,2)); mul!(C, A, B))
 *(A::AbstractMatrix, B::AbstractLinOp{T}) where {T} =
-  (C = Array{T}(uninitialized, size(A,1), size(B,2)); A_mul_B!(C, A, B))
+  (C = Array{T}(undef, size(A,1), size(B,2)); mul!(C, A, B))
 
 # scalar multiplication/division
 
@@ -122,7 +120,7 @@ for (f, g) in ((:(A::LinOp), :(c::Number)), (:(c::Number), :(A::LinOp)))
     function *($f, $g)
       T = eltype(A)
       m, n = size(A)
-      mul!  = (y, _, x) -> ( A_mul_B!(y, A, x); scale!(c, y))
+      mul!  = (y, _, x) -> ( mul!(y, A, x); scale!(c, y))
       mulc! = (y, _, x) -> (Ac_mul_B!(y, A, x); scale!(c, y))
       LinOp{T}(m, n, mul!, mulc!, nothing)
     end
@@ -134,7 +132,7 @@ for (f, g) in ((:(A::HermLinOp), :(c::Number)), (:(c::Number), :(A::HermLinOp)))
     function *($f, $g)
       T = eltype(A)
       n = size(A, 1)
-      mul! = (y, _, x) -> (A_mul_B!(y, A, x); scale!(c, y))
+      mul! = (y, _, x) -> (mul!(y, A, x); scale!(c, y))
       HermLinOp{T}(n, mul!, nothing)
     end
   end
@@ -168,7 +166,7 @@ for (f, a) in ((:+, 1), (:-, -1))
   end
 end
 
-for (f, g) in ((:axpy, :A_mul_B!), (:axpyc, :Ac_mul_B!))
+for (f, g) in ((:axpy, :mul!), (:axpyc, :Ac_mul_B!))
   gen = Symbol("gen_linop_", f)
   fcn = Symbol("linop_", f, "!")
   @eval begin
@@ -198,7 +196,7 @@ function *(A::AbstractLinOp{T}, B::AbstractLinOp{T}) where T
   LinOp{T}(mA, nB, mul!, mulc!, nothing)
 end
 
-for (f, g) in ((:comp, :A_mul_B!), (:compc, :Ac_mul_B!))
+for (f, g) in ((:comp, :mul!), (:compc, :Ac_mul_B!))
   gen = Symbol("gen_linop_", f)
   fcn = Symbol("linop_", f, "!")
   @eval begin
@@ -207,7 +205,7 @@ for (f, g) in ((:comp, :A_mul_B!), (:compc, :Ac_mul_B!))
           y::StridedVector{T}, L::AbstractLinOp{T}, x::StridedVector{T}) where T
         n = size(B, 1)
         if isnull(L._tmp) || length(get(L._tmp)) != n
-          L._tmp = Array{T}(uninitialized, n)
+          L._tmp = Array{T}(undef, n)
         end
         tmp = get(L._tmp)
         $g(tmp, B,  x )
@@ -218,7 +216,7 @@ for (f, g) in ((:comp, :A_mul_B!), (:compc, :Ac_mul_B!))
         m = size(B, 1)
         n = size(X, 2)
         if isnull(L._tmp) || size(get(L._tmp)) != (m, n)
-          L._tmp = Array{T}(uninitialized, m, n)
+          L._tmp = Array{T}(undef, m, n)
         end
         tmp = get(L._tmp)
         $g(tmp, B,  X )

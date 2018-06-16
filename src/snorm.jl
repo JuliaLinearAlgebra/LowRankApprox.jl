@@ -16,7 +16,7 @@ function snorm(A::AbstractLinOp{T}, opts::LRAOptions=LRAOptions(T); args...) whe
   m, n   = size(A)
   isherm = ishermitian(A)
   xn     = crandn(T, n)
-  xm     = Array{T}(uninitialized, m)
+  xm     = Array{T}(undef, m)
   xnrm   = vecnorm(xn)
   s      = one(real(T))
   t      = 0
@@ -29,10 +29,10 @@ function snorm(A::AbstractLinOp{T}, opts::LRAOptions=LRAOptions(T); args...) whe
     niter += 1
     scale!(xn, 1/xnrm)
     if isherm
-      A_mul_B!(xm, A, xn)
+      mul!(xm, A, xn)
       copy!(xn, xm)
     else
-       A_mul_B!(xm, A, xn)
+       mul!(xm, A, xn)
       Ac_mul_B!(xn, A, xm)
     end
     xnrm = vecnorm(xn)

@@ -49,7 +49,7 @@ function full!(trans::Symbol, A::StridedMatrix{T}, V::IDPackedV{T}) where T
       end
     end
     adjoint!(view(A,k+1:n,:), V[:T])
-    A_mul_B!(V[:P], A)
+    mul!(V[:P], A)
   end
   A
 end
@@ -57,8 +57,8 @@ full!(A::StridedMatrix{T}, V::IDPackedV{T}) where {T} = full!(:n, A, V)
 function full(trans::Symbol, A::IDPackedV{T}) where T
   chktrans(trans)
   k, n = size(A)
-  if trans == :n  B = Array{T}(uninitialized, k, n)
-  else            B = Array{T}(uninitialized, n, k)
+  if trans == :n  B = Array{T}(undef, k, n)
+  else            B = Array{T}(undef, n, k)
   end
   full!(trans, B, A)
 end
@@ -90,22 +90,22 @@ size(A::IDPackedV, dim::Integer) =
 
 ### left-multiplication
 
-function A_mul_B!!(
+function mul!!(
     y::StridedVector{T}, A::IDPackedV{T}, x::StridedVector{T}) where T<:BlasFloat
   k, n = size(A)
   Ac_mul_B!(A[:P], x)
   copy!(y, view(x,1:k))
   BLAS.gemv!('N', one(T), A[:T], view(x,k+1:n), one(T), y)
 end  # overwrites x
-function A_mul_B!!(
+function mul!!(
     C::StridedMatrix{T}, A::IDPackedV{T}, B::StridedMatrix{T}) where T<:BlasFloat
   k, n = size(A)
   Ac_mul_B!(A[:P], B)
   copy!(C, view(B,1:k,:))
   BLAS.gemm!('N', 'N', one(T), A[:T], view(B,k+1:n,:), one(T), C)
 end  # overwrites B
-A_mul_B!(C::StridedVecOrMat{T}, A::IDPackedV{T}, B::StridedVecOrMat{T}) where {T} =
-  A_mul_B!!(C, A, copy(B))
+mul!(C::StridedVecOrMat{T}, A::IDPackedV{T}, B::StridedVecOrMat{T}) where {T} =
+  mul!!(C, A, copy(B))
 
 for (f!, g) in ((:A_mul_Bc!, :Ac_mul_Bc), (:A_mul_Bt!, :At_mul_Bt))
   @eval begin
@@ -126,7 +126,7 @@ for f in (:Ac_mul_B!, :At_mul_B!)
       k, n = size(A)
       copy!(view(C,1:k,:), B)
       $f(view(C,k+1:n,:), A[:T], B)
-      A_mul_B!(A[:P], C)
+      mul!(A[:P], C)
     end
   end
 end
@@ -137,17 +137,17 @@ for (f, g) in ((:Ac_mul_Bc!, :adjoint!), (:At_mul_Bt!, :transpose!))
       k, n = size(A)
       $g(view(C,1:k,:), B)
       $f(view(C,k+1:n,:), A[:T], B)
-      A_mul_B!(A[:P], C)
+      mul!(A[:P], C)
     end
   end
 end
 
 ### right-multiplication
 
-function A_mul_B!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T}) where T
+function mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T}) where T
   k, n = size(B)
   copy!(view(C,:,1:k), A)
-  A_mul_B!(view(C,:,k+1:n), A, B[:T])
+  mul!(view(C,:,k+1:n), A, B[:T])
   A_mul_Bc!(C, B[:P])
 end
 
@@ -157,7 +157,7 @@ for (f!, trans) in ((:A_mul_Bc!, 'C'), (:A_mul_Bt!, 'T'))
     function $f!!(
         C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T}) where T<:BlasFloat
       k, n = size(B)
-      A_mul_B!(A, B[:P])
+      mul!(A, B[:P])
       copy!(C, view(A,:,1:k))
       BLAS.gemm!('N', $trans, one(T), view(A,:,k+1:n), B[:T], one(T), C)
     end  # overwrites A
@@ -250,25 +250,25 @@ size(A::ID, dim::Integer) =
 
 ### left-multiplication
 
-function A_mul_B!!(y::StridedVector{T}, A::ID{T}, x::StridedVector{T}) where T
+function mul!!(y::StridedVector{T}, A::ID{T}, x::StridedVector{T}) where T
   tmp = Array{T}(A[:k])
-  A_mul_B!!(tmp, A[:V], x)
-  A_mul_B!(y, A[:C], tmp)
+  mul!!(tmp, A[:V], x)
+  mul!(y, A[:C], tmp)
 end  # overwrites x
-function A_mul_B!!(C::StridedMatrix{T}, A::ID{T}, B::StridedMatrix{T}) where T
+function mul!!(C::StridedMatrix{T}, A::ID{T}, B::StridedMatrix{T}) where T
   tmp = Array{T}(A[:k], size(B,2))
-  A_mul_B!!(tmp, A[:V], B)
-  A_mul_B!(C, A[:C], tmp)
+  mul!!(tmp, A[:V], B)
+  mul!(C, A[:C], tmp)
 end  # overwrites B
-A_mul_B!(C::StridedVecOrMat{T}, A::ID{T}, B::StridedVecOrMat{T}) where {T} =
-  A_mul_B!!(C, A, copy(B))
+mul!(C::StridedVecOrMat{T}, A::ID{T}, B::StridedVecOrMat{T}) where {T} =
+  mul!!(C, A, copy(B))
 
 for f in (:A_mul_Bc, :A_mul_Bt)
   f! = Symbol(f, "!")
   @eval begin
     function $f!(C::StridedMatrix{T}, A::ID{T}, B::StridedMatrix{T}) where T
       tmp = $f(A[:V], B)
-      A_mul_B!(C, A[:C], tmp)
+      mul!(C, A[:C], tmp)
     end
   end
 end
@@ -295,14 +295,14 @@ end
 
 ### right-multiplication
 
-A_mul_B!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::ID{T}) where {T} =
-  A_mul_B!(C, A*B[:C], B[:V])
+mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::ID{T}) where {T} =
+  mul!(C, A*B[:C], B[:V])
 
 for f! in (:A_mul_Bc!, :A_mul_Bt!)
   f!! = Symbol(f!, "!")
   @eval begin
     function $f!!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::ID{T}) where T
-      tmp = Array{T}(uninitialized, size(A,1), B[:k])
+      tmp = Array{T}(undef, size(A,1), B[:k])
       $f!!(tmp, A, B[:V])
       $f!(C, tmp, B[:C])
     end  # overwrites A
@@ -316,7 +316,7 @@ for f in (:Ac_mul_B, :At_mul_B)
   @eval begin
     function $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::ID{T}) where T
       tmp = $f(A, B[:C])
-      A_mul_B!(C, tmp, B[:V])
+      mul!(C, tmp, B[:V])
     end
   end
 end
@@ -335,7 +335,7 @@ end
 
 ## left-multiplication
 
-for (f, f!, i) in ((:*,        :A_mul_B!,  1),
+for (f, f!, i) in ((:*,        :mul!,  1),
                    (:Ac_mul_B, :Ac_mul_B!, 2),
                    (:At_mul_B, :At_mul_B!, 2))
   for t in (:IDPackedV, :ID)
@@ -344,14 +344,14 @@ for (f, f!, i) in ((:*,        :A_mul_B!,  1),
         T = promote_type(TA, TB)
         AT = convert($t{T}, A)
         BT = (T == TB ? B : convert(Array{T}, B))
-        CT = Array{T}(uninitialized, size(A,$i))
+        CT = Array{T}(undef, size(A,$i))
         $f!(CT, AT, BT)
       end
     end
   end
 end
 
-for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
+for (f, f!, i, j) in ((:*,         :mul!,   1, 2),
                       (:A_mul_Bc,  :A_mul_Bc!,  1, 1),
                       (:A_mul_Bt,  :A_mul_Bt!,  1, 1),
                       (:Ac_mul_B,  :Ac_mul_B!,  2, 2),
@@ -364,7 +364,7 @@ for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
         T = promote_type(TA, TB)
         AT = convert($t{T}, A)
         BT = (T == TB ? B : convert(Array{T}, B))
-        CT = Array{T}(uninitialized, size(A,$i), size(B,$j))
+        CT = Array{T}(undef, size(A,$i), size(B,$j))
         $f!(CT, AT, BT)
       end
     end
@@ -372,7 +372,7 @@ for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
 end
 
 ## right-multiplication
-for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
+for (f, f!, i, j) in ((:*,         :mul!,   1, 2),
                       (:A_mul_Bc,  :A_mul_Bc!,  1, 1),
                       (:A_mul_Bt,  :A_mul_Bt!,  1, 1),
                       (:Ac_mul_B,  :Ac_mul_B!,  2, 2),
@@ -385,7 +385,7 @@ for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
         T = promote_type(TA, TB)
         AT = (T == TA ? A : convert(Array{T}, A))
         BT = convert($t{T}, B)
-        CT = Array{T}(uninitialized, size(A,$i), size(B,$j))
+        CT = Array{T}(undef, size(A,$i), size(B,$j))
         $f!(CT, AT, BT)
       end
     end
