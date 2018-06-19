@@ -14,6 +14,8 @@ function convert(::Type{PartialHermEigen{T}}, A::PartialHermEigen) where T
   Tr = real(T)
   PartialHermEigen(convert(Array{Tr}, A.values), convert(Array{T}, A.vectors))
 end
+convert(::Type{Factorization{T}}, A::PartialHermEigen{T,<:Real}) where {T} =
+  A
 convert(::Type{Factorization{T}}, A::PartialHermEigen) where {T} =
   convert(PartialHermEigen{T}, A)
 convert(::Type{Array}, A::PartialHermEigen) = full(A)

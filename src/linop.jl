@@ -120,9 +120,9 @@ for (f, g) in ((:(A::LinOp), :(c::Number)), (:(c::Number), :(A::LinOp)))
     function *($f, $g)
       T = eltype(A)
       m, n = size(A)
-      mul!  = (y, _, x) -> ( mul!(y, A, x); scale!(c, y))
-      mulc! = (y, _, x) -> (Ac_mul_B!(y, A, x); scale!(c, y))
-      LinOp{T}(m, n, mul!, mulc!, nothing)
+      sc_mul!  = (y, _, x) -> ( mul!(y, A, x); scale!(c, y))
+      sc_mulc! = (y, _, x) -> (Ac_mul_B!(y, A, x); scale!(c, y))
+      LinOp{T}(m, n, sc_mul!, sc_mulc!, nothing)
     end
   end
 end
@@ -132,8 +132,8 @@ for (f, g) in ((:(A::HermLinOp), :(c::Number)), (:(c::Number), :(A::HermLinOp)))
     function *($f, $g)
       T = eltype(A)
       n = size(A, 1)
-      mul! = (y, _, x) -> (mul!(y, A, x); scale!(c, y))
-      HermLinOp{T}(n, mul!, nothing)
+      sc_mul! = (y, _, x) -> (mul!(y, A, x); scale!(c, y))
+      HermLinOp{T}(n, sc_mul!, nothing)
     end
   end
 end

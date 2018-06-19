@@ -130,9 +130,9 @@ function getindex(L::LowRankMatrix, i::Int, j::Int)
         throw(BoundsError())
     end
 end
-getindex(L::LowRankMatrix, i::Int, jr::Range) = transpose(eltype(L)[L[i,j] for j=jr])
-getindex(L::LowRankMatrix, ir::Range, j::Int) = eltype(L)[L[i,j] for i=ir]
-getindex(L::LowRankMatrix, ir::Range, jr::Range) = eltype(L)[L[i,j] for i=ir,j=jr]
+getindex(L::LowRankMatrix, i::Int, jr::AbstractRange) = transpose(eltype(L)[L[i,j] for j=jr])
+getindex(L::LowRankMatrix, ir::AbstractRange, j::Int) = eltype(L)[L[i,j] for i=ir]
+getindex(L::LowRankMatrix, ir::AbstractRange, jr::AbstractRange) = eltype(L)[L[i,j] for i=ir,j=jr]
 full(L::LowRankMatrix) = L[1:size(L,1),1:size(L,2)]
 
 # constructors
