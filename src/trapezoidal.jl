@@ -28,6 +28,8 @@ convert(::Type{Trapezoidal{T}}, A::UpperTrapezoidal) where {T} =
   convert(UpperTrapezoidal{T}, A)
 convert(::Type{Array}, A::Trapezoidal) = full(A)
 convert(::Type{Array{T}}, A::Trapezoidal) where {T} = convert(Array{T}, full(A))
+convert(::Type{Matrix}, A::Trapezoidal) = full(A)
+convert(::Type{Matrix{T}}, A::Trapezoidal) where {T} = convert(Array{T}, full(A))
 
 copy(A::LowerTrapezoidal) = LowerTrapezoidal(copy(A.data))
 copy(A::UpperTrapezoidal) = UpperTrapezoidal(copy(A.data))
