@@ -24,6 +24,7 @@ const HermLinOp = HermitianLinearOperator
 function LinOp(A)
   try
     ishermitian(A) && return HermLinOp(A)
+  catch
   end
   T = eltype(A)
   m, n = size(A)
