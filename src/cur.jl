@@ -87,9 +87,9 @@ function CUR(A::AbstractMatOrLinOp, U::CURPackedU)
   cols = U[:cols]
   C = A[:,cols]
   R = A[rows,:]
-  F = svdfact!(C[rows,:])
-  U = PartialSVD(Matrix(F[:V]), 1 ./ F[:S], Matrix(F[:U]'))
-  CUR(rows, cols, C, U, R)
+  V,S,U = svd!(C[rows,:])
+  U2 = PartialSVD(Matrix(V), 1 ./ S, Matrix(U'))
+  CUR(rows, cols, C, U2, R)
 end
 CUR(A::AbstractMatOrLinOp, U::HermCURPackedU) = HermCUR(A, U)
 CUR(A::AbstractMatOrLinOp, U::SymCURPackedU) = SymCUR(A, U)
@@ -116,6 +116,7 @@ end
 SymCUR(A::AbstractMatOrLinOp, cols) = SymCUR(A, SymCURPackedU(cols))
 SymCUR(A, args...) = SymCUR(LinOp(A), args...)
 
+
 conj!(A::CUR) = CUR(A.rows, A.cols, conj!(A.C), conj!(A.U), conj!(A.R))
 conj(A::CUR) = CUR(A.rows, A.cols, conj(A.C), conj(A.U), conj(A.R))
 conj!(A::HermCUR) = HermCUR(A.cols, conj!(A.C), conj!(A.U))
@@ -138,6 +139,8 @@ convert(::Type{Factorization{T}}, A::HermCUR) where {T} = convert(HermCUR{T}, A)
 convert(::Type{Factorization{T}}, A::SymCUR) where {T} = convert(SymCUR{T}, A)
 convert(::Type{Array}, A::AbstractCUR) = full(A)
 convert(::Type{Array{T}}, A::AbstractCUR) where {T} = convert(Array{T}, full(A))
+convert(::Type{Matrix}, A::AbstractCUR) = full(A)
+convert(::Type{Matrix{T}}, A::AbstractCUR) where {T} = convert(Array{T}, full(A))
 
 copy(A::CUR) = CUR(copy(A.rows), copy(A.cols), copy(A.C), copy(A.U), copy(A.R))
 copy(A::HermCUR) = HermCUR(copy(A.cols), copy(A.C), copy(A.U))

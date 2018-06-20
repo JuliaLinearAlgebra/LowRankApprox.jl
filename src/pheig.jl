@@ -53,58 +53,101 @@ size(A::PartialHermEigen, dim::Integer) =
 
 ## left-multiplication
 
-mul!(
- y::StridedVector{T}, A::PartialHermEigen{T}, x::StridedVector{T}) where {T} =
+mul!(y::StridedVector{T}, A::PartialHermEigen{T}, x::StridedVector{T}) where {T} =
   mul!(y, A[:vectors], scalevec!(A[:values], A[:vectors]'*x))
-mul!(
- C::StridedMatrix{T}, A::PartialHermEigen{T}, B::StridedMatrix{T}) where {T} =
-  mul!(C, A[:vectors], scale!(A[:values], A[:vectors]'*B))
 
-A_mul_Bc!(C::StridedMatrix{T}, A::PartialHermEigen{T}, B::StridedMatrix{T}) where {T} =
-  mul!(C, A[:vectors], scale!(A[:values], A[:vectors]'*B'))
-A_mul_Bt!(
-C::StridedMatrix{T}, A::PartialHermEigen{T}, B::StridedMatrix{T}) where {T<:Real} =
-  A_mul_Bc!(C, A, B)
-A_mul_Bt!!(
-C::StridedMatrix{T}, A::PartialHermEigen{T}, B::StridedMatrix{T}) where {T<:Complex} =
-  A_mul_Bc!(C, A, conj!(B))  # overwrites B
-function A_mul_Bt!(
-    C::StridedMatrix{T}, A::PartialHermEigen{T}, B::StridedMatrix{T}) where T<:Complex
-  size(B, 1) <= A[:k] && return A_mul_Bt!!(C, A, copy(B))
-  tmp = (A[:vectors]')*transpose(B)
-  scale!(A[:values], tmp)
-  mul!(C, A[:vectors], tmp)
-end
+if VERSION < v"0.7-"
+  mul!(C::StridedMatrix{T}, A::PartialHermEigen{T}, B::StridedMatrix{T}) where {T} =
+    mul!(C, A[:vectors], scale!(A[:values], A[:vectors]'*B))
 
-Ac_mul_B!(
- C::StridedVecOrMat{T}, A::PartialHermEigen{T}, B::StridedVecOrMat{T}) where {T} =
-  mul!(C, A, B)
-function At_mul_B!(
-    y::StridedVector{T}, A::PartialHermEigen{T}, x::StridedVector{T}) where T
-  tmp = transpose(A[:vectors])*x
-  scalevec!(A[:values], tmp)
-  mul!(y, A[:vectors], conj!(tmp))
-  conj!(y)
-end
-function At_mul_B!(
-    C::StridedMatrix{T}, A::PartialHermEigen{T}, B::StridedMatrix{T}) where T
-  tmp = transpose(A[:vectors])*B
-  scale!(A[:values], tmp)
-  mul!(C, A[:vectors], conj!(tmp))
-  conj!(C)
-end
+  A_mul_Bc!(C::StridedMatrix{T}, A::PartialHermEigen{T}, B::StridedMatrix{T}) where {T} =
+    mul!(C, A[:vectors], scale!(A[:values], A[:vectors]'*B'))
+  A_mul_Bt!(C::StridedMatrix{T}, A::PartialHermEigen{T}, B::StridedMatrix{T}) where {T<:Real} =
+    A_mul_Bc!(C, A, B)
+  A_mul_Bt!!(C::StridedMatrix{T}, A::PartialHermEigen{T}, B::StridedMatrix{T}) where {T<:Complex} =
+    A_mul_Bc!(C, A, conj!(B))  # overwrites B
+  function A_mul_Bt!(
+      C::StridedMatrix{T}, A::PartialHermEigen{T}, B::StridedMatrix{T}) where T<:Complex
+    size(B, 1) <= A[:k] && return A_mul_Bt!!(C, A, copy(B))
+    tmp = (A[:vectors]')*transpose(B)
+    scale!(A[:values], tmp)
+    mul!(C, A[:vectors], tmp)
+  end
 
-Ac_mul_Bc!(
- C::StridedMatrix{T}, A::PartialHermEigen{T}, B::StridedMatrix{T}) where {T} =
-  A_mul_Bc!(C, A, B)
-function At_mul_Bt!(
-    C::StridedMatrix{T}, A::PartialHermEigen{T}, B::StridedMatrix{T}) where T
-  tmp = transpose(A[:vectors])*transpose(B)
-  scale!(A[:values], tmp)
-  mul!(C, A[:vectors], conj!(tmp))
-  conj!(C)
-end
+  Ac_mul_B!(
+   C::StridedVecOrMat{T}, A::PartialHermEigen{T}, B::StridedVecOrMat{T}) where {T} =
+    mul!(C, A, B)
+  function At_mul_B!(
+      y::StridedVector{T}, A::PartialHermEigen{T}, x::StridedVector{T}) where T
+    tmp = transpose(A[:vectors])*x
+    scalevec!(A[:values], tmp)
+    mul!(y, A[:vectors], conj!(tmp))
+    conj!(y)
+  end
+  function At_mul_B!(
+      C::StridedMatrix{T}, A::PartialHermEigen{T}, B::StridedMatrix{T}) where T
+    tmp = transpose(A[:vectors])*B
+    scale!(A[:values], tmp)
+    mul!(C, A[:vectors], conj!(tmp))
+    conj!(C)
+  end
 
+  Ac_mul_Bc!(
+   C::StridedMatrix{T}, A::PartialHermEigen{T}, B::StridedMatrix{T}) where {T} =
+    A_mul_Bc!(C, A, B)
+  function At_mul_Bt!(
+      C::StridedMatrix{T}, A::PartialHermEigen{T}, B::StridedMatrix{T}) where T
+    tmp = transpose(A[:vectors])*transpose(B)
+    scale!(A[:values], tmp)
+    mul!(C, A[:vectors], conj!(tmp))
+    conj!(C)
+  end
+else
+  mul!(C::StridedMatrix{T}, A::PartialHermEigen{T}, B::StridedMatrix{T}) where {T} =
+    mul!(C, A[:vectors], lmul!(Diagonal(A[:values]), A[:vectors]'*B))
+
+  mul!(C::StridedMatrix{T}, A::PartialHermEigen{T}, Bc::Adjoint{T,<:StridedMatrix{T}}) where {T} =
+    mul!(C, A[:vectors], lmul!(Diagonal(A[:values]), A[:vectors]'*Bc))
+  mul!(C::StridedMatrix{T}, A::PartialHermEigen{T}, Bt::Transpose{T,<:StridedMatrix{T}}) where {T<:Real} =
+    mul!(C, A, Bt')
+  A_mul_Bt!!(C::StridedMatrix{T}, A::PartialHermEigen{T}, B::StridedMatrix{T}) where {T<:Complex} =
+    mul!(C, A, conj!(B)')  # overwrites B
+  function mul!(C::StridedMatrix{T}, A::PartialHermEigen{T}, Bt::Transpose{T,<:StridedMatrix{T}}) where T<:Complex
+    B = parent(Bt)
+    size(B, 1) <= A[:k] && return A_mul_Bt!!(C, A, copy(B))
+    tmp = (A[:vectors]')*transpose(B)
+    lmul!(Diagonal(A[:values]), tmp)
+    mul!(C, A[:vectors], tmp)
+  end
+
+  mul!(C::StridedVecOrMat{T}, Ac::Adjoint{T,<:PartialHermEigen{T}}, B::StridedVecOrMat{T}) where {T} =
+    mul!(C, parent(Ac), B)
+  function mul!(y::StridedVector{T}, At::Transpose{T,<:PartialHermEigen{T}}, x::StridedVector{T}) where T
+    A = parent(At)
+    tmp = transpose(A[:vectors])*x
+    scalevec!(A[:values], tmp)
+    mul!(y, A[:vectors], conj!(tmp))
+    conj!(y)
+  end
+  function mul!(C::StridedMatrix{T}, At::Transpose{T,<:PartialHermEigen{T}}, B::StridedMatrix{T}) where T
+    A = parent(At)
+    tmp = transpose(A[:vectors])*B
+    scale!(A[:values], tmp)
+    mul!(C, A[:vectors], conj!(tmp))
+    conj!(C)
+  end
+
+  mul!(C::StridedMatrix{T}, Ac::Adjoint{T,<:PartialHermEigen{T}}, Bc::Adjoint{T,<:StridedMatrix{T}}) where {T} =
+    mul!(C, parent(Ac), Bc)
+  function mul!(C::StridedMatrix{T}, At::Transpose{T,<:PartialHermEigen{T}}, Bt::Transpose{T,<:StridedMatrix{T}}) where T
+    A = parent(At)
+    B = parent(Bt)
+    tmp = transpose(A[:vectors])*transpose(B)
+    scale!(A[:values], tmp)
+    mul!(C, A[:vectors], conj!(tmp))
+    conj!(C)
+  end
+end
 ## right-multiplication
 
 mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialHermEigen{T}) where {T} =
@@ -149,10 +192,10 @@ function At_mul_Bt!(
 end
 
 ## left-division (pseudoinverse left-multiplication)
-A_ldiv_B!(
+ldiv!(
  y::StridedVector{T}, A::PartialHermEigen{T}, x::StridedVector{T}) where {T} =
   mul!(y, A[:vectors], iscalevec!(A[:values], A[:vectors]'*x))
-A_ldiv_B!(
+ldiv!(
  C::StridedMatrix{T}, A::PartialHermEigen{T}, B::StridedMatrix{T}) where {T} =
   mul!(C, A[:vectors], iscale!(A[:values], A[:vectors]'*B))
 
@@ -217,14 +260,14 @@ function \(A::PartialHermEigen{TA}, B::StridedVector{TB}) where {TA,TB}
   AT = convert(PartialHermEigen{T}, A)
   BT = (T == TB ? B : convert(Array{T}, B))
   CT = Array{T}(undef, size(A,2))
-  A_ldiv_B!(CT, AT, BT)
+  ldiv!(CT, AT, BT)
 end
 function \(A::PartialHermEigen{TA}, B::StridedMatrix{TB}) where {TA,TB}
   T = promote_type(TA, TB)
   AT = convert(PartialHermEigen{T}, A)
   BT = (T == TB ? B : convert(Array{T}, B))
   CT = Array{T}(undef, size(A,2), size(B,2))
-  A_ldiv_B!(CT, AT, BT)
+  ldiv!(CT, AT, BT)
 end
 
 # factorization routines

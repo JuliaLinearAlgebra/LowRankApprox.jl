@@ -141,9 +141,9 @@ for (f, g!) in ((:Ac_mul_Bc, :A_mul_Bc!), (:At_mul_Bt, :A_mul_Bt!))
 end
 
 ## left-division (pseudoinverse left-multiplication)
-A_ldiv_B!(y::StridedVector{T}, A::PartialSVD{T}, x::StridedVector{T}) where {T} =
+ldiv!(y::StridedVector{T}, A::PartialSVD{T}, x::StridedVector{T}) where {T} =
   Ac_mul_B!(y, A[:Vt], iscalevec!(A[:S], A[:U]'*x))
-A_ldiv_B!(C::StridedMatrix{T}, A::PartialSVD{T}, B::StridedMatrix{T}) where {T} =
+ldiv!(C::StridedMatrix{T}, A::PartialSVD{T}, B::StridedMatrix{T}) where {T} =
   Ac_mul_B!(C, A[:Vt], iscale!(A[:S], A[:U]'*B))
 
 # standard operations
@@ -207,14 +207,14 @@ function \(A::PartialSVD{TA}, B::StridedVector{TB}) where {TA,TB}
   AT = convert(PartialSVD{T}, A)
   BT = (T == TB ? B : convert(Array{T}, B))
   CT = Array{T}(undef, size(A,2))
-  A_ldiv_B!(CT, AT, BT)
+  ldiv!(CT, AT, BT)
 end
 function \(A::PartialSVD{TA}, B::StridedMatrix{TB}) where {TA,TB}
   T = promote_type(TA, TB)
   AT = convert(PartialSVD{T}, A)
   BT = (T == TB ? B : convert(Array{T}, B))
   CT = Array{T}(undef, size(A,2), size(B,2))
-  A_ldiv_B!(CT, AT, BT)
+  ldiv!(CT, AT, BT)
 end
 
 # factorization routines

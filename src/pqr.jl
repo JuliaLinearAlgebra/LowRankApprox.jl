@@ -162,7 +162,7 @@ for (f!, g, h) in ((:Ac_mul_Bc!, :Ac_mul_B, :A_mul_Bc),
 end
 
 ## left-division (pseudoinverse left-multiplication)
-function A_ldiv_B!(
+function ldiv!(
     C::StridedVecOrMat{T}, A::PartialQR{T}, B::StridedVecOrMat{T}) where T
   tmp = (A[:R]*A.R')\(A[:Q]'*B)
   Ac_mul_B!(C, A[:R], tmp);
@@ -230,14 +230,14 @@ function \(A::PartialQR{TA}, B::StridedVector{TB}) where {TA,TB}
   AT = convert(PartialQR{T}, A)
   BT = (T == TB ? B : convert(Array{T}, B))
   CT = Array{T}(undef, size(A,2))
-  A_ldiv_B!(CT, AT, BT)
+  ldiv!(CT, AT, BT)
 end
 function \(A::PartialQR{TA}, B::StridedMatrix{TB}) where {TA,TB}
   T = promote_type(TA, TB)
   AT = convert(PartialQR{T}, A)
   BT = (T == TB ? B : convert(Array{T}, B))
   CT = Array{T}(undef, size(A,2), size(B,2))
-  A_ldiv_B!(CT, AT, BT)
+  ldiv!(CT, AT, BT)
 end
 
 # factorization routines
@@ -394,7 +394,7 @@ end
 function maxdet_t(R::StridedMatrix{S}) where S
   k, n = size(R)
   T = R[:,k+1:n]
-  A_ldiv_B!(UpperTriangular(view(R,1:k,1:k)), T)
+  ldiv!(UpperTriangular(view(R,1:k,1:k)), T)
 end
 
 ## rank-revealing QR determinant maximization
