@@ -5,6 +5,7 @@ abstract type AbstractLinearOperator{T} end
 const AbstractLinOp = AbstractLinearOperator
 const AbstractMatOrLinOp{T} = Union{AbstractMatrix{T}, AbstractLinOp{T}}
 
+
 mutable struct LinearOperator{T} <: AbstractLinOp{T}
   m::Int
   n::Int
@@ -26,7 +27,7 @@ function LinOp(A)
   T = eltype(A)
   m, n = size(A)
   ml!  = (y, _, x) ->  mul!(y, A, x)
-  mulc! = (y, _, x) -> Ac_mul_B!(y, A, x)
+  mulc! = (y, _, x) -> mul!(y, A', x)
   LinOp{T}(m, n, ml!, mulc!, nothing)
 end
 
@@ -99,12 +100,22 @@ end
 
 # matrix multiplication
 
+^(A::AbstractLinOp, p::Integer) = Base.power_by_squaring(A, p)
+
 mul!(C, A::AbstractLinOp, B::AbstractVecOrMat) = A.mul!(C, A, B)
-Ac_mul_B!(C, A::LinOp, B::AbstractVecOrMat) = A.mulc!(C, A, B)
-Ac_mul_B!(C, A::HermLinOp, B::AbstractVecOrMat) = mul!(C, A, B)
+
+if VERSION < v"0.7-"
+  Ac_mul_B!(C, A::LinOp, B::AbstractVecOrMat) = A.mulc!(C, A, B)
+  Ac_mul_B!(C, A::HermLinOp, B::AbstractVecOrMat) = mul!(C, A, B)
+  A_mul_Bc!(C, A::AbstractMatrix, B::AbstractLinOp) = adjoint!(C, B*A')
+else
+  mul!(C, A::Adjoint{<:Any,<:LinOp}, B::AbstractVecOrMat) = parent(A).mulc!(C, parent(A), B)
+  mul!(C, A::Adjoint{<:Any,<:HermLinOp}, B::AbstractVecOrMat) = mul!(C, parent(A), B)
+  mul!(C, A::AbstractMatrix, B::Adjoint{<:Any,<:AbstractLinOp}) = adjoint!(C, parent(B)*A')
+end
 
 mul!(C, A::AbstractMatrix, B::AbstractLinOp) = adjoint!(C, B'*A')
-A_mul_Bc!(C, A::AbstractMatrix, B::AbstractLinOp) = adjoint!(C, B*A')
+
 
 *(A::AbstractLinOp{T}, x::AbstractVector) where {T} =
   (y = Array{T}(undef, size(A,1)); mul!(y, A, x))
@@ -120,8 +131,8 @@ for (f, g) in ((:(A::LinOp), :(c::Number)), (:(c::Number), :(A::LinOp)))
     function *($f, $g)
       T = eltype(A)
       m, n = size(A)
-      sc_mul!  = (y, _, x) -> ( mul!(y, A, x); scale!(c, y))
-      sc_mulc! = (y, _, x) -> (Ac_mul_B!(y, A, x); scale!(c, y))
+      sc_mul!  = (y, _, x) -> ( mul!(y, A, x); lmul!(c, y))
+      sc_mulc! = (y, _, x) -> (mul!(y, A', x); lmul!(c, y))
       LinOp{T}(m, n, sc_mul!, sc_mulc!, nothing)
     end
   end
@@ -132,7 +143,7 @@ for (f, g) in ((:(A::HermLinOp), :(c::Number)), (:(c::Number), :(A::HermLinOp)))
     function *($f, $g)
       T = eltype(A)
       n = size(A, 1)
-      sc_mul! = (y, _, x) -> (mul!(y, A, x); scale!(c, y))
+      sc_mul! = (y, _, x) -> (mul!(y, A, x); lmul!(c, y))
       HermLinOp{T}(n, sc_mul!, nothing)
     end
   end
@@ -166,24 +177,47 @@ for (f, a) in ((:+, 1), (:-, -1))
   end
 end
 
-for (f, g) in ((:axpy, :mul!), (:axpyc, :Ac_mul_B!))
-  gen = Symbol("gen_linop_", f)
-  fcn = Symbol("linop_", f, "!")
-  @eval begin
-    function $gen(A::AbstractLinOp{T}, B::AbstractLinOp{T}, alpha::T) where T
-      function $fcn(
-          y::StridedVecOrMat{T}, L::AbstractLinOp{T}, x::StridedVecOrMat{T}) where T
-        if isnull(L._tmp) || size(get(L._tmp)) != size(y)
-          L._tmp = similar(y)
-        end
-        tmp = get(L._tmp)
-        $g( y , A, x)
-        $g(tmp, B, x)
-        BLAS.axpy!(alpha*one(T), tmp, y)
+function gen_linop_axpy(A::AbstractLinOp{T}, B::AbstractLinOp{T}, alpha::T) where T
+  function linop_axpy!(
+      y::StridedVecOrMat{T}, L::AbstractLinOp{T}, x::StridedVecOrMat{T}) where T
+    if isnull(L._tmp) || size(get(L._tmp)) != size(y)
+      L._tmp = similar(y)
+    end
+    tmp = get(L._tmp)
+    mul!( y , A, x)
+    mul!(tmp, B, x)
+    BLAS.axpy!(alpha*one(T), tmp, y)
+  end
+end
+
+if VERSION < v"0.7-"
+  function gen_linop_axpyc(A::AbstractLinOp{T}, B::AbstractLinOp{T}, alpha::T) where T
+    function linop_axpyc!(
+        y::StridedVecOrMat{T}, L::AbstractLinOp{T}, x::StridedVecOrMat{T}) where T
+      if isnull(L._tmp) || size(get(L._tmp)) != size(y)
+        L._tmp = similar(y)
       end
+      tmp = get(L._tmp)
+      Ac_mul_B!( y , A, x)
+      Ac_mul_B!(tmp, B, x)
+      BLAS.axpy!(alpha*one(T), tmp, y)
+    end
+  end
+else
+  function gen_linop_axpyc(A::AbstractLinOp{T}, B::AbstractLinOp{T}, alpha::T) where T
+    function linop_axpyc!(
+        y::StridedVecOrMat{T}, L::AbstractLinOp{T}, x::StridedVecOrMat{T}) where T
+      if isnull(L._tmp) || size(get(L._tmp)) != size(y)
+        L._tmp = similar(y)
+      end
+      tmp = get(L._tmp)
+      mul!( y , A', x)
+      mul!(tmp, B', x)
+      BLAS.axpy!(alpha*one(T), tmp, y)
     end
   end
 end
+
 
 # operator composition
 
@@ -196,32 +230,77 @@ function *(A::AbstractLinOp{T}, B::AbstractLinOp{T}) where T
   LinOp{T}(mA, nB, mul!, mulc!, nothing)
 end
 
-for (f, g) in ((:comp, :mul!), (:compc, :Ac_mul_B!))
-  gen = Symbol("gen_linop_", f)
-  fcn = Symbol("linop_", f, "!")
-  @eval begin
-    function $gen(A::AbstractLinOp{T}, B::AbstractLinOp{T}) where T
-      function $fcn(
-          y::StridedVector{T}, L::AbstractLinOp{T}, x::StridedVector{T}) where T
-        n = size(B, 1)
-        if isnull(L._tmp) || length(get(L._tmp)) != n
-          L._tmp = Array{T}(undef, n)
-        end
-        tmp = get(L._tmp)
-        $g(tmp, B,  x )
-        $g( y , A, tmp)
+
+function gen_linop_comp(A::AbstractLinOp{T}, B::AbstractLinOp{T}) where T
+  function linop_comp!(
+      y::StridedVector{T}, L::AbstractLinOp{T}, x::StridedVector{T}) where T
+    n = size(B, 1)
+    if isnull(L._tmp) || length(get(L._tmp)) != n
+      L._tmp = Array{T}(undef, n)
+    end
+    tmp = get(L._tmp)
+    mul!(tmp, B,  x )
+    mul!( y , A, tmp)
+  end
+  function linop_comp!(
+      Y::StridedMatrix{T}, L::AbstractLinOp{T}, X::StridedMatrix{T}) where T
+    m = size(B, 1)
+    n = size(X, 2)
+    if isnull(L._tmp) || size(get(L._tmp)) != (m, n)
+      L._tmp = Array{T}(undef, m, n)
+    end
+    tmp = get(L._tmp)
+    mul!(tmp, B,  X )
+    mul!( Y , A, tmp)
+  end
+end
+
+if VERSION < v"0.7-"
+  function gen_linop_compc(A::AbstractLinOp{T}, B::AbstractLinOp{T}) where T
+    function linop_compc!(
+        y::StridedVector{T}, L::AbstractLinOp{T}, x::StridedVector{T}) where T
+      n = size(B, 1)
+      if isnull(L._tmp) || length(get(L._tmp)) != n
+        L._tmp = Array{T}(undef, n)
       end
-      function $fcn(
-          Y::StridedMatrix{T}, L::AbstractLinOp{T}, X::StridedMatrix{T}) where T
-        m = size(B, 1)
-        n = size(X, 2)
-        if isnull(L._tmp) || size(get(L._tmp)) != (m, n)
-          L._tmp = Array{T}(undef, m, n)
-        end
-        tmp = get(L._tmp)
-        $g(tmp, B,  X )
-        $g( Y , A, tmp)
+      tmp = get(L._tmp)
+      Ac_mul_B!(tmp, B,  x )
+      Ac_mul_B!( y , A, tmp)
+    end
+    function linop_compc!(
+        Y::StridedMatrix{T}, L::AbstractLinOp{T}, X::StridedMatrix{T}) where T
+      m = size(B, 1)
+      n = size(X, 2)
+      if isnull(L._tmp) || size(get(L._tmp)) != (m, n)
+        L._tmp = Array{T}(undef, m, n)
       end
+      tmp = get(L._tmp)
+      Ac_mul_B!(tmp, B,  X )
+      Ac_mul_B!( Y , A, tmp)
+    end
+  end
+else
+  function gen_linop_compc(A::AbstractLinOp{T}, B::AbstractLinOp{T}) where T
+    function linop_compc!(
+        y::StridedVector{T}, L::AbstractLinOp{T}, x::StridedVector{T}) where T
+      n = size(B, 1)
+      if isnull(L._tmp) || length(get(L._tmp)) != n
+        L._tmp = Array{T}(undef, n)
+      end
+      tmp = get(L._tmp)
+      mul!(tmp, B',  x )
+      mul!( y , A', tmp)
+    end
+    function linop_compc!(
+        Y::StridedMatrix{T}, L::AbstractLinOp{T}, X::StridedMatrix{T}) where T
+      m = size(B, 1)
+      n = size(X, 2)
+      if isnull(L._tmp) || size(get(L._tmp)) != (m, n)
+        L._tmp = Array{T}(undef, m, n)
+      end
+      tmp = get(L._tmp)
+      mul!(tmp, B',  X )
+      mul!( Y , A', tmp)
     end
   end
 end

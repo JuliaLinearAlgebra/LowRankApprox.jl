@@ -256,9 +256,9 @@ for sfx in ("", "!")
       opts.sketch == :none && return $g(trans, A, opts)
       V = idfact(trans, A, opts)
       F = qrfact!(getcols(trans, A, V[:sk]))
-      retq = contains(opts.pqrfact_retval, "q")
-      retr = contains(opts.pqrfact_retval, "r")
-      rett = contains(opts.pqrfact_retval, "t")
+      retq = occursin("q", opts.pqrfact_retval)
+      retr = occursin("r", opts.pqrfact_retval)
+      rett = retr = occursin("t", opts.pqrfact_retval)
       Q = retq ? Matrix(F[:Q]) : nothing
       R = retr ? pqrr(F[:R], V[:T]) : nothing
       T = rett ? V[:T] : nothing
@@ -286,11 +286,11 @@ pqrfact_none(trans::Symbol, A::StridedMatrix, opts::LRAOptions) =
 function pqrr(R::Matrix{S}, T::Matrix{S}) where S
   k, n = size(T)
   n += k
-  R_ = Array{S}(k, n)
+  R_ = Array{S}(undef, k, n)
   R1 = view(R_, :,   1:k)
   R2 = view(R_, :, k+1:n)
-  copy!(R1, R)
-  copy!(R2, T)
+  copyto!(R1, R)
+  copyto!(R2, T)
   mul!(UpperTriangular(R1), R2)
   R_
 end
@@ -376,9 +376,9 @@ end
 function pqrback_postproc(
     A::StridedMatrix{S}, p::Vector{Int}, tau::Vector{S}, k::Integer,
     opts::LRAOptions) where S
-  retq = contains(opts.pqrfact_retval, "q")
-  retr = contains(opts.pqrfact_retval, "r")
-  rett = contains(opts.pqrfact_retval, "t")
+  retq = occursin("q", opts.pqrfact_retval)
+  retr = occursin("r", opts.pqrfact_retval)
+  rett = occursin("t", opts.pqrfact_retval)
   maxdet = 0 < k < size(A,2) && opts.maxdet_tol >= 0
   Q = retq ? LAPACK.orgqr!(A[:,1:k], tau, k) : nothing
   R = retr || rett || maxdet ? triu!(A[1:k,:]) : nothing
@@ -404,8 +404,8 @@ function maxdet_swapcols!(
   k, n  = size(R)
   R1    = view(R, :, 1:k)
   work  = Array{S}(undef, max(n, 2*k))
-  retq  = contains(opts.pqrfact_retval, "q")
-  retr  = contains(opts.pqrfact_retval, "r")
+  retq  = occursin("q", opts.pqrfact_retval)
+  retr  = occursin("r", opts.pqrfact_retval)
   niter = 0
   while true
     Tmax, idx = findmaxabs(T)
@@ -425,7 +425,7 @@ function maxdet_swapcols!(
   if retr
     triu!(R1)
     R2 = view(R, :, k+1:n)
-    copy!(R2, T)
+    copyto!(R2, T)
     mul!(UpperTriangular(R1), R2)
   end
 end

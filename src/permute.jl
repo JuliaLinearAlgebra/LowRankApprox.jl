@@ -57,15 +57,15 @@ end
 size(A::PermMat) = (n = length(A.p); (n, n))
 size(A::PermMat, dim::Integer) = (dim == 1 || dim == 2) ? length(A.p) : 1
 
-sparse(A::RowPerm) = sparse(1:length(A.p), A.p, ones(A.p))
-sparse(A::ColPerm) = sparse(A.p, 1:length(A.p), ones(A.p))
+sparse(A::RowPerm) = sparse(1:length(A.p), A.p, fill(1.0,length(A.p)))
+sparse(A::ColPerm) = sparse(A.p, 1:length(A.p), fill(1.0,length(A.p)))
 
 # in-place permutation routines
 
 function rowperm!(fwd::Bool, x::StridedVector, p::Vector{Int})
   n = length(x)
   length(p) == n || throw(DimensionMismatch)
-  scale!(p, -1)
+  rmul!(p, -1)
   if (fwd)
     for i = 1:n
       p[i] > 0 && continue
@@ -96,7 +96,7 @@ end
 function rowperm!(fwd::Bool, A::StridedMatrix, p::Vector{Int})
   m, n = size(A)
   length(p) == m || throw(DimensionMismatch)
-  scale!(p, -1)
+  rmul!(p, -1)
   if (fwd)
     for i = 1:m
       p[i] > 0 && continue
@@ -132,7 +132,7 @@ end
 function colperm!(fwd::Bool, A::StridedMatrix, p::Vector{Int})
   m, n = size(A)
   length(p) == n || throw(DimensionMismatch)
-  scale!(p, -1)
+  rmul!(p, -1)
   if (fwd)
     for i = 1:n
       p[i] > 0 && continue
@@ -165,48 +165,89 @@ function colperm!(fwd::Bool, A::StridedMatrix, p::Vector{Int})
   A
 end
 
-## RowPermutation
-mul!(A::RowPerm, B::StridedVecOrMat) = rowperm!(true, B, A.p)
-mul!(A::StridedMatrix, B::RowPerm) = colperm!(false, A, B.p)
-A_mul_Bc!(A::StridedMatrix, B::RowPerm) = colperm!(true, A, B.p)
-Ac_mul_B!(A::RowPerm, B::StridedVecOrMat) = rowperm!(false, B, A.p)
 
-## ColumnPermutation
-mul!(A::ColPerm, B::StridedVecOrMat) = rowperm!(false, B, A.p)
-mul!(A::StridedMatrix, B::ColPerm) = colperm!(true, A, B.p)
-A_mul_Bc!(A::StridedMatrix, B::ColPerm) = colperm!(false, A, B.p)
-Ac_mul_B!(A::ColPerm, B::StridedVecOrMat) = rowperm!(true, B, A.p)
+if VERSION < v"0.7-"
+  ## RowPermutation
+  mul!(A::RowPerm, B::StridedVecOrMat) = rowperm!(true, B, A.p)
+  mul!(A::StridedMatrix, B::RowPerm) = colperm!(false, A, B.p)
 
-## transpose multiplication
-A_mul_Bt!(A::StridedMatrix, B::PermMat) = A_mul_Bc!(A, B)
-At_mul_B!(A::PermMat, B::StridedVecOrMat) = Ac_mul_B!(A, B)
+  A_mul_Bc!(A::StridedMatrix, B::RowPerm) = colperm!(true, A, B.p)
+  Ac_mul_B!(A::RowPerm, B::StridedVecOrMat) = rowperm!(false, B, A.p)
+
+  ## ColumnPermutation
+  mul!(A::ColPerm, B::StridedVecOrMat) = rowperm!(false, B, A.p)
+  mul!(A::StridedMatrix, B::ColPerm) = colperm!(true, A, B.p)
+
+  A_mul_Bc!(A::StridedMatrix, B::ColPerm) = colperm!(false, A, B.p)
+  Ac_mul_B!(A::ColPerm, B::StridedVecOrMat) = rowperm!(true, B, A.p)
+
+  ## transpose multiplication
+  A_mul_Bt!(A::StridedMatrix, B::PermMat) = A_mul_Bc!(A, B)
+  At_mul_B!(A::PermMat, B::StridedVecOrMat) = Ac_mul_B!(A, B)
+else
+  ## RowPermutation
+  lmul!(A::RowPerm, B::StridedVecOrMat) = rowperm!(true, B, A.p)
+  rmul!(A::StridedMatrix, B::RowPerm) = colperm!(false, A, B.p)
+
+  rmul!(A::StridedMatrix, B::Adjoint{<:Any,<:RowPerm}) = colperm!(true, A, B.p)
+  lmul!(A::Adjoint{<:Any,<:RowPerm}, B::StridedVecOrMat) = rowperm!(false, B, A.p)
+
+  ## ColumnPermutation
+  lmul!(A::ColPerm, B::StridedVecOrMat) = rowperm!(false, B, A.p)
+  rmul!(A::StridedMatrix, B::ColPerm) = colperm!(true, A, B.p)
+
+  rmul!(A::StridedMatrix, B::Adjoint{<:Any,<:ColPerm}) = colperm!(false, A, B.p)
+  lmul!(A::Adjoint{<:Any,<:ColPerm}, B::StridedVecOrMat) = rowperm!(true, B, A.p)
+
+  ## transpose multiplication
+  rmul!(A::StridedMatrix, B::Transpose{<:Any,<:PermMat}) = rmul!(A, parent(B)')
+  lmul!(A::Transpose{<:Any,<:PermMat}, B::StridedVecOrMat) = lmul!(parent(A)', B)
+end
+
+
 
 # standard operations
 
-## left-multiplication
-for (f, f!) in ((:*,        :mul!),
-                (:Ac_mul_B, :Ac_mul_B!),
-                (:At_mul_B, :At_mul_B!))
+if VERSION < v"0.7-"
+  ## left-multiplication
+  for (f, f!) in ((:*,        :mul!),
+                  (:Ac_mul_B, :Ac_mul_B!),
+                  (:At_mul_B, :At_mul_B!))
+    for t in (:RowPerm, :ColPerm)
+      @eval $f(A::$t, B::StridedVecOrMat) = $f!(A, copy(B))
+    end
+  end
+
+  ## right-multiplication
+  for (f, f!) in ((:*,        :mul!),
+                  (:A_mul_Bc, :A_mul_Bc!),
+                  (:A_mul_Bt, :A_mul_Bt!))
+    for t in (:RowPerm, :ColPerm)
+      @eval $f(A::StridedMatrix, B::$t) = $f!(copy(A), B)
+    end
+  end
+
+  ## operations on matrix copies
+  A_mul_Bc(A::PermMat, B::StridedMatrix) = mul!(A, transpose(B))
+  A_mul_Bt(A::PermMat, B::StridedMatrix) = mul!(A, transpose(B))
+  Ac_mul_B(A::StridedMatrix, B::PermMat) = mul!(A', B)
+  Ac_mul_Bc(A::PermMat, B::StridedMatrix) = Ac_mul_B!(A, B')
+  Ac_mul_Bc(A::StridedMatrix, B::PermMat) = A_mul_Bc!(A', B)
+  At_mul_B(A::StridedMatrix, B::PermMat) = mul!(transpose(A), B)
+  At_mul_Bt(A::PermMat, B::StridedMatrix) = At_mul_B!(A, transpose(B))
+  At_mul_Bt(A::StridedMatrix, B::PermMat) = A_mul_Bt!(transpose(A), B)
+else
   for t in (:RowPerm, :ColPerm)
-    @eval $f(A::$t, B::StridedVecOrMat) = $f!(A, copy(B))
+    @eval begin
+      ## left-multiplication
+      *(A::$t, B::StridedVecOrMat) = lmul!(A, copy(B))
+      *(A::Adjoint{<:Any,<:$t}, B::StridedVecOrMat) = lmul!(A, copy(B))
+      *(A::Transpose{<:Any,<:$t}, B::StridedVecOrMat) = lmul!(A, copy(B))
+
+      ## right-multiplication
+      *(A::StridedMatrix, B::$t) = rmul!(copy(A), B)
+      *(A::StridedMatrix, B::Adjoint{<:Any,<:$t}) = rmul!(copy(A), B)
+      *(A::StridedMatrix, B::Transpose{<:Any,<:$t}) = rmul!(copy(A), B)
+    end
   end
 end
-
-## right-multiplication
-for (f, f!) in ((:*,        :mul!),
-                (:A_mul_Bc, :A_mul_Bc!),
-                (:A_mul_Bt, :A_mul_Bt!))
-  for t in (:RowPerm, :ColPerm)
-    @eval $f(A::StridedMatrix, B::$t) = $f!(copy(A), B)
-  end
-end
-
-## operations on matrix copies
-A_mul_Bc(A::PermMat, B::StridedMatrix) = mul!(A, transpose(B))
-A_mul_Bt(A::PermMat, B::StridedMatrix) = mul!(A, transpose(B))
-Ac_mul_B(A::StridedMatrix, B::PermMat) = mul!(A', B)
-Ac_mul_Bc(A::PermMat, B::StridedMatrix) = Ac_mul_B!(A, B')
-Ac_mul_Bc(A::StridedMatrix, B::PermMat) = A_mul_Bc!(A', B)
-At_mul_B(A::StridedMatrix, B::PermMat) = mul!(transpose(A), B)
-At_mul_Bt(A::PermMat, B::StridedMatrix) = At_mul_B!(A, transpose(B))
-At_mul_Bt(A::StridedMatrix, B::PermMat) = A_mul_Bt!(transpose(A), B)

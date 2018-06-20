@@ -3,14 +3,14 @@
 __precompile__()
 module LowRankApprox
 using Compat, FillArrays
-using Compat.LinearAlgebra, Compat.SparseArrays
+using Compat.LinearAlgebra, Compat.SparseArrays, Compat.Random
 
 import Base: convert,
              eltype, size, getindex, setindex!, full, copy,
              isreal, real, imag,
-             +, -, *, /, \, conj, conj!, promote_rule, similar, fill!, full
+             +, -, *, /, \, ^, conj, conj!, promote_rule, similar, fill!, full
 import Compat.LinearAlgebra: BlasFloat, BlasInt, checksquare, chkstride1, rank
-import Compat: Nothing
+import Compat: Nothing, copyto!
 if VERSION < v"0.7-"
     import Base.FFTW: plan_r2r!, R2HC, r2rFFTWPlan, FFTWPlan
     import Base: transpose, transpose!, axpy!, ishermitian, issymmetric,
@@ -20,14 +20,14 @@ if VERSION < v"0.7-"
     import Base: sparse
     import Compat: adjoint, adjoint!
     const mul! = A_mul_B!
+    rmul!(A::AbstractArray, c::Number) = scale!(A,c)
+    lmul!(c::Number, A::AbstractArray) = scale!(c,A)
 else
     using FFTW
     import FFTW: plan_r2r!, R2HC, r2rFFTWPlan, FFTWPlan
     using Nullables
     import LinearAlgebra: mul!, ldiv!, transpose, transpose!, axpy!, ishermitian, issymmetric,
-                mul!, Ac_mul_B, Ac_mul_B!, Ac_mul_Bc, A_mul_Bc, A_mul_Bc!, Ac_mul_Bc!,
-                At_mul_B, At_mul_B!, A_mul_Bt!, At_mul_Bt, At_mul_Bt!, A_mul_Bt, A_mul_Bt!,
-                A_ldiv_B!, adjoint, adjoint!
+                lmul!, rmul!, adjoint, adjoint!
     import SparseArrays: sparse
 end
 import FillArrays: AbstractFill

@@ -18,19 +18,19 @@ using LowRankApprox, Compat, FillArrays, Compat.Test
         @test rank(LowRankMatrix(Zeros(10,5))) == 0
 
 
-        @test Matrix(LowRankMatrix(Ones(10,5))) == ones(10,5)
+        @test Matrix(LowRankMatrix(Ones(10,5))) == fill(1.0,10,5)
         @test LowRankMatrix{Float64}(Ones(10,5)) == LowRankMatrix(Ones(10,5)) ==
                     LowRankMatrix{Float64}(Ones{Int}(10,5))
-        @test LowRankMatrix{Float64}(ones(10,5)) == LowRankMatrix(ones(10,5))  ==
-                    LowRankMatrix{Float64}(ones(Int,10,5))
+        @test LowRankMatrix{Float64}(fill(1.0,10,5)) == LowRankMatrix(fill(1.0,10,5))  ==
+                    LowRankMatrix{Float64}(fill(1,10,5))
         @test rank(LowRankMatrix(Ones(10,5))) == 1
 
-        @test LowRankMatrix(Ones(10,5)) ≈ LowRankMatrix(ones(10,5))
+        @test LowRankMatrix(Ones(10,5)) ≈ LowRankMatrix(fill(1.0,10,5))
 
 
-        @test Matrix(LowRankMatrix(Ones(10,5))) == ones(10,5)
+        @test Matrix(LowRankMatrix(Ones(10,5))) == fill(1.0,10,5)
         @test LowRankMatrix{Float64}(Ones(10,5)) == LowRankMatrix(Ones(10,5))
-        @test rank(LowRankMatrix(ones(10,5))) == 1
+        @test rank(LowRankMatrix(fill(1.0,10,5))) == 1
 
         x = 2
         @test Matrix(LowRankMatrix(Fill(x,10,5))) ≈ fill(x,10,5)

@@ -138,7 +138,7 @@ full(L::LowRankMatrix) = L[1:size(L,1),1:size(L,2)]
 # constructors
 
 copy(L::LowRankMatrix) = _LowRankMatrix(copy(L.U),copy(L.V))
-copyto!(L::LowRankMatrix, N::LowRankMatrix) = (copy!(L.U,N.U); copy!(L.V,N.V);L)
+copyto!(L::LowRankMatrix, N::LowRankMatrix) = (copyto!(L.U,N.U); copyto!(L.V,N.V);L)
 
 
 # algebra

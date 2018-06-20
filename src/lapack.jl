@@ -3,7 +3,7 @@
 
 module _LAPACK
 using Compat
-using Compat.LinearAlgebra.BLAS.@blasfunc
+import Compat.LinearAlgebra.BLAS: @blasfunc
 using Compat.LinearAlgebra: BlasFloat, BlasInt, chkstride1
 using Compat: Nothing
 const liblapack = Base.liblapack_name

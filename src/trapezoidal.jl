@@ -97,14 +97,14 @@ if VERSION < v"0.7-"
       function $f(
           y::StridedVector{T}, A::LowerTrapezoidal{T}, x::StridedVector{T}) where T<:BlasFloat
         m, n = size(A)
-        copy!(y, view(x,1:n))
+        copyto!(y, view(x,1:n))
         BLAS.trmv!('L', $trans, 'N', view(A.data,1:n,:), y)
         BLAS.gemv!($trans, one(T), view(A.data,n+1:m,:), view(x,n+1:m), one(T), y)
       end
       function $f(
           C::StridedMatrix{T}, A::LowerTrapezoidal{T}, B::StridedMatrix{T}) where T<:BlasFloat
         m, n = size(A)
-        copy!(C, view(B,1:n,:))
+        copyto!(C, view(B,1:n,:))
         BLAS.trmm!('L', 'L', $trans, 'N', one(T), view(A.data,1:n,:), C)
         BLAS.gemm!(
           $trans, 'N', one(T), view(A.data,n+1:m,:), view(B,n+1:m,:), one(T), C)
@@ -132,7 +132,7 @@ if VERSION < v"0.7-"
   function mul!(
       C::StridedMatrix{T}, A::StridedMatrix{T}, B::LowerTrapezoidal{T}) where T<:BlasFloat
     m, n = size(B)
-    copy!(C, view(A,:,1:n))
+    copyto!(C, view(A,:,1:n))
     mul!(C, LowerTriangular(view(B.data,1:n,:)))
     BLAS.gemm!(
       'N', 'N', one(T), view(A,:,n+1:m), view(B.data,n+1:m,:), one(T), C)
@@ -143,7 +143,7 @@ if VERSION < v"0.7-"
       function $f(
           C::StridedMatrix{T}, A::StridedMatrix{T}, B::LowerTrapezoidal{T}) where T<:BlasFloat
         m, n = size(B)
-        copy!(view(C,:,1:n), A)
+        copyto!(view(C,:,1:n), A)
         BLAS.trmm!(
           'R', 'L', $trans, 'N', one(T), view(B.data,1:n,:), view(C,:,1:n))
         $f(view(C,:,n+1:m), A, view(B.data,n+1:m,:))
@@ -186,14 +186,14 @@ if VERSION < v"0.7-"
   function mul!(
       y::StridedVector{T}, A::UpperTrapezoidal{T}, x::StridedVector{T}) where T<:BlasFloat
     m, n = size(A)
-    copy!(y, view(x,1:m))
+    copyto!(y, view(x,1:m))
     mul!(UpperTriangular(view(A.data,:,1:m)), y)
     BLAS.gemv!('N', one(T), view(A.data,:,m+1:n), view(x,m+1:n), one(T), y)
   end
   function mul!(
       C::StridedMatrix{T}, A::UpperTrapezoidal{T}, B::StridedMatrix{T}) where T<:BlasFloat
     m, n = size(A)
-    copy!(C, view(B,1:m,:))
+    copyto!(C, view(B,1:m,:))
     mul!(UpperTriangular(view(A.data,:,1:m)), C)
     BLAS.gemm!(
       'N', 'N', one(T), view(A.data,:,m+1:n), view(B,m+1:n,:), one(T), C)
@@ -266,7 +266,7 @@ if VERSION < v"0.7-"
       function $f(
           C::StridedMatrix{T}, A::StridedMatrix{T}, B::UpperTrapezoidal{T}) where T<:BlasFloat
         m, n = size(B)
-        copy!(C, view(A,:,1:m))
+        copyto!(C, view(A,:,1:m))
         BLAS.trmm!('R', 'U', $trans, 'N', one(T), view(B.data,:,1:m), C)
         BLAS.gemm!(
           'N', $trans, one(T), view(A,:,m+1:n), view(B.data,:,m+1:n), one(T), C)
@@ -387,14 +387,14 @@ else # VERSION ≥ v"0.7-"
       function mul!(y::StridedVector{T}, adjA::$Adj{T,LowerTrapezoidal{T}}, x::StridedVector{T}) where T<:BlasFloat
         A = parent(adjA)
         m, n = size(A)
-        copy!(y, view(x,1:n))
+        copyto!(y, view(x,1:n))
         BLAS.trmv!('L', $trans, 'N', view(A.data,1:n,:), y)
         BLAS.gemv!($trans, one(T), view(A.data,n+1:m,:), view(x,n+1:m), one(T), y)
       end
       function mul!(C::StridedMatrix{T}, adjA::$Adj{T,LowerTrapezoidal{T}}, B::StridedMatrix{T}) where T<:BlasFloat
         A = parent(adjA)
         m, n = size(A)
-        copy!(C, view(B,1:n,:))
+        copyto!(C, view(B,1:n,:))
         BLAS.trmm!('L', 'L', $trans, 'N', one(T), view(A.data,1:n,:), C)
         BLAS.gemm!($trans, 'N', one(T), view(A.data,n+1:m,:), view(B,n+1:m,:), one(T), C)
       end
@@ -421,7 +421,7 @@ else # VERSION ≥ v"0.7-"
 
   function mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::LowerTrapezoidal{T}) where T<:BlasFloat
     m, n = size(B)
-    copy!(C, view(A,:,1:n))
+    copyto!(C, view(A,:,1:n))
     rmul!(C, LowerTriangular(view(B.data,1:n,:)))
     BLAS.gemm!('N', 'N', one(T), view(A,:,n+1:m), view(B.data,n+1:m,:), one(T), C)
   end
@@ -431,7 +431,7 @@ else # VERSION ≥ v"0.7-"
       function mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, adjB::$Adj{T,LowerTrapezoidal{T}}) where T<:BlasFloat
         B = parent(adjB)
         m, n = size(B)
-        copy!(view(C,:,1:n), A)
+        copyto!(view(C,:,1:n), A)
         BLAS.trmm!(
           'R', 'L', $trans, 'N', one(T), view(B.data,1:n,:), view(C,:,1:n))
         mul!(view(C,:,n+1:m), A, $Adj(view(B.data,n+1:m,:)))
@@ -477,14 +477,14 @@ else # VERSION ≥ v"0.7-"
   function mul!(
       y::StridedVector{T}, A::UpperTrapezoidal{T}, x::StridedVector{T}) where T<:BlasFloat
     m, n = size(A)
-    copy!(y, view(x,1:m))
+    copyto!(y, view(x,1:m))
     lmul!(UpperTriangular(view(A.data,:,1:m)), y)
     BLAS.gemv!('N', one(T), view(A.data,:,m+1:n), view(x,m+1:n), one(T), y)
   end
   function mul!(
       C::StridedMatrix{T}, A::UpperTrapezoidal{T}, B::StridedMatrix{T}) where T<:BlasFloat
     m, n = size(A)
-    copy!(C, view(B,1:m,:))
+    copyto!(C, view(B,1:m,:))
     lmul!(UpperTriangular(view(A.data,:,1:m)), C)
     BLAS.gemm!(
       'N', 'N', one(T), view(A.data,:,m+1:n), view(B,m+1:n,:), one(T), C)
@@ -561,7 +561,7 @@ else # VERSION ≥ v"0.7-"
           C::StridedMatrix{T}, A::StridedMatrix{T}, adjB::$Adj{T,UpperTrapezoidal{T}}) where T<:BlasFloat
         B = parent(adjB)
         m, n = size(B)
-        copy!(C, view(A,:,1:m))
+        copyto!(C, view(A,:,1:m))
         BLAS.trmm!('R', 'U', $trans, 'N', one(T), view(B.data,:,1:m), C)
         BLAS.gemm!(
           'N', $trans, one(T), view(A,:,m+1:n), view(B.data,:,m+1:n), one(T), C)

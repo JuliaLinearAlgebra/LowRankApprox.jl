@@ -216,7 +216,7 @@ function mul!(C, A::RandomSubset, B::AbstractMatrix)
   size(C) == (k, n) || throw(DimensionMismatch)
   r = rand(1:m, k)
   for i = 1:k
-    copy!(view(C,[i],:), view(B,r[i:i],:))
+    copyto!(view(C,[i],:), view(B,r[i:i],:))
   end
   C
 end
@@ -237,7 +237,7 @@ function mul!(C, A::AbstractMatrix, B::RandomSubset)
   size(C) == (m, k) || throw(DimensionMismatch)
   r = rand(1:n, k)
   for i = 1:k
-    copy!(view(C,:,[i]), view(A,:,r[i:i]))
+    copyto!(view(C,:,[i]), view(A,:,r[i:i]))
   end
   C
 end

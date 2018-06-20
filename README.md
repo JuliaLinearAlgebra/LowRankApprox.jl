@@ -205,7 +205,7 @@ The above methods do not modify the input matrix `A` and may make a copy of the 
 
 ### Interpolative Decomposition (ID)
 
-The ID is based on the approximation `A[:,rd] = A[:,sk]*T`, where `sk` is a set of `k` "skeleton" columns, `rd` is a set of `n - k` "redundant" columns, and `T` is a `k` by `n - k` interpolation matrix. It follows that `A[:,p] = C*V`, where `p = [sk; rd]`, `C = A[:,sk]`, and `V = [eye(k) T]`. An ID can be computed by:
+The ID is based on the approximation `A[:,rd] = A[:,sk]*T`, where `sk` is a set of `k` "skeleton" columns, `rd` is a set of `n - k` "redundant" columns, and `T` is a `k` by `n - k` interpolation matrix. It follows that `A[:,p] = C*V`, where `p = [sk; rd]`, `C = A[:,sk]`, and `V = [Matrix(I,k,k) T]`. An ID can be computed by:
 
 ```julia
 V = idfact(A, args...)

@@ -1,6 +1,7 @@
 using Compat
 using Compat.Test
 using LowRankApprox
+using Compat.LinearAlgebra, Compat.Random
 
 srand(0)
 

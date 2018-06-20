@@ -26,7 +26,7 @@ function matrixlib_fourier(::Type{T}, x::AbstractVector, y::AbstractVector) wher
   S = eltype(complex(zero(T)))
   m = length(x)
   n = length(y)
-  A = Array{S}(m, n)
+  A = Array{S}(undef, m, n)
   @inbounds for j = 1:n, i = 1:m
     A[i,j] = exp(-2im*pi*x[i]*y[j])
   end

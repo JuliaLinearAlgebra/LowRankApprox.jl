@@ -94,14 +94,14 @@ function mul!!(
     y::StridedVector{T}, A::IDPackedV{T}, x::StridedVector{T}) where T<:BlasFloat
   k, n = size(A)
   Ac_mul_B!(A[:P], x)
-  copy!(y, view(x,1:k))
+  copyto!(y, view(x,1:k))
   BLAS.gemv!('N', one(T), A[:T], view(x,k+1:n), one(T), y)
 end  # overwrites x
 function mul!!(
     C::StridedMatrix{T}, A::IDPackedV{T}, B::StridedMatrix{T}) where T<:BlasFloat
   k, n = size(A)
   Ac_mul_B!(A[:P], B)
-  copy!(C, view(B,1:k,:))
+  copyto!(C, view(B,1:k,:))
   BLAS.gemm!('N', 'N', one(T), A[:T], view(B,k+1:n,:), one(T), C)
 end  # overwrites B
 mul!(C::StridedVecOrMat{T}, A::IDPackedV{T}, B::StridedVecOrMat{T}) where {T} =
@@ -113,7 +113,7 @@ for (f!, g) in ((:A_mul_Bc!, :Ac_mul_Bc), (:A_mul_Bt!, :At_mul_Bt))
         C::StridedMatrix{T}, A::IDPackedV{T}, B::StridedMatrix{T}) where T<:BlasFloat
       k, n = size(A)
       tmp = $g(A[:P], B)
-      copy!(C, view(tmp,1:k,:))
+      copyto!(C, view(tmp,1:k,:))
       BLAS.gemm!('N', 'N', one(T), A[:T], view(tmp,k+1:n,:), one(T), C)
     end
   end
@@ -124,7 +124,7 @@ for f in (:Ac_mul_B!, :At_mul_B!)
     function $f(
         C::StridedVecOrMat{T}, A::IDPackedV{T}, B::StridedVecOrMat{T}) where T
       k, n = size(A)
-      copy!(view(C,1:k,:), B)
+      copyto!(view(C,1:k,:), B)
       $f(view(C,k+1:n,:), A[:T], B)
       mul!(A[:P], C)
     end
@@ -146,7 +146,7 @@ end
 
 function mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T}) where T
   k, n = size(B)
-  copy!(view(C,:,1:k), A)
+  copyto!(view(C,:,1:k), A)
   mul!(view(C,:,k+1:n), A, B[:T])
   A_mul_Bc!(C, B[:P])
 end
@@ -158,7 +158,7 @@ for (f!, trans) in ((:A_mul_Bc!, 'C'), (:A_mul_Bt!, 'T'))
         C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T}) where T<:BlasFloat
       k, n = size(B)
       mul!(A, B[:P])
-      copy!(C, view(A,:,1:k))
+      copyto!(C, view(A,:,1:k))
       BLAS.gemm!('N', $trans, one(T), view(A,:,k+1:n), B[:T], one(T), C)
     end  # overwrites A
     $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T}) where {T} =
@@ -185,7 +185,7 @@ for (f!, g, trans) in ((:Ac_mul_Bc!, :Ac_mul_B, 'C'),
         C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T}) where T<:BlasFloat
       k, n = size(B)
       tmp = $g(A, B[:P])
-      copy!(C, view(tmp,:,1:k))
+      copyto!(C, view(tmp,:,1:k))
       BLAS.gemm!('N', $trans, one(T), view(tmp,:,k+1:n), B[:T], one(T), C)
     end
   end
