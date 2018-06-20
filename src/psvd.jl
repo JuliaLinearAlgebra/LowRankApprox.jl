@@ -227,31 +227,31 @@ function psvdfact(
     V = idfact(:n, A, opts)
     F = qrfact!(getcols(:n, A, V[:sk]))
     Q = F[:Q]
-    F = svdfact!(F[:R]*V)
-    k = psvdrank(F[:S], opts)
+    Ũ, σ, Ṽ = svd!(F[:R]*V)
+    k = psvdrank(σ, opts)
     if k < V[:k]
-      U  = Q*view(F.U,:,1:k)
-      S  = F.S[1:k]
-      Vt = F.Vt[1:k,:]
+      U  = Q*view(Ũ,:,1:k)
+      S  = σ[1:k]
+      Vt = Ṽ[:,1:k]
     else
-      U  = Q*F.U
-      S  = F.S
-      Vt = F.Vt
+      U  = Q*Ũ
+      S  = σ
+      Vt = Ṽ'
     end
   else
     V = idfact(:c, A, opts)
     F = qrfact!(getcols(:c, A, V[:sk]))
     Q = F[:Q]
-    F = svdfact!(V'*F[:R]')
-    k = psvdrank(F[:S], opts)
+    Ũ, σ, Ṽ = svd!(V'*F[:R]')
+    k = psvdrank(σ, opts)
     if k < V[:k]
-      U  = F.U[:,1:k]
-      S  = F.S[1:k]
-      Vt = view(F.Vt,1:k,:)*Q'
+      U  = Ũ[:,1:k]
+      S  = σ[1:k]
+      Vt = view(Ṽ,:,1:k)*Q'
     else
-      U  = F.U
-      S  = F.S
-      Vt = F.Vt*Q'
+      U  = Ũ
+      S  = σ
+      Vt = Ṽ'*Q'
     end
   end
   PartialSVD(U, S, Vt)
