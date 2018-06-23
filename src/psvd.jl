@@ -5,10 +5,15 @@ mutable struct PartialSVD{T,Tr<:Real} <: Factorization{T}
   U::Matrix{T}
   S::Vector{Tr}
   Vt::Matrix{T}
+
+  function PartialSVD{T,Tr}(U::Matrix{T}, S::Vector{Tr}, Vt::Matrix{T}) where {T,Tr<:Real}
+    size(U,2) == size(Vt,1) == length(S) || throw(DimensionMismatch("$(size(U)), $(length(S)), $(size(Vt)) not compatible"))
+    new{T,Tr}(U, S, Vt)
+  end
 end
 
-PartialSVD(U::AbstractMatrix{T}, S::AbstractVector, Vt::AbstractMatrix{T}) where T =
-  PartialSVD(Matrix(U), Vector(S), Matrix(Vt))
+PartialSVD(U::AbstractMatrix{T}, S::AbstractVector{Tr}, Vt::AbstractMatrix{T}) where {T,Tr<:Real} =
+  PartialSVD{T,Tr}(Matrix(U), Vector(S), Matrix(Vt))
 
 conj!(A::PartialSVD) = PartialSVD(conj!(A.U), A.S, conj!(A.Vt))
 conj(A::PartialSVD) = PartialSVD(conj(A.U), A.S, conj(A.Vt))
@@ -232,7 +237,7 @@ function psvdfact(
     if k < V[:k]
       U  = Q*view(Ũ,:,1:k)
       S  = σ[1:k]
-      Vt = Ṽ[:,1:k]
+      Vt = Ṽ'[1:k,:]
     else
       U  = Q*Ũ
       S  = σ
@@ -247,7 +252,7 @@ function psvdfact(
     if k < V[:k]
       U  = Ũ[:,1:k]
       S  = σ[1:k]
-      Vt = view(Ṽ,:,1:k)*Q'
+      Vt = view(Ṽ',1:k,:)*Q'
     else
       U  = Ũ
       S  = σ

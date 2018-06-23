@@ -261,7 +261,7 @@ for sfx in ("", "!")
       F = qrfact!(getcols(trans, A, V[:sk]))
       retq = occursin("q", opts.pqrfact_retval)
       retr = occursin("r", opts.pqrfact_retval)
-      rett = retr = occursin("t", opts.pqrfact_retval)
+      rett = occursin("t", opts.pqrfact_retval)
       Q = retq ? Matrix(F[:Q]) : nothing
       R = retr ? pqrr(F[:R], V[:T]) : nothing
       T = rett ? V[:T] : nothing

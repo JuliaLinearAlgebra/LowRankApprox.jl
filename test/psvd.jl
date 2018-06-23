@@ -1,3 +1,5 @@
+using LowRankApprox, Compat.Test, Compat
+
 #= test/psvd.jl
 =#
 

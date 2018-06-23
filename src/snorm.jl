@@ -49,7 +49,7 @@ else
     isherm = ishermitian(A)
     xn     = crandn(T, n)
     xm     = Array{T}(undef, m)
-    xnrm   = vecnorm(xn)
+    xnrm   = norm(xn)
     s      = one(real(T))
     t      = 0
     niter  = 0
@@ -67,7 +67,7 @@ else
          mul!(xm, A, xn)
         mul!(xn, A', xm)
       end
-      xnrm = vecnorm(xn)
+      xnrm = norm(xn)
       t = s
       s = isherm ? xnrm : sqrt(xnrm)
     end
