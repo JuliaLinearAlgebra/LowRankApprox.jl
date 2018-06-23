@@ -47,6 +47,9 @@ convert(::Type{PartialQR{T}}, A::PartialQR) where {T} =
 convert(::Factorization{T}, A::PartialQR) where {T} = convert(PartialQR{T}, A)
 convert(::Type{Array}, A::PartialQR) = full(A)
 convert(::Type{Array{T}}, A::PartialQR) where {T} = convert(Array{T}, full(A))
+convert(::Type{Matrix}, A::PartialQR) = full(A)
+convert(::Type{Matrix{T}}, A::PartialQR) where {T} = convert(Array{T}, full(A))
+
 
 copy(A::PartialQR) = PartialQR(copy(A.Q), copy(A.R), copy(A.p))
 
