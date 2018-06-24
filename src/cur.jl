@@ -96,12 +96,22 @@ CUR(A::AbstractMatOrLinOp, U::SymCURPackedU) = SymCUR(A, U)
 CUR(A::AbstractMatOrLinOp, rows, cols) = CUR(A, CURPackedU(rows, cols))
 CUR(A, args...) = CUR(LinOp(A), args...)
 
-function HermCUR(A::AbstractMatOrLinOp, U::HermCURPackedU)
-  cols = U[:cols]
-  C = A[:,cols]
-  F = eigfact!(Hermitian(C[cols,:]))
-  U = PartialHermEigen(1 ./ F[:values], F[:vectors])
-  HermCUR(cols, C, U)
+if VERSION < v"0.7-"
+  function HermCUR(A::AbstractMatOrLinOp, U::HermCURPackedU)
+    cols = U[:cols]
+    C = A[:,cols]
+    F = eigfact!(Hermitian(C[cols,:]))
+    U = PartialHermEigen(1 ./ F[:values], F[:vectors])
+    HermCUR(cols, C, U)
+  end
+else
+  function HermCUR(A::AbstractMatOrLinOp, U::HermCURPackedU)
+    cols = U[:cols]
+    C = A[:,cols]
+    F = eigen!(Hermitian(C[cols,:]))
+    U = PartialHermEigen(1 ./ F.values, F.vectors)
+    HermCUR(cols, C, U)
+  end
 end
 HermCUR(A::AbstractMatOrLinOp, cols) = HermCUR(A, HermCURPackedU(cols))
 HermCUR(A, args...) = HermCUR(LinOp(A), args...)
