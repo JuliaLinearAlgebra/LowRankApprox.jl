@@ -547,12 +547,12 @@ else # VERSION > v"0.7-"
     mul!(C, A, conj!(parent(Bt))')  # overwrites B
   function mul!(C::StridedMatrix{T}, A::HermCUR{T}, Bt::Transpose{T,<:StridedMatrix{T}}) where T<:Complex
     B = parent(Bt)
-    size(B, 1) <= A[:k] && return mul!!(C, A, tranpose(copy(B)))
+    size(B, 1) <= A[:k] && return mul!!(C, A, transpose(copy(B)))
     mul!(C, A[:C], A[:U]*((A[:C]')*Bt))
   end
 
-  mul!(C::StridedVecOrMat{T}, A::Adjoint{T,HermCUR{T}}, B::StridedVecOrMat{T}) where {T} =
-    mul!(C, A, B)
+  mul!(C::StridedVecOrMat{T}, Ac::Adjoint{T,HermCUR{T}}, B::StridedVecOrMat{T}) where {T} =
+    mul!(C, parent(Ac), B)
   function mul!(C::StridedVecOrMat{T}, At::Transpose{T,HermCUR{T}}, B::StridedVecOrMat{T}) where T
     A = parent(At)
     tmp = transpose(A[:U])*(transpose(A[:C])*B)
@@ -564,8 +564,8 @@ else # VERSION > v"0.7-"
     mul!(C, parent(At), Bt)
   function mul!(C::StridedMatrix{T}, At::Transpose{T,HermCUR{T}}, Bt::Transpose{T,<:StridedMatrix{T}}) where T
     A = parent(At)
-    Bt = parent(Bt)
-    tmp = transpose(A[:U])*(transpose(A[:C])*transpose(B))
+    B = parent(Bt)
+    tmp = transpose(A[:U])*(transpose(A[:C])*Bt)
     mul!(C, A[:C], conj!(tmp))
     conj!(C)
   end
@@ -582,27 +582,22 @@ else # VERSION > v"0.7-"
     tmp = conj!(A)*B[:C]
     mul!(C, conj!(tmp)*transpose(B[:U]), transpose(B[:C]))
   end  # overwrites A
-  function mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, Bt::Transpose{T,HermCUR{T}}) where T
-    B = parent(Bt)
-    size(A, 1) <= B[:k] && return mul!!(C, copy(A), Bt)
-    mul!(C, (A*conj(B[:C]))*transpose(B[:U]), tranpose(B[:C]))
-  end
 
   for Adj in (:Transpose, :Adjoint)
     @eval begin
       function mul!(C::StridedMatrix{T}, Ac::$Adj{T,<:StridedMatrix{T}}, B::HermCUR{T}) where T
         tmp = Ac * B[:C]
-        A_mul_Bc!(C, tmp*B[:U], B[:C]')
+        mul!(C, tmp*B[:U], B[:C]')
       end
     end
   end
 
   mul!(C::StridedMatrix{T}, Ac::Adjoint{T,<:StridedMatrix{T}}, Bc::Adjoint{T,HermCUR{T}}) where {T} =
     mul!(C, Ac, parent(Bc))
-  function At_mul_Bt!(C::StridedMatrix{T}, At::Transpose{T,<:StridedMatrix{T}}, Bt::Transpose{T,HermCUR{T}}) where {T}
+  function mul!(C::StridedMatrix{T}, At::Transpose{T,<:StridedMatrix{T}}, Bt::Transpose{T,HermCUR{T}}) where {T}
     B = parent(Bt)
     A = parent(At)
-    mul!(C, conj!(A'*B[:C])*transpose(B[:U]), tranpose(B[:C]))
+    mul!(C, conj!(A'*B[:C])*transpose(B[:U]), transpose(B[:C]))
   end
 
   ## SymCUR left-multiplication

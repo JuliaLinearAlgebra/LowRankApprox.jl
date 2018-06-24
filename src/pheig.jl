@@ -249,7 +249,7 @@ else
   ## right-multiplication
 
   mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialHermEigen{T}) where {T} =
-    mul!(C, scale!(A*B[:vectors], B[:values]), B[:vectors]')
+    mul!(C, rmul!(A*B[:vectors], Diagonal(B[:values])), B[:vectors]')
 
   mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, Bc::Adjoint{T,<:PartialHermEigen{T}}) where {T} =
     mul!(C, A, parent(Bc))
