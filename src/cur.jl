@@ -509,7 +509,7 @@ else # VERSION > v"0.7-"
       function mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, Bc::$Adj{T,CUR{T}}) where T
         B = parent(Bc)
         tmp = A * $Adj(B[:R])
-        tmp = tmp $ Adj(B[:U])
+        tmp = tmp * $Adj(B[:U])
         mul!(C, tmp, $Adj(B[:C]))
       end
       function mul!(C::StridedMatrix{T}, Ac::$Adj{T,<:StridedMatrix{T}}, B::CUR{T}) where T
