@@ -49,11 +49,21 @@ convert(::Type{Array}, A::PartialQR) = full(A)
 convert(::Type{Array{T}}, A::PartialQR) where {T} = convert(Array{T}, full(A))
 convert(::Type{Matrix}, A::PartialQR) = full(A)
 convert(::Type{Matrix{T}}, A::PartialQR) where {T} = convert(Array{T}, full(A))
-
+Array(A::PartialQR)  = convert(Array, A)
+Matrix(A::PartialQR)  = convert(Array, A)
 
 copy(A::PartialQR) = PartialQR(copy(A.Q), copy(A.R), copy(A.p))
+if VERSION < v"0.7-"
+  full(A::PartialQR) = A_mul_Bc!(A[:Q]*A[:R], A[:P])
+else
+  full(A::PartialQR) = rmul!(A[:Q]*A[:R], A[:P]')
+  adjoint(A::PartialQR) = Adjoint(A)
+  transpose(A::PartialQR) = Transpose(A)
+end
 
-full(A::PartialQR) = A_mul_Bc!(A[:Q]*A[:R], A[:P])
+
+
+
 
 function getindex(A::PartialQR, d::Symbol)
   if     d == :P  return ColumnPermutation(A.p)
@@ -230,7 +240,7 @@ else
   ## left-multiplication
 
   function mul!!(C::StridedVecOrMat{T}, A::PartialQR{T}, B::StridedVecOrMat{T}) where T
-    mul!(A[:P]', B)
+    lmul!(A[:P]', B)
     mul!(C, A[:Q], A[:R]*B)
   end  # overwrites B
   mul!(C::StridedVecOrMat{T}, A::PartialQR{T}, B::StridedVecOrMat{T}) where {T} =
@@ -246,13 +256,13 @@ else
         A = parent(Ac)
         tmp = $Adj(A[:Q]) * B
         mul!(C, $Adj(A[:R]), tmp)
-        mul!(A[:P], C)
+        lmul!(A[:P], C)
       end
       function mul!(C::StridedMatrix{T}, Ac::$Adj{T,PartialQR{T}}, Bc::$Adj{T,<:StridedMatrix{T}}) where T
         A = parent(Ac)
         tmp = $Adj(A[:Q]) * Bc
         mul!(C, $Adj(A[:R]), tmp)
-        mul!(A[:P], C)
+        lmul!(A[:P], C)
       end
     end
   end
@@ -262,14 +272,14 @@ else
 
   function mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialQR{T}) where T
     mul!(C, A*B[:Q], B[:R])
-    mul!(C, B[:P]')
+    rmul!(C, B[:P]')
   end
 
   for Adj in (:Transpose, :Adjoint)
     @eval begin
       function mul!!(C::StridedMatrix{T}, A::StridedMatrix{T}, Bc::$Adj{T,PartialQR{T}}) where T
         B = parent(Bc)
-        mul!(A, B[:P])
+        rmul!(A, B[:P])
         tmp = A * $Adj(B[:R])
         mul!(C, tmp, $Adj(B[:Q]))
       end  # overwrites A
@@ -278,7 +288,7 @@ else
       function mul!(C::StridedMatrix{T}, Ac::$Adj{T,<:StridedMatrix{T}}, B::PartialQR{T}) where T
         tmp = Ac * B[:Q]
         mul!(C, tmp, B[:R])
-        mul!(C, $Adj(B[:P]))
+        rmul!(C, $Adj(B[:P]))
       end
       function mul!(C::StridedMatrix{T}, Ac::$Adj{T,<:StridedMatrix{T}}, Bc::$Adj{T,PartialQR{T}}) where T
         B = parent(Bc)
@@ -294,7 +304,7 @@ else
   function ldiv!(C::StridedVecOrMat{T}, A::PartialQR{T}, B::StridedVecOrMat{T}) where T
     tmp = (A[:R]*A.R')\(A[:Q]'*B)
     mul!(C, A[:R]', tmp)
-    mul!(A[:P], C)
+    lmul!(A[:P], C)
   end
 
   # standard operations
@@ -404,47 +414,84 @@ function \(A::PartialQR{TA}, B::StridedMatrix{TB}) where {TA,TB}
 end
 
 # factorization routines
+if VERSION < v"0.7-"
+  for sfx in ("", "!")
+    f = Symbol("pqrfact", sfx)
+    g = Symbol("pqrfact_none", sfx)
+    h = Symbol("pqr", sfx)
+    @eval begin
+      function $f(
+          trans::Symbol, A::AbstractMatOrLinOp{S}, opts::LRAOptions=LRAOptions(S);
+          args...) where S
+        chktrans(trans)
+        opts = copy(opts; args...)
+        chkopts!(opts, A)
+        opts.sketch == :none && return $g(trans, A, opts)
+        V = idfact(trans, A, opts)
+        F = qrfact!(convert(Matrix, getcols(trans, A, V[:sk])))
+        retq = occursin("q", opts.pqrfact_retval)
+        retr = occursin("r", opts.pqrfact_retval)
+        rett = occursin("t", opts.pqrfact_retval)
+        Q = retq ? Matrix(F[:Q]) : nothing
+        R = retr ? pqrr(F[:R], V[:T]) : nothing
+        T = rett ? V[:T] : nothing
+        retq && retr && !rett && return PartialQR(Q, R, V[:p])
+        PQRFactors(Q, R, V[:p], V[:k], T)
+      end
+      $f(trans::Symbol, A, args...; kwargs...) =
+        $f(trans, LinOp(A), args...; kwargs...)
+      $f(A, args...; kwargs...) = $f(:n, A, args...; kwargs...)
 
-for sfx in ("", "!")
-  f = Symbol("pqrfact", sfx)
-  g = Symbol("pqrfact_none", sfx)
-  h = Symbol("pqr", sfx)
-  @eval begin
-    function $f(
-        trans::Symbol, A::AbstractMatOrLinOp{S}, opts::LRAOptions=LRAOptions(S);
-        args...) where S
-      chktrans(trans)
-      opts = copy(opts; args...)
-      chkopts!(opts, A)
-      opts.sketch == :none && return $g(trans, A, opts)
-      V = idfact(trans, A, opts)
-      F = qrfact!(getcols(trans, A, V[:sk]))
-      retq = occursin("q", opts.pqrfact_retval)
-      retr = occursin("r", opts.pqrfact_retval)
-      rett = occursin("t", opts.pqrfact_retval)
-      Q = retq ? Matrix(F[:Q]) : nothing
-      R = retr ? pqrr(F[:R], V[:T]) : nothing
-      T = rett ? V[:T] : nothing
-      retq && retr && !rett && return PartialQR(Q, R, V[:p])
-      PQRFactors(Q, R, V[:p], V[:k], T)
+      function $h(trans::Symbol, A, args...; kwargs...)
+        push!(kwargs, (:pqrfact_retval, "qr"))
+        F = $f(trans, A, args...; kwargs...)
+        F.Q, F.R, F.p
+      end
+      $h(A, args...; kwargs...) = $h(:n, A, args...; kwargs...)
     end
-    $f(trans::Symbol, A, args...; kwargs...) =
-      $f(trans, LinOp(A), args...; kwargs...)
-    $f(A, args...; kwargs...) = $f(:n, A, args...; kwargs...)
+  end
+else
+  for sfx in ("", "!")
+    f = Symbol("pqrfact", sfx)
+    g = Symbol("pqrfact_none", sfx)
+    h = Symbol("pqr", sfx)
+    @eval begin
+      function $f(
+          trans::Symbol, A::AbstractMatOrLinOp{S}, opts::LRAOptions=LRAOptions(S);
+          args...) where S
+        chktrans(trans)
+        opts = copy(opts; args...)
+        chkopts!(opts, A)
+        opts.sketch == :none && return $g(trans, A, opts)
+        V = idfact(trans, A, opts)
+        F = qr!(convert(Matrix, getcols(trans, A, V[:sk])))
+        retq = occursin("q", opts.pqrfact_retval)
+        retr = occursin("r", opts.pqrfact_retval)
+        rett = occursin("t", opts.pqrfact_retval)
+        Q = retq ? Matrix(F.Q) : nothing
+        R = retr ? pqrr(F.R, V[:T]) : nothing
+        T = rett ? V[:T] : nothing
+        retq && retr && !rett && return PartialQR(Q, R, V[:p])
+        PQRFactors(Q, R, V[:p], V[:k], T)
+      end
+      $f(trans::Symbol, A, args...; kwargs...) =
+        $f(trans, LinOp(A), args...; kwargs...)
+      $f(A, args...; kwargs...) = $f(:n, A, args...; kwargs...)
 
-    function $h(trans::Symbol, A, args...; kwargs...)
-      push!(kwargs, (:pqrfact_retval, "qr"))
-      F = $f(trans, A, args...; kwargs...)
-      F.Q, F.R, F.p
+      function $h(trans::Symbol, A, args...; kwargs...)
+        push!(kwargs, (:pqrfact_retval, "qr"))
+        F = $f(trans, A, args...; kwargs...)
+        F.Q, F.R, F.p
+      end
+      $h(A, args...; kwargs...) = $h(:n, A, args...; kwargs...)
     end
-    $h(A, args...; kwargs...) = $h(:n, A, args...; kwargs...)
   end
 end
 
-pqrfact_none!(trans::Symbol, A::StridedMatrix, opts::LRAOptions) =
-  pqrfact_backend!(trans == :n ? A : A', opts)
-pqrfact_none(trans::Symbol, A::StridedMatrix, opts::LRAOptions) =
-  pqrfact_backend!(trans == :n ? copy(A) : Matrix(A'), opts)
+pqrfact_none!(trans::Symbol, A::AbstractMatrix, opts::LRAOptions) =
+  pqrfact_backend!(convert(Matrix, trans == :n ? A : A'), opts)
+pqrfact_none(trans::Symbol, A::AbstractMatrix, opts::LRAOptions) =
+  pqrfact_backend!(Matrix(trans == :n ? A : A'), opts)
 
 function pqrr(R::Matrix{S}, T::Matrix{S}) where S
   k, n = size(T)
@@ -454,7 +501,7 @@ function pqrr(R::Matrix{S}, T::Matrix{S}) where S
   R2 = view(R_, :, k+1:n)
   copyto!(R1, R)
   copyto!(R2, T)
-  mul!(UpperTriangular(R1), R2)
+  lmul!(UpperTriangular(R1), R2)
   R_
 end
 
@@ -589,7 +636,7 @@ function maxdet_swapcols!(
     triu!(R1)
     R2 = view(R, :, k+1:n)
     copyto!(R2, T)
-    mul!(UpperTriangular(R1), R2)
+    lmul!(UpperTriangular(R1), R2)
   end
 end
 

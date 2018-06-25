@@ -82,7 +82,7 @@ function balance!(U::Matrix{T}, V::Matrix{T}, m::Int, n::Int, r::Int) where T
 end
 
 # Moves Σ into U and V
-function refactorsvd!(U::Matrix{S}, Σ::Vector{T}, V::Matrix{S}) where {S,T}
+function refactorsvd!(U::AbstractMatrix{S}, Σ::AbstractVector{T}, V::AbstractMatrix{S}) where {S,T}
     conj!(V)
     σmax = Σ[1]
     r = count(s->s>10σmax*eps(T),Σ)
@@ -165,30 +165,56 @@ end
 *(L::LowRankMatrix, a::Number) = _LowRankMatrix(L.U,L.V*a)
 
 # override default:
-Base.A_mul_Bc(A::LowRankMatrix, B::LowRankMatrix) = A*adjoint(B)
+if VERSION < v"0.7-"
+    Base.A_mul_Bc(A::LowRankMatrix, B::LowRankMatrix) = A*adjoint(B)
 
-function mul!(b::AbstractVector, L::LowRankMatrix, x::AbstractVector)
-    temp = zeros(promote_type(eltype(L),eltype(x)), rank(L))
-    At_mul_B!(temp, L.V, x)
-    mul!(b, L.U, temp)
-    b
-end
-
-function *(L::LowRankMatrix, M::LowRankMatrix)
-    T = promote_type(eltype(L),eltype(M))
-    temp = zeros(T,rank(L),rank(M))
-    At_mul_B!(temp,L.V,M.U)
-    V = zeros(T,size(M,2),rank(L))
-    A_mul_Bt!(V,M.V,temp)
-    _LowRankMatrix(copy(L.U),V)
-end
-
+    function mul!(b::AbstractVector, L::LowRankMatrix, x::AbstractVector)
+        temp = zeros(promote_type(eltype(L),eltype(x)), rank(L))
+        At_mul_B!(temp, L.V, x)
+        mul!(b, L.U, temp)
+        b
+    end
+    function *(L::LowRankMatrix, M::LowRankMatrix)
+        T = promote_type(eltype(L),eltype(M))
+        temp = zeros(T,rank(L),rank(M))
+        At_mul_B!(temp,L.V,M.U)
+        V = zeros(T,size(M,2),rank(L))
+        A_mul_Bt!(V,M.V,temp)
+        _LowRankMatrix(copy(L.U),V)
+    end
 
 
-function *(L::LowRankMatrix, A::Matrix)
-    V = zeros(promote_type(eltype(L),eltype(A)),size(A,2),rank(L))
-    At_mul_B!(V,A,L.V)
-    _LowRankMatrix(copy(L.U),V)
+
+    function *(L::LowRankMatrix, A::Matrix)
+        V = zeros(promote_type(eltype(L),eltype(A)),size(A,2),rank(L))
+        At_mul_B!(V,A,L.V)
+        _LowRankMatrix(copy(L.U),V)
+    end
+else
+    *(A::LowRankMatrix, B::Adjoint{T,LowRankMatrix{T}}) where T = A*adjoint(B)
+
+    function mul!(b::AbstractVector, L::LowRankMatrix, x::AbstractVector)
+        temp = zeros(promote_type(eltype(L),eltype(x)), rank(L))
+        mul!(temp, transpose(L.V), x)
+        mul!(b, L.U, temp)
+        b
+    end
+    function *(L::LowRankMatrix, M::LowRankMatrix)
+        T = promote_type(eltype(L),eltype(M))
+        temp = zeros(T,rank(L),rank(M))
+        mul!(temp, transpose(L.V), M.U)
+        V = zeros(T,size(M,2),rank(L))
+        mul!(V, M.V, transpose(temp))
+        _LowRankMatrix(copy(L.U),V)
+    end
+
+
+
+    function *(L::LowRankMatrix, A::Matrix)
+        V = zeros(promote_type(eltype(L),eltype(A)),size(A,2),rank(L))
+        mul!(V, transpose(A), L.V)
+        _LowRankMatrix(copy(L.U),V)
+    end
 end
 
 

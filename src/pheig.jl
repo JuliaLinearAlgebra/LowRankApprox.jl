@@ -207,7 +207,7 @@ else
   mul!(C::StridedMatrix{T}, A::PartialHermEigen{T}, Bc::Adjoint{T,<:StridedMatrix{T}}) where {T} =
     mul!(C, A[:vectors], lmul!(Diagonal(A[:values]), A[:vectors]'*Bc))
   mul!(C::StridedMatrix{T}, A::PartialHermEigen{T}, Bt::Transpose{T,<:StridedMatrix{T}}) where {T<:Real} =
-    mul!(C, A, Bt')
+    mul!(C, A, parent(Bt)')
   A_mul_Bt!!(C::StridedMatrix{T}, A::PartialHermEigen{T}, B::StridedMatrix{T}) where {T<:Complex} =
     mul!(C, A, conj!(B)')  # overwrites B
   function mul!(C::StridedMatrix{T}, A::PartialHermEigen{T}, Bt::Transpose{T,<:StridedMatrix{T}}) where T<:Complex
@@ -230,7 +230,7 @@ else
   function mul!(C::StridedMatrix{T}, At::Transpose{T,<:PartialHermEigen{T}}, B::StridedMatrix{T}) where T
     A = parent(At)
     tmp = transpose(A[:vectors])*B
-    scale!(A[:values], tmp)
+    lmul!(Diagonal(A[:values]), tmp)
     mul!(C, A[:vectors], conj!(tmp))
     conj!(C)
   end
@@ -241,7 +241,7 @@ else
     A = parent(At)
     B = parent(Bt)
     tmp = transpose(A[:vectors])*transpose(B)
-    scale!(A[:values], tmp)
+    lmul!(Diagonal(A[:values]), tmp)
     mul!(C, A[:vectors], conj!(tmp))
     conj!(C)
   end
@@ -256,14 +256,14 @@ else
   function mul!!(C::StridedMatrix{T}, A::StridedMatrix{T}, Bt::Transpose{T,<:PartialHermEigen{T}}) where T
     B = parent(Bt)
     tmp = conj!(A)*B[:vectors]
-    scale!(conj!(tmp), B[:values])
+    rmul!(conj!(tmp), Diagonal(B[:values]))
     mul!(C, tmp, transpose(B[:vectors]))
   end  # overwrites A
   function mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, Bt::Transpose{T,<:PartialHermEigen{T}}) where T
     B = parent(Bt)
     size(A, 1) <= B[:k] && return mul!!(C, copy(A), Bt)
     tmp = A*conj(B[:vectors])
-    scale!(tmp, B[:values])
+    rmul!(tmp, Diagonal(B[:values]))
     mul!(C, tmp, transpose(B[:vectors]))
   end
 
@@ -271,7 +271,7 @@ else
     @eval begin
       function mul!(C::StridedMatrix{T}, Ac::$Adj{T,<:StridedMatrix{T}}, B::PartialHermEigen{T}) where T
         tmp = Ac * B[:vectors]
-        scale!(tmp, B[:values])
+        rmul!(tmp, Diagonal(B[:values]))
         mul!(C, tmp, B[:vectors]')
       end
     end
@@ -283,7 +283,7 @@ else
     A = parent(At)
     B = parent(Bt)
     tmp = A'*B[:vectors]
-    scale!(conj!(tmp), B[:values])
+    rmul!(conj!(tmp), Diagonal(B[:values]))
     mul!(C, tmp, transpose(B[:vectors]))
   end
 
@@ -421,10 +421,9 @@ function pheigfact(
   !ishermitian(A) && error("matrix must be Hermitian")
   opts = isempty(args) ? opts : copy(opts; args...)
   V = idfact(:n, A, opts)
-  F = qrfact!(full(:c, V))
-  Q = F[:Q]
-  B = F[:R]*(A[V[:sk],V[:sk]]*F[:R]')
-  F = eigfact!(hermitianize!(B))
+  Q,R = qr!(full(:c, V))
+  B = R*(A[V[:sk],V[:sk]]*R')
+  F = eigen!(hermitianize!(B))
   F = PartialHermEigen(F.values, F.vectors)
   kn, kp = pheigrank(F[:values], opts)
   n = size(B, 2)
@@ -444,8 +443,8 @@ function pheigvals(
   !ishermitian(A) && error("matrix must be Hermitian")
   opts = isempty(args) ? opts : copy(opts; args...)
   V = idfact(:n, A, opts)
-  F = qrfact!(full(:c, V))
-  B = F[:R]*(A[V[:sk],V[:sk]]*F[:R]')
+  Q,R = qr!(full(:c, V))
+  B = R*(A[V[:sk],V[:sk]]*R')
   v = eigvals!(hermitianize!(B))
   kn, kp = pheigrank(v, opts)
   n = size(B, 2)

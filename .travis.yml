@@ -7,6 +7,3 @@ os:
   - osx
 notifications:
   email: false
-matrix:
-  allow_failures:
-    - julia: nightly

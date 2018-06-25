@@ -39,8 +39,8 @@ for sfx in ("", "!")
         B[:,kr+1:kr+kc] = Fc[:Q]
         Rr = view(Fr.R, 1:kr, 1:kr)
         Rc = view(Fc.R, 1:kc, 1:kc)
-        mul!(view(B,:,   1:kr   ), UpperTriangular(Rr))
-        mul!(view(B,:,kr+1:kr+kc), UpperTriangular(Rc))
+        rmul!(view(B,:,   1:kr   ), UpperTriangular(Rr))
+        rmul!(view(B,:,kr+1:kr+kc), UpperTriangular(Rc))
         opts.pqrfact_retval="q"
         return pqrfact_backend!(B, opts)[:Q]
       else

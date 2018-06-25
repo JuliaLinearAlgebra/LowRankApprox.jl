@@ -387,9 +387,8 @@ function psvdfact(
   m, n = size(A)
   if m >= n
     V = idfact(:n, A, opts)
-    F = qrfact!(getcols(:n, A, V[:sk]))
-    Q = F[:Q]
-    Ũ, σ, Ṽ = svd!(F[:R]*V)
+    Q,R = qr!(getcols(:n, A, V[:sk]))
+    Ũ, σ, Ṽ = svd!(R*V)
     k = psvdrank(σ, opts)
     if k < V[:k]
       U  = Q*view(Ũ,:,1:k)
@@ -402,9 +401,8 @@ function psvdfact(
     end
   else
     V = idfact(:c, A, opts)
-    F = qrfact!(getcols(:c, A, V[:sk]))
-    Q = F[:Q]
-    Ũ, σ, Ṽ = svd!(V'*F[:R]')
+    Q,R = qr!(getcols(:c, A, V[:sk]))
+    Ũ, σ, Ṽ = svd!(V'*R')
     k = psvdrank(σ, opts)
     if k < V[:k]
       U  = Ũ[:,1:k]
@@ -425,12 +423,12 @@ function psvdvals(
   m, n = size(A)
   if m >= n
     V = idfact(:n, A, opts)
-    F = qrfact!(getcols(:n, A, V[:sk]))
-    s = svdvals!(F[:R]*V)
+    Q,R = qr!(getcols(:n, A, V[:sk]))
+    s = svdvals!(R*V)
   else
     V = idfact(:c, A, opts)
-    F = qrfact!(getcols(:c, A, V[:sk]))
-    s = svdvals!(V'*F[:R]')
+    Q,R = qr!(getcols(:c, A, V[:sk]))
+    s = svdvals!(V'*R')
   end
   k = psvdrank(s, opts)
   k < V[:k] && return s[1:k]

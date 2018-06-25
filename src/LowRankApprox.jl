@@ -22,11 +22,18 @@ if VERSION < v"0.7-"
     const ldiv! = Base.A_ldiv_B!
     rmul!(A::AbstractArray, c::Number) = scale!(A,c)
     lmul!(c::Number, A::AbstractArray) = scale!(c,A)
+    lmul!(A::AbstractArray, B::AbstractArray) = mul!(A,B)
+    rmul!(A::AbstractArray, B::AbstractArray) = mul!(A,B)
     function svd!(A)
       F = Base.svdfact!(A)
       F[:U], F[:S], F[:V]
     end
+    function qr!(A)
+      F = Base.qrfact!(A)
+      F[:Q], F[:R]
+    end
     ind2sub(dims, ind) = Base.ind2sub(dims, ind)
+    eigen!(A) = eigfact!(A)
 else
     using FFTW
     import FFTW: plan_r2r!, R2HC, r2rFFTWPlan, FFTWPlan

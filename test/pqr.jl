@@ -100,7 +100,7 @@ else
             Bn = rand(T, n, n)
             C = A   *Bn  ; @test norm(C - F   *Bn  ) < approx_rtol*norm(C)
             C = A   *Bn' ; @test norm(C - F   *Bn' ) < approx_rtol*norm(C)
-            C = A * tranpose(Bn); @test norm(C - F   *transpose(Bn)) < approx_rtol*norm(C)
+            C = A * transpose(Bn); @test norm(C - F   *transpose(Bn)) < approx_rtol*norm(C)
             C = A'  *Bm  ; @test norm(C - F'  *Bm  ) < approx_rtol*norm(C)
             C = A'  *Bm' ; @test norm(C - F'  *Bm' ) < approx_rtol*norm(C)
             C = transpose(A) *Bm  ; @test norm(C - transpose(F) *Bm  ) < approx_rtol*norm(C)

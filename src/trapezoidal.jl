@@ -508,9 +508,8 @@ else # VERSION ≥ v"0.7-"
 
   for (Adj, trans) in ((:Adjoint, 'C'), (:Transpose, 'T'))
     @eval begin
-      function mul!(
-          y::StridedVector{T}, adjA::$Adj{T,UpperTrapezoidal{T}}, x::StridedVector{T}) where T<:BlasFloat
-        A = parent(A)
+      function mul!(y::StridedVector{T}, adjA::$Adj{T,UpperTrapezoidal{T}}, x::StridedVector{T}) where T<:BlasFloat
+        A = parent(adjA)
         m, n = size(A)
         y[1:m] = x
         BLAS.trmv!('U', $trans, 'N', view(A.data,:,1:m), view(y,1:m))
@@ -518,7 +517,7 @@ else # VERSION ≥ v"0.7-"
         y
       end
       function mul!(C::StridedMatrix{T}, adjA::$Adj{T,UpperTrapezoidal{T}}, B::StridedMatrix{T}) where T<:BlasFloat
-        A = parent(A)
+        A = parent(adjA)
         m, n = size(A)
         C[1:m,:] = B
         BLAS.trmm!(
@@ -532,10 +531,9 @@ else # VERSION ≥ v"0.7-"
   for (Adj, g, trans) in ((:Adjoint, :adjoint!, 'C'),
                         (:Transpose, :transpose!,  'T'))
     @eval begin
-      function mul!(
-          C::StridedMatrix{T}, adjA::$Adj{T,UpperTrapezoidal{T}}, adjB::$Adj{T,StridedMatrix{T}}) where T<:BlasFloat
-          A = parent(adjA)
-          B = parent(adjB)
+      function mul!(C::StridedMatrix{T}, adjA::$Adj{T,UpperTrapezoidal{T}}, adjB::$Adj{T,StridedMatrix{T}}) where T<:BlasFloat
+        A = parent(adjA)
+        B = parent(adjB)
         m, n = size(A)
         $g(view(C,1:m,:), B)
         BLAS.trmm!(

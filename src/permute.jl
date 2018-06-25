@@ -189,19 +189,19 @@ else
   lmul!(A::RowPerm, B::StridedVecOrMat) = rowperm!(true, B, A.p)
   rmul!(A::StridedMatrix, B::RowPerm) = colperm!(false, A, B.p)
 
-  rmul!(A::StridedMatrix, B::Adjoint{<:Any,<:RowPerm}) = colperm!(true, A, B.p)
-  lmul!(A::Adjoint{<:Any,<:RowPerm}, B::StridedVecOrMat) = rowperm!(false, B, A.p)
+  rmul!(A::StridedMatrix, Bc::Adjoint{<:Any,<:RowPerm}) = colperm!(true, A, parent(Bc).p)
+  lmul!(Ac::Adjoint{<:Any,<:RowPerm}, B::StridedVecOrMat) = rowperm!(false, B, parent(Ac).p)
 
   ## ColumnPermutation
   lmul!(A::ColPerm, B::StridedVecOrMat) = rowperm!(false, B, A.p)
   rmul!(A::StridedMatrix, B::ColPerm) = colperm!(true, A, B.p)
 
-  rmul!(A::StridedMatrix, B::Adjoint{<:Any,<:ColPerm}) = colperm!(false, A, B.p)
-  lmul!(A::Adjoint{<:Any,<:ColPerm}, B::StridedVecOrMat) = rowperm!(true, B, A.p)
+  rmul!(A::StridedMatrix, Bc::Adjoint{<:Any,<:ColPerm}) = colperm!(false, A, parent(Bc).p)
+  lmul!(Ac::Adjoint{<:Any,<:ColPerm}, B::StridedVecOrMat) = rowperm!(true, B, parent(Ac).p)
 
   ## transpose multiplication
-  rmul!(A::StridedMatrix, B::Transpose{<:Any,<:PermMat}) = rmul!(A, parent(B)')
-  lmul!(A::Transpose{<:Any,<:PermMat}, B::StridedVecOrMat) = lmul!(parent(A)', B)
+  rmul!(A::StridedMatrix, Bt::Transpose{<:Any,<:PermMat}) = rmul!(A, parent(Bt)')
+  lmul!(At::Transpose{<:Any,<:PermMat}, B::StridedVecOrMat) = lmul!(parent(At)', B)
 end
 
 
