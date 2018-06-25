@@ -490,8 +490,13 @@ end
 
 pqrfact_none!(trans::Symbol, A::AbstractMatrix, opts::LRAOptions) =
   pqrfact_backend!(convert(Matrix, trans == :n ? A : A'), opts)
-pqrfact_none(trans::Symbol, A::AbstractMatrix, opts::LRAOptions) =
-  pqrfact_backend!(Matrix(trans == :n ? A : A'), opts)
+if VERSION < v"0.7-"
+  pqrfact_none(trans::Symbol, A::AbstractMatrix, opts::LRAOptions) =
+    pqrfact_backend!(trans == :n ? copy(A) : A', opts)
+else
+  pqrfact_none(trans::Symbol, A::AbstractMatrix, opts::LRAOptions) =
+    pqrfact_backend!(Matrix(trans == :n ? A : A'), opts)
+end
 
 function pqrr(R::Matrix{S}, T::Matrix{S}) where S
   k, n = size(T)

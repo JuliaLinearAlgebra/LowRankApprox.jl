@@ -679,8 +679,10 @@ for sfx in ("", "!")
       opts = copy(opts; args...)
       opts.pqrfact_retval = "t"
       chkopts!(opts, A)
-      if opts.sketch == :none  F = $g(trans, A, opts)
-      else                     F = sketchfact(:left, trans, A, opts)
+      if opts.sketch == :none
+        F = $g(trans, A, opts)
+      else
+        F = sketchfact(:left, trans, A, opts)
       end
       k = F[:k]
       IDPackedV(F.p[1:k], F.p[k+1:end], get(F.T))
