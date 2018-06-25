@@ -19,7 +19,7 @@ for (geqrf, gelqf, orgqr, orglq, elty) in
       chkstride1(A)
       m, n  = size(A)
       k     = min(m, n)
-      tau   = length(tau) < k ? Array{$elty}(k) : tau
+      tau   = length(tau) < k ? Array{$elty}(undef, k) : tau
       lwork = BlasInt(-1)
       info  = Ref{BlasInt}()
       for i = 1:2
@@ -30,7 +30,7 @@ for (geqrf, gelqf, orgqr, orglq, elty) in
               tau, work, lwork, info)
         if i == 1
           lwork = BlasInt(real(work[1]))
-          work  = length(work) < lwork ? Array{$elty}(lwork) : work
+          work  = length(work) < lwork ? Array{$elty}(undef, lwork) : work
           lwork = length(work)
         end
       end
@@ -42,7 +42,7 @@ for (geqrf, gelqf, orgqr, orglq, elty) in
       chkstride1(A)
       m, n  = size(A)
       k     = min(m, n)
-      tau   = length(tau) < k ? Array{$elty}(k) : tau
+      tau   = length(tau) < k ? Array{$elty}(undef, k) : tau
       lwork = BlasInt(-1)
       info  = Ref{BlasInt}()
       for i = 1:2
@@ -53,7 +53,7 @@ for (geqrf, gelqf, orgqr, orglq, elty) in
               tau, work, lwork, info)
         if i == 1
             lwork = BlasInt(real(work[1]))
-            work  = length(work) < lwork ? Array{$elty}(lwork) : work
+            work  = length(work) < lwork ? Array{$elty}(undef, lwork) : work
             lwork = length(work)
         end
       end
@@ -79,7 +79,7 @@ for (geqrf, gelqf, orgqr, orglq, elty) in
                 info)
           if i == 1
               lwork = BlasInt(real(work[1]))
-              work  = length(work) < lwork ? Array{$elty}(lwork) : work
+              work  = length(work) < lwork ? Array{$elty}(undef, lwork) : work
               lwork = length(work)
           end
       end
@@ -105,7 +105,7 @@ for (geqrf, gelqf, orgqr, orglq, elty) in
               info)
         if i == 1
           lwork = BlasInt(real(work[1]))
-          work  = length(work) < lwork ? Array{$elty}(lwork) : work
+          work  = length(work) < lwork ? Array{$elty}(undef, lwork) : work
           lwork = length(work)
         end
       end

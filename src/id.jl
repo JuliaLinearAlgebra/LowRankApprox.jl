@@ -28,30 +28,56 @@ convert(::Type{Array}, A::IDPackedV) = full(A)
 convert(::Type{Array{T}}, A::IDPackedV) where {T} = convert(Array{T}, full(A))
 
 copy(A::IDPackedV) = IDPackedV(copy(A.sk), copy(A.rd), copy(A.T))
-
-function full!(trans::Symbol, A::StridedMatrix{T}, V::IDPackedV{T}) where T
-  chktrans(trans)
-  k, n = size(V)
-  if trans == :n
-    size(A) == (k, n) || throw(DimensionMismatch)
-    @inbounds for j = 1:k
-      @simd for i = 1:k
-        A[i,j] = i == j ? 1 : 0
+if VERSION < v"0.7-"
+  function full!(trans::Symbol, A::StridedMatrix{T}, V::IDPackedV{T}) where T
+    chktrans(trans)
+    k, n = size(V)
+    if trans == :n
+      size(A) == (k, n) || throw(DimensionMismatch)
+      @inbounds for j = 1:k
+        @simd for i = 1:k
+          A[i,j] = i == j ? 1 : 0
+        end
       end
-    end
-    A[:,k+1:n] = V[:T]
-    A_mul_Bc!(A, V[:P])
-  else
-    size(A) == (n, k) || throw(DimensionMismatch)
-    @inbounds for j = 1:k
-      @simd for i = 1:k
-        A[i,j] = i == j ? 1 : 0
+      A[:,k+1:n] = V[:T]
+      A_mul_Bc!(A, V[:P])
+    else
+      size(A) == (n, k) || throw(DimensionMismatch)
+      @inbounds for j = 1:k
+        @simd for i = 1:k
+          A[i,j] = i == j ? 1 : 0
+        end
       end
+      adjoint!(view(A,k+1:n,:), V[:T])
+      mul!(V[:P], A)
     end
-    adjoint!(view(A,k+1:n,:), V[:T])
-    mul!(V[:P], A)
+    A
   end
-  A
+else
+  function full!(trans::Symbol, A::StridedMatrix{T}, V::IDPackedV{T}) where T
+    chktrans(trans)
+    k, n = size(V)
+    if trans == :n
+      size(A) == (k, n) || throw(DimensionMismatch)
+      @inbounds for j = 1:k
+        @simd for i = 1:k
+          A[i,j] = i == j ? 1 : 0
+        end
+      end
+      A[:,k+1:n] = V[:T]
+      mul!(A, V[:P]')
+    else
+      size(A) == (n, k) || throw(DimensionMismatch)
+      @inbounds for j = 1:k
+        @simd for i = 1:k
+          A[i,j] = i == j ? 1 : 0
+        end
+      end
+      adjoint!(view(A,k+1:n,:), V[:T])
+      mul!(V[:P], A)
+    end
+    A
+  end
 end
 full!(A::StridedMatrix{T}, V::IDPackedV{T}) where {T} = full!(:n, A, V)
 function full(trans::Symbol, A::IDPackedV{T}) where T
@@ -87,106 +113,199 @@ size(A::IDPackedV, dim::Integer) =
   (dim == 1 ? size(A.T,1) : (dim == 2 ? sum(size(A.T)) : 1))
 
 ## BLAS/LAPACK multiplication routines
+if VERSION < v"0.7-"
+  ### left-multiplication
+  function mul!!(
+      y::StridedVector{T}, A::IDPackedV{T}, x::StridedVector{T}) where T<:BlasFloat
+    k, n = size(A)
+    Ac_mul_B!(A[:P], x)
+    copyto!(y, view(x,1:k))
+    BLAS.gemv!('N', one(T), A[:T], view(x,k+1:n), one(T), y)
+  end  # overwrites x
+  function mul!!(
+      C::StridedMatrix{T}, A::IDPackedV{T}, B::StridedMatrix{T}) where T<:BlasFloat
+    k, n = size(A)
+    Ac_mul_B!(A[:P], B)
+    copyto!(C, view(B,1:k,:))
+    BLAS.gemm!('N', 'N', one(T), A[:T], view(B,k+1:n,:), one(T), C)
+  end  # overwrites B
+  mul!(C::StridedVecOrMat{T}, A::IDPackedV{T}, B::StridedVecOrMat{T}) where {T} =
+    mul!!(C, A, copy(B))
 
-### left-multiplication
-
-function mul!!(
-    y::StridedVector{T}, A::IDPackedV{T}, x::StridedVector{T}) where T<:BlasFloat
-  k, n = size(A)
-  Ac_mul_B!(A[:P], x)
-  copyto!(y, view(x,1:k))
-  BLAS.gemv!('N', one(T), A[:T], view(x,k+1:n), one(T), y)
-end  # overwrites x
-function mul!!(
-    C::StridedMatrix{T}, A::IDPackedV{T}, B::StridedMatrix{T}) where T<:BlasFloat
-  k, n = size(A)
-  Ac_mul_B!(A[:P], B)
-  copyto!(C, view(B,1:k,:))
-  BLAS.gemm!('N', 'N', one(T), A[:T], view(B,k+1:n,:), one(T), C)
-end  # overwrites B
-mul!(C::StridedVecOrMat{T}, A::IDPackedV{T}, B::StridedVecOrMat{T}) where {T} =
-  mul!!(C, A, copy(B))
-
-for (f!, g) in ((:A_mul_Bc!, :Ac_mul_Bc), (:A_mul_Bt!, :At_mul_Bt))
-  @eval begin
-    function $f!(
-        C::StridedMatrix{T}, A::IDPackedV{T}, B::StridedMatrix{T}) where T<:BlasFloat
-      k, n = size(A)
-      tmp = $g(A[:P], B)
-      copyto!(C, view(tmp,1:k,:))
-      BLAS.gemm!('N', 'N', one(T), A[:T], view(tmp,k+1:n,:), one(T), C)
+  for (f!, g) in ((:A_mul_Bc!, :Ac_mul_Bc), (:A_mul_Bt!, :At_mul_Bt))
+    @eval begin
+      function $f!(
+          C::StridedMatrix{T}, A::IDPackedV{T}, B::StridedMatrix{T}) where T<:BlasFloat
+        k, n = size(A)
+        tmp = $g(A[:P], B)
+        copyto!(C, view(tmp,1:k,:))
+        BLAS.gemm!('N', 'N', one(T), A[:T], view(tmp,k+1:n,:), one(T), C)
+      end
     end
   end
-end
 
-for f in (:Ac_mul_B!, :At_mul_B!)
-  @eval begin
-    function $f(
-        C::StridedVecOrMat{T}, A::IDPackedV{T}, B::StridedVecOrMat{T}) where T
-      k, n = size(A)
-      copyto!(view(C,1:k,:), B)
-      $f(view(C,k+1:n,:), A[:T], B)
-      mul!(A[:P], C)
+  for f in (:Ac_mul_B!, :At_mul_B!)
+    @eval begin
+      function $f(
+          C::StridedVecOrMat{T}, A::IDPackedV{T}, B::StridedVecOrMat{T}) where T
+        k, n = size(A)
+        copyto!(view(C,1:k,:), B)
+        $f(view(C,k+1:n,:), A[:T], B)
+        mul!(A[:P], C)
+      end
     end
   end
-end
 
-for (f, g) in ((:Ac_mul_Bc!, :adjoint!), (:At_mul_Bt!, :transpose!))
-  @eval begin
-    function $f(C::StridedMatrix{T}, A::IDPackedV{T}, B::StridedMatrix{T}) where T
-      k, n = size(A)
-      $g(view(C,1:k,:), B)
-      $f(view(C,k+1:n,:), A[:T], B)
-      mul!(A[:P], C)
+  for (f, g) in ((:Ac_mul_Bc!, :adjoint!), (:At_mul_Bt!, :transpose!))
+    @eval begin
+      function $f(C::StridedMatrix{T}, A::IDPackedV{T}, B::StridedMatrix{T}) where T
+        k, n = size(A)
+        $g(view(C,1:k,:), B)
+        $f(view(C,k+1:n,:), A[:T], B)
+        mul!(A[:P], C)
+      end
     end
   end
-end
 
-### right-multiplication
+  ### right-multiplication
 
-function mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T}) where T
-  k, n = size(B)
-  copyto!(view(C,:,1:k), A)
-  mul!(view(C,:,k+1:n), A, B[:T])
-  A_mul_Bc!(C, B[:P])
-end
-
-for (f!, trans) in ((:A_mul_Bc!, 'C'), (:A_mul_Bt!, 'T'))
-  f!! = Symbol(f!, "!")
-  @eval begin
-    function $f!!(
-        C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T}) where T<:BlasFloat
-      k, n = size(B)
-      mul!(A, B[:P])
-      copyto!(C, view(A,:,1:k))
-      BLAS.gemm!('N', $trans, one(T), view(A,:,k+1:n), B[:T], one(T), C)
-    end  # overwrites A
-    $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T}) where {T} =
-      $f!!(C, copy(A), B)
+  function mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T}) where T
+    k, n = size(B)
+    copyto!(view(C,:,1:k), A)
+    mul!(view(C,:,k+1:n), A, B[:T])
+    A_mul_Bc!(C, B[:P])
   end
-end
 
-for (f, g, h) in ((:Ac_mul_B!, :adjoint!, :A_mul_Bc!),
-                  (:At_mul_B!, :transpose!,  :A_mul_Bt!))
-  @eval begin
-    function $f(C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T}) where T
-      k, n = size(B)
-      $g(view(C,:,1:k), A)
-      $f(view(C,:,k+1:n), A, B[:T])
-      $h(C, B[:P])
+  for (f!, trans) in ((:A_mul_Bc!, 'C'), (:A_mul_Bt!, 'T'))
+    f!! = Symbol(f!, "!")
+    @eval begin
+      function $f!!(
+          C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T}) where T<:BlasFloat
+        k, n = size(B)
+        mul!(A, B[:P])
+        copyto!(C, view(A,:,1:k))
+        BLAS.gemm!('N', $trans, one(T), view(A,:,k+1:n), B[:T], one(T), C)
+      end  # overwrites A
+      $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T}) where {T} =
+        $f!!(C, copy(A), B)
     end
   end
-end
 
-for (f!, g, trans) in ((:Ac_mul_Bc!, :Ac_mul_B, 'C'),
-                       (:At_mul_Bt!, :At_mul_B, 'T'))
-  @eval begin
-    function $f!(
-        C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T}) where T<:BlasFloat
-      k, n = size(B)
-      tmp = $g(A, B[:P])
-      copyto!(C, view(tmp,:,1:k))
-      BLAS.gemm!('N', $trans, one(T), view(tmp,:,k+1:n), B[:T], one(T), C)
+  for (f, g, h) in ((:Ac_mul_B!, :adjoint!, :A_mul_Bc!),
+                    (:At_mul_B!, :transpose!,  :A_mul_Bt!))
+    @eval begin
+      function $f(C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T}) where T
+        k, n = size(B)
+        $g(view(C,:,1:k), A)
+        $f(view(C,:,k+1:n), A, B[:T])
+        $h(C, B[:P])
+      end
+    end
+  end
+
+  for (f!, g, trans) in ((:Ac_mul_Bc!, :Ac_mul_B, 'C'),
+                         (:At_mul_Bt!, :At_mul_B, 'T'))
+    @eval begin
+      function $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T}) where T<:BlasFloat
+        k, n = size(B)
+        tmp = $g(A, B[:P])
+        copyto!(C, view(tmp,:,1:k))
+        BLAS.gemm!('N', $trans, one(T), view(tmp,:,k+1:n), B[:T], one(T), C)
+      end
+    end
+  end
+else
+  ### left-multiplication
+  function mul!!(y::StridedVector{T}, A::IDPackedV{T}, x::StridedVector{T}) where T<:BlasFloat
+    k, n = size(A)
+    mul!(A[:P]', x)
+    copyto!(y, view(x,1:k))
+    BLAS.gemv!('N', one(T), A[:T], view(x,k+1:n), one(T), y)
+  end  # overwrites x
+  function mul!!(C::StridedMatrix{T}, A::IDPackedV{T}, B::StridedMatrix{T}) where T<:BlasFloat
+    k, n = size(A)
+    mul!(A[:P]', B)
+    copyto!(C, view(B,1:k,:))
+    BLAS.gemm!('N', 'N', one(T), A[:T], view(B,k+1:n,:), one(T), C)
+  end  # overwrites B
+  mul!(C::StridedVecOrMat{T}, A::IDPackedV{T}, B::StridedVecOrMat{T}) where {T} =
+    mul!!(C, A, copy(B))
+
+  for Adj in (:Transpose, :Adjoint)
+    @eval begin
+      function mul!(C::StridedMatrix{T}, A::IDPackedV{T}, Bc::$Adj{T,<:StridedMatrix{T}}) where T<:BlasFloat
+        k, n = size(A)
+        tmp = $Adj(A[:P]) * Bc
+        copyto!(C, view(tmp,1:k,:))
+        BLAS.gemm!('N', 'N', one(T), A[:T], view(tmp,k+1:n,:), one(T), C)
+      end
+      function mul!(C::StridedVecOrMat{T}, Ac::$Adj{T,IDPackedV{T}}, B::StridedVecOrMat{T}) where T
+        A = parent(Ac)
+        k, n = size(A)
+        copyto!(view(C,1:k,:), B)
+        mul!(view(C,k+1:n,:), $Adj(A[:T]), B)
+        mul!(A[:P], C)
+      end
+    end
+  end
+
+  for (Adj, adj!) in ((:Transpose, :transpose!), (:Adjoint,:adjoint!))
+    @eval begin
+      function mul!(C::StridedMatrix{T}, Ac::$Adj{T,IDPackedV{T}}, Bc::$Adj{T,<:StridedMatrix{T}}) where T
+        A = parent(Ac)
+        B = parent(Bc)
+        k, n = size(A)
+        $adj!(view(C,1:k,:), B)
+        mul!(view(C,k+1:n,:), $Adj(A[:T]), $Adj(B))
+        mul!(A[:P], C)
+      end
+    end
+  end
+
+  ### right-multiplication
+
+  function mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T}) where T
+    k, n = size(B)
+    copyto!(view(C,:,1:k), A)
+    mul!(view(C,:,k+1:n), A, B[:T])
+    mul!(C, B[:P]')
+  end
+
+  for (Adj, trans) in ((:Adjoint, 'C'), (:Transpose, 'T'))
+    @eval begin
+      function mul!!(C::StridedMatrix{T}, A::StridedMatrix{T}, Bc::$Adj{T,IDPackedV{T}}) where T<:BlasFloat
+        B = parent(Bc)
+        k, n = size(B)
+        mul!(A, B[:P])
+        copyto!(C, view(A,:,1:k))
+        BLAS.gemm!('N', $trans, one(T), view(A,:,k+1:n), B[:T], one(T), C)
+      end  # overwrites A
+      mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, Bc::$Adj{T,IDPackedV{T}}) where {T} =
+        mul!!(C, copy(A), Bc)
+    end
+  end
+
+  for (Adj, adj!) in ((:Transpose, :transpose!), (:Adjoint,:adjoint!))
+    @eval begin
+      function mul!(C::StridedMatrix{T}, Ac::$Adj{T,<:StridedMatrix{T}}, B::IDPackedV{T}) where T
+        A = parent(Ac)
+        k, n = size(B)
+        $adj!(view(C,:,1:k), A)
+        mul!(view(C,:,k+1:n), $Adj(A), B[:T])
+        mul!(C, $Adj(B[:P]))
+      end
+    end
+  end
+
+  for (Adj, trans) in ((:Adjoint, 'C'), (:Transpose, 'T'))
+    @eval begin
+      function mul!(C::StridedMatrix{T}, Ac::$Adj{T,<:StridedMatrix{T}}, Bc::$Adj{T,IDPackedV{T}}) where T<:BlasFloat
+        B = parent(Bc)
+        k, n = size(B)
+        tmp = Ac * B[:P]
+        copyto!(C, view(tmp,:,1:k))
+        BLAS.gemm!('N', $trans, one(T), view(tmp,:,k+1:n), B[:T], one(T), C)
+      end
     end
   end
 end
@@ -198,15 +317,21 @@ mutable struct ID{S} <: Factorization{S}
   rd::Vector{Int}
   C::Matrix{S}
   T::Matrix{S}
+  ID{S}(sk::Vector{Int}, rd::Vector{Int}, C::Matrix{S}, T::Matrix{S}) where S =
+    new{S}(sk, rd, C, T)
 end
+ID{S}(sk::Vector{Int}, rd::Vector{Int}, C::AbstractMatrix{S}, T::AbstractMatrix{S}) where S =
+  ID{S}(sk, rd, convert(Matrix{S}, C), convert(Matrix{S}, T))
 
 function ID(trans::Symbol, A::AbstractMatOrLinOp{T}, V::IDPackedV{T}) where T
   chktrans(trans)
-  ID(V.sk, V.rd, getcols(trans, A, V.sk), V.T)
+  ID{T}(V.sk, V.rd, getcols(trans, A, V.sk), V.T)
 end
 ID(trans::Symbol, A::AbstractMatOrLinOp, sk, rd, T) =
   ID(trans, A, IDPackedV(sk, rd, T))
 ID(A::AbstractMatOrLinOp, args...) = ID(:n, A, args...)
+ID(sk::Vector{Int}, rd::Vector{Int}, C::Matrix{S}, T::Matrix{S}) where S =
+  ID{S}(sk, rd, C, T)
 ID(A, args...) = ID(LinOp(A), args...)
 
 conj!(A::ID) = ID(A.sk, A.rd, conj!(A.C), conj!(A.T))

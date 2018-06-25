@@ -77,7 +77,7 @@ function orthcols!(
   A, tau, work = _LAPACK.geqrf!(A, tau, work)
   A, tau, work = _LAPACK.orgqr!(A, tau, k, work)
   if thin  A = k < n ? A[:,1:k] : A
-  else     A[:,k+1:end] = 0
+  else     A[:,k+1:end] .= 0
   end
   A, tau, work
 end
@@ -91,7 +91,7 @@ function orthrows!(
   A, tau, work = _LAPACK.gelqf!(A, tau, work)
   A, tau, work = _LAPACK.orglq!(A, tau, k, work)
   if thin  A = k < m ? A[1:k,:] : A
-  else     A[k+1:end,:] = 0
+  else     A[k+1:end,:] .= 0
   end
   A, tau, work
 end

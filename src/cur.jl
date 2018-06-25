@@ -582,6 +582,11 @@ else # VERSION > v"0.7-"
     tmp = conj!(A)*B[:C]
     mul!(C, conj!(tmp)*transpose(B[:U]), transpose(B[:C]))
   end  # overwrites A
+  function mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, Bt::Transpose{T,HermCUR{T}}) where T
+    B = parent(Bt)
+    size(A, 1) <= B[:k] && return mul!!(C, copy(A), Bt)
+    mul!(C, (A*conj(B[:C]))*transpose(B[:U]), transpose(B[:C]))
+  end
 
   for Adj in (:Transpose, :Adjoint)
     @eval begin
@@ -769,8 +774,7 @@ for sfx in ("", "!")
   g = Symbol("curfact_none", sfx)
   h = Symbol("cur", sfx)
   @eval begin
-    function $f(
-        A::AbstractMatOrLinOp{T}, opts::LRAOptions=LRAOptions(T); args...) where T
+    function $f(A::AbstractMatOrLinOp{T}, opts::LRAOptions=LRAOptions(T); args...) where T
       opts = copy(opts; args...)
       opts.pqrfact_retval = ""
       chkopts!(opts, A)

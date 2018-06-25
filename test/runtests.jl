@@ -12,11 +12,11 @@ include("trapezoidal.jl")
 
 println()
 
-include("cur.jl")
+include("sketch.jl")
 include("id.jl")
 include("pheig.jl")
 include("pqr.jl")
 include("prange.jl")
 include("psvd.jl")
-include("sketch.jl")
+include("cur.jl")
 include("lowrankmatrix.jl")

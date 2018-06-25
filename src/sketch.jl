@@ -15,23 +15,42 @@ abstract type SketchMatrix end
 
 size(A::SketchMatrix, dim::Integer...) = A.k
 
-for (f, f!, i) in ((:*,        :mul!,  2),
-                   (:A_mul_Bc, :A_mul_Bc!, 1))
-  @eval begin
-    function $f(A::SketchMatrix, B::AbstractMatOrLinOp{T}) where T
-      C = Array{T}(undef, A.k, size(B,$i))
-      $f!(C, A, B)
+if VERSION < v"0.7-"
+  for (f, f!, i) in ((:*,        :mul!,  2),
+                     (:A_mul_Bc, :A_mul_Bc!, 1))
+    @eval begin
+      function $f(A::SketchMatrix, B::AbstractMatOrLinOp{T}) where T
+        C = Array{T}(undef, A.k, size(B,$i))
+        $f!(C, A, B)
+      end
     end
   end
-end
 
-for (f, f!, i) in ((:*,        :mul!,  1),
-                   (:Ac_mul_B, :Ac_mul_B!, 2))
-  @eval begin
-    function $f(A::AbstractMatOrLinOp{T}, B::SketchMatrix) where T
-      C = Array{T}(undef, size(A,$i), B.k)
-      $f!(C, A, B)
+  for (f, f!, i) in ((:*,        :mul!,  1),
+                     (:Ac_mul_B, :Ac_mul_B!, 2))
+    @eval begin
+      function $f(A::AbstractMatOrLinOp{T}, B::SketchMatrix) where T
+        C = Array{T}(undef, size(A,$i), B.k)
+        $f!(C, A, B)
+      end
     end
+  end
+else
+  function *(A::SketchMatrix, B::AbstractMatOrLinOp{T}) where T
+    C = Array{T}(undef, A.k, size(B,2))
+    mul!(C, A, B)
+  end
+  function *(A::SketchMatrix, Bc::Adjoint{T,<:AbstractMatOrLinOp{T}}) where T
+    C = Array{T}(undef, A.k, size(Bc,2))
+    mul!(C, A, Bc)
+  end
+  function *(A::AbstractMatOrLinOp{T}, B::SketchMatrix) where T
+    C = Array{T}(undef, size(A,1), B.k)
+    mul!(C, A, B)
+  end
+  function *(Ac::Adjoint{T,<:AbstractMatOrLinOp{T}}, B::SketchMatrix) where T
+    C = Array{T}(undef, size(Ac,1), B.k)
+    mul!(C, Ac, B)
   end
 end
 
@@ -95,20 +114,34 @@ function mul!(C, A::RandomGaussian, B::AbstractMatOrLinOp{T}) where T
   S = crandn(T, A.k, size(B,1))
   mul!(C, S, B)
 end
-function A_mul_Bc!(C, A::RandomGaussian, B::AbstractMatOrLinOp{T}) where T
-  S = crandn(T, A.k, size(B,2))
-  A_mul_Bc!(C, S, B)
-end
-
 function mul!(C, A::AbstractMatOrLinOp{T}, B::RandomGaussian) where T
   S = crandn(T, size(A,2), B.k)
   mul!(C, A, S)
 end
-function Ac_mul_B!(C, A::AbstractMatOrLinOp{T}, B::RandomGaussian) where T
-  S = crandn(T, size(A,1), B.k)
-  Ac_mul_B!(C, A, S)
-end
 
+if VERSION < v"0.7-"
+  function A_mul_Bc!(C, A::RandomGaussian, B::AbstractMatOrLinOp{T}) where T
+    S = crandn(T, A.k, size(B,2))
+    A_mul_Bc!(C, S, B)
+  end
+
+
+  function Ac_mul_B!(C, A::AbstractMatOrLinOp{T}, B::RandomGaussian) where T
+    S = crandn(T, size(A,1), B.k)
+    Ac_mul_B!(C, A, S)
+  end
+else
+  function mul!(C, A::RandomGaussian, Bc::Adjoint{T,<:AbstractMatOrLinOp{T}}) where T
+    S = crandn(T, A.k, size(Bc,1))
+    mul!(C, S, Bc)
+  end
+
+
+  function mul!(C, Ac::Adjoint{T,<:AbstractMatOrLinOp{T}}, B::RandomGaussian) where T
+    S = crandn(T, size(Ac,2), B.k)
+    mul!(C, Ac, S)
+  end
+end
 ## sketch interface
 
 function sketch_randn(
@@ -125,63 +158,158 @@ function sketch_randn(
   end
 end
 
-for (trans, p, q, g, h) in ((:n, :n, :m, :mul!,  :A_mul_Bc!),
-                            (:c, :m, :n, :A_mul_Bc!, :mul! ))
-  f = Symbol("sketch_randn_l", trans)
-  @eval begin
-    function $f(A::AbstractMatOrLinOp{T}, order::Integer, opts::LRAOptions) where T
-      S = RandomGaussian(order)
-      m, n = size(A)
-      isherm = ishermitian(A)
-      Bp = Array{T}(undef, order, $p)
-      if opts.sketch_randn_niter > 0
-        Bq   = Array{T}(undef, order, $q)
-        tau  = Array{T}(undef, 1)
-        work = Array{T}(undef, 1)
-      end
-      $g(Bp, S, A)
-      for i = 1:opts.sketch_randn_niter
-        Bp, tau, work = orthrows!(Bp, tau, work, thin=false)
-        $h(Bq, Bp, A)
-        if isherm
-          Bp, Bq = Bq, Bp
-        else
-          Bq, tau, work = orthrows!(Bq, tau, work, thin=false)
-          $g(Bp, Bq, A)
+if VERSION < v"0.7-"
+  for (trans, p, q, g, h) in ((:n, :n, :m, :mul!,  :A_mul_Bc!),
+                              (:c, :m, :n, :A_mul_Bc!, :mul! ))
+    f = Symbol("sketch_randn_l", trans)
+    @eval begin
+      function $f(A::AbstractMatOrLinOp{T}, order::Integer, opts::LRAOptions) where T
+        S = RandomGaussian(order)
+        m, n = size(A)
+        isherm = ishermitian(A)
+        Bp = Array{T}(undef, order, $p)
+        if opts.sketch_randn_niter > 0
+          Bq   = Array{T}(undef, order, $q)
+          tau  = Array{T}(undef, 1)
+          work = Array{T}(undef, 1)
         end
+        $g(Bp, S, A)
+        for i = 1:opts.sketch_randn_niter
+          Bp, tau, work = orthrows!(Bp, tau, work, thin=false)
+          $h(Bq, Bp, A)
+          if isherm
+            Bp, Bq = Bq, Bp
+          else
+            Bq, tau, work = orthrows!(Bq, tau, work, thin=false)
+            $g(Bp, Bq, A)
+          end
+        end
+        Bp
       end
-      Bp
     end
   end
-end
 
-for (trans, p, q, g, h) in ((:n, :m, :n, :mul!,  :Ac_mul_B!),
-                            (:c, :n, :m, :Ac_mul_B!, :mul! ))
-  f = Symbol("sketch_randn_r", trans)
-  @eval begin
-    function $f(A::AbstractMatOrLinOp{T}, order::Integer, opts::LRAOptions) where T
-      S = RandomGaussian(order)
-      m, n = size(A)
-      isherm = ishermitian(A)
-      Bp = Array{T}(undef, $p, order)
-      if opts.sketch_randn_niter > 0
-        Bq   = Array{T}(undef, $q, order)
-        tau  = Array{T}(undef, 1)
-        work = Array{T}(undef, 1)
-      end
-      $g(Bp, A, S)
-      for i = 1:opts.sketch_randn_niter
-        Bp, tau, work = orthcols!(Bp, tau, work, thin=false)
-        $h(Bq, A, Bp)
-        if isherm
-          Bp, Bq = Bq, Bp
-        else
-          Bq, tau, work = orthcols!(Bq, tau, work, thin=false)
-          $g(Bp, A, Bq)
+  for (trans, p, q, g, h) in ((:n, :m, :n, :mul!,  :Ac_mul_B!),
+                              (:c, :n, :m, :Ac_mul_B!, :mul! ))
+    f = Symbol("sketch_randn_r", trans)
+    @eval begin
+      function $f(A::AbstractMatOrLinOp{T}, order::Integer, opts::LRAOptions) where T
+        S = RandomGaussian(order)
+        m, n = size(A)
+        isherm = ishermitian(A)
+        Bp = Array{T}(undef, $p, order)
+        if opts.sketch_randn_niter > 0
+          Bq   = Array{T}(undef, $q, order)
+          tau  = Array{T}(undef, 1)
+          work = Array{T}(undef, 1)
         end
+        $g(Bp, A, S)
+        for i = 1:opts.sketch_randn_niter
+          Bp, tau, work = orthcols!(Bp, tau, work, thin=false)
+          $h(Bq, A, Bp)
+          if isherm
+            Bp, Bq = Bq, Bp
+          else
+            Bq, tau, work = orthcols!(Bq, tau, work, thin=false)
+            $g(Bp, A, Bq)
+          end
+        end
+        Bp
       end
-      Bp
     end
+  end
+else
+  function sketch_randn_ln(A::AbstractMatOrLinOp{T}, order::Integer, opts::LRAOptions) where T
+    S = RandomGaussian(order)
+    m, n = size(A)
+    isherm = ishermitian(A)
+    Bp = Array{T}(undef, order, n)
+    if opts.sketch_randn_niter > 0
+      Bq   = Array{T}(undef, order, m)
+      tau  = Array{T}(undef, 1)
+      work = Array{T}(undef, 1)
+    end
+    mul!(Bp, S, A)
+    for i = 1:opts.sketch_randn_niter
+      Bp, tau, work = orthrows!(Bp, tau, work, thin=false)
+      mul!(Bq, Bp, A')
+      if isherm
+        Bp, Bq = Bq, Bp
+      else
+        Bq, tau, work = orthrows!(Bq, tau, work, thin=false)
+        mul!(Bp, Bq, A)
+      end
+    end
+    Bp
+  end
+  function sketch_randn_lc(A::AbstractMatOrLinOp{T}, order::Integer, opts::LRAOptions) where T
+    S = RandomGaussian(order)
+    m, n = size(A)
+    isherm = ishermitian(A)
+    Bp = Array{T}(undef, order, m)
+    if opts.sketch_randn_niter > 0
+      Bq   = Array{T}(undef, order, n)
+      tau  = Array{T}(undef, 1)
+      work = Array{T}(undef, 1)
+    end
+    mul!(Bp, S, A')
+    for i = 1:opts.sketch_randn_niter
+      Bp, tau, work = orthrows!(Bp, tau, work, thin=false)
+      mul!(Bq, Bp, A)
+      if isherm
+        Bp, Bq = Bq, Bp
+      else
+        Bq, tau, work = orthrows!(Bq, tau, work, thin=false)
+        mul!(Bp, Bq, A')
+      end
+    end
+    Bp
+  end
+  function sketch_randn_rn(A::AbstractMatOrLinOp{T}, order::Integer, opts::LRAOptions) where T
+    S = RandomGaussian(order)
+    m, n = size(A)
+    isherm = ishermitian(A)
+    Bp = Array{T}(undef, m, order)
+    if opts.sketch_randn_niter > 0
+      Bq   = Array{T}(undef, n, order)
+      tau  = Array{T}(undef, 1)
+      work = Array{T}(undef, 1)
+    end
+    mul!(Bp, A, S)
+    for i = 1:opts.sketch_randn_niter
+      Bp, tau, work = orthcols!(Bp, tau, work, thin=false)
+      mul!(Bq, A', Bp)
+      if isherm
+        Bp, Bq = Bq, Bp
+      else
+        Bq, tau, work = orthcols!(Bq, tau, work, thin=false)
+        mul!(Bp, A, Bq)
+      end
+    end
+    Bp
+  end
+  function sketch_randn_rc(A::AbstractMatOrLinOp{T}, order::Integer, opts::LRAOptions) where T
+    S = RandomGaussian(order)
+    m, n = size(A)
+    isherm = ishermitian(A)
+    Bp = Array{T}(undef, n, order)
+    if opts.sketch_randn_niter > 0
+      Bq   = Array{T}(undef, m, order)
+      tau  = Array{T}(undef, 1)
+      work = Array{T}(undef, 1)
+    end
+    mul!(Bp, A', S)
+    for i = 1:opts.sketch_randn_niter
+      Bp, tau, work = orthcols!(Bp, tau, work, thin=false)
+      mul!(Bq, A, Bp)
+      if isherm
+        Bp, Bq = Bq, Bp
+      else
+        Bq, tau, work = orthcols!(Bq, tau, work, thin=false)
+        mul!(Bp, A', Bq)
+      end
+    end
+    Bp
   end
 end
 
@@ -220,16 +348,6 @@ function mul!(C, A::RandomSubset, B::AbstractMatrix)
   end
   C
 end
-function A_mul_Bc!(C, A::RandomSubset, B::AbstractMatrix)
-  k = A.k
-  m, n = size(B)
-  size(C) == (k, m) || throw(DimensionMismatch)
-  r = rand(1:n, k)
-  for i = 1:k
-    adjoint!(view(C,[i],:), view(B,:,r[i:i]))
-  end
-  C
-end
 
 function mul!(C, A::AbstractMatrix, B::RandomSubset)
   k = B.k
@@ -241,15 +359,53 @@ function mul!(C, A::AbstractMatrix, B::RandomSubset)
   end
   C
 end
-function Ac_mul_B!(C, A::AbstractMatrix, B::RandomSubset)
-  k = B.k
-  m, n = size(A)
-  size(C) == (n, k) || throw(DimensionMismatch)
-  r = rand(1:m, k)
-  for i = 1:k
-    adjoint!(view(C,:,[i]), view(A,r[i:i],:))
+
+if VERSION < v"0.7-"
+  function A_mul_Bc!(C, A::RandomSubset, B::AbstractMatrix)
+    k = A.k
+    m, n = size(B)
+    size(C) == (k, m) || throw(DimensionMismatch)
+    r = rand(1:n, k)
+    for i = 1:k
+      adjoint!(view(C,[i],:), view(B,:,r[i:i]))
+    end
+    C
   end
-  C
+
+  function Ac_mul_B!(C, A::AbstractMatrix, B::RandomSubset)
+    k = B.k
+    m, n = size(A)
+    size(C) == (n, k) || throw(DimensionMismatch)
+    r = rand(1:m, k)
+    for i = 1:k
+      adjoint!(view(C,:,[i]), view(A,r[i:i],:))
+    end
+    C
+  end
+else
+  function mul!(C, A::RandomSubset, Bc::Adjoint{T,<:AbstractMatrix{T}}) where T
+    B = parent(Bc)
+    k = A.k
+    m, n = size(B)
+    size(C) == (k, m) || throw(DimensionMismatch)
+    r = rand(1:n, k)
+    for i = 1:k
+      adjoint!(view(C,[i],:), view(B,:,r[i:i]))
+    end
+    C
+  end
+
+  function mul!(C, Ac::Adjoint{T,<:AbstractMatrix{T}}, B::RandomSubset) where T
+    A = parent(Ac)
+    k = B.k
+    m, n = size(A)
+    size(C) == (n, k) || throw(DimensionMismatch)
+    r = rand(1:m, k)
+    for i = 1:k
+      adjoint!(view(C,:,[i]), view(A,r[i:i],:))
+    end
+    C
+  end
 end
 
 ## sketch interface
@@ -441,17 +597,6 @@ function mul!(C, A::SRFT, B::AbstractMatrix{T}) where T
   end
   C
 end
-function A_mul_Bc!(C, A::SRFT, B::AbstractMatrix{T}) where T
-  m, n = size(B)
-  k = A.k
-  size(C) == (k, m) || throw(DimensionMismatch)
-  X, d, idx, fftplan! = srft_init(T, n, k)
-  for i = 1:m
-    srft_reshape_conj!(X, d, view(B,i,:))
-    srft_apply!(view(C,:,i), X, idx, fftplan!)
-  end
-  C
-end
 
 function mul!(C, A::AbstractMatrix{T}, B::SRFT) where T
   m, n = size(A)
@@ -464,17 +609,59 @@ function mul!(C, A::AbstractMatrix{T}, B::SRFT) where T
   end
   C
 end
-function Ac_mul_B!(C, A::AbstractMatrix{T}, B::SRFT) where T
-  m, n = size(A)
-  k = B.k
-  size(C) == (n, k) || throw(DimensionMismatch)
-  X, d, idx, fftplan! = srft_init(T, m, k)
-  for i = 1:n
-    srft_reshape_conj!(X, d, view(A,:,i))
-    srft_apply!(view(C,i,:), X, idx, fftplan!)
+
+if VERSION < v"0.7-"
+  function A_mul_Bc!(C, A::SRFT, B::AbstractMatrix{T}) where T
+    m, n = size(B)
+    k = A.k
+    size(C) == (k, m) || throw(DimensionMismatch)
+    X, d, idx, fftplan! = srft_init(T, n, k)
+    for i = 1:m
+      srft_reshape_conj!(X, d, view(B,i,:))
+      srft_apply!(view(C,:,i), X, idx, fftplan!)
+    end
+    C
   end
-  C
+  function Ac_mul_B!(C, A::AbstractMatrix{T}, B::SRFT) where T
+    m, n = size(A)
+    k = B.k
+    size(C) == (n, k) || throw(DimensionMismatch)
+    X, d, idx, fftplan! = srft_init(T, m, k)
+    for i = 1:n
+      srft_reshape_conj!(X, d, view(A,:,i))
+      srft_apply!(view(C,i,:), X, idx, fftplan!)
+    end
+    C
+  end
+else
+  function mul!(C, A::SRFT, Bc::Adjoint{T,<:AbstractMatrix{T}}) where T
+    B = parent(Bc)
+    m, n = size(B)
+    k = A.k
+    size(C) == (k, m) || throw(DimensionMismatch)
+    X, d, idx, fftplan! = srft_init(T, n, k)
+    for i = 1:m
+      srft_reshape_conj!(X, d, view(B,i,:))
+      srft_apply!(view(C,:,i), X, idx, fftplan!)
+    end
+    C
+  end
+  function mul!(C, Ac::Adjoint{T,<:AbstractMatrix{T}}, B::SRFT) where T
+    A = parent(Ac)
+    m, n = size(A)
+    k = B.k
+    size(C) == (n, k) || throw(DimensionMismatch)
+    X, d, idx, fftplan! = srft_init(T, m, k)
+    for i = 1:n
+      srft_reshape_conj!(X, d, view(A,:,i))
+      srft_apply!(view(C,i,:), X, idx, fftplan!)
+    end
+    C
+  end
 end
+
+
+
 
 ## sketch interface
 
@@ -538,25 +725,7 @@ function mul!(C, A::SparseRandGauss, B::AbstractMatrix{T}) where T
   end
   C
 end
-function A_mul_Bc!(C, A::SparseRandGauss, B::AbstractMatrix{T}) where T
-  k = A.k
-  m, n = size(B)
-  size(C) == (k, m) || throw(DimensionMismatch)
-  r = randperm(n)
-  idx = 0
-  @inbounds for i = 1:k
-    p = fld(n - i, k) + 1
-    s = crandn(T, p)
-    for j = 1:m
-      C[i,j] = 0
-      for l = 1:p
-        C[i,j] += s[l]*conj(B[j,r[idx+l]])
-      end
-    end
-    idx += p
-  end
-  C
-end
+
 
 function mul!(C, A::AbstractMatrix{T}, B::SparseRandGauss) where T
   k = B.k
@@ -577,25 +746,90 @@ function mul!(C, A::AbstractMatrix{T}, B::SparseRandGauss) where T
   end
   C
 end
-function Ac_mul_B!(C, A::AbstractMatrix{T}, B::SparseRandGauss) where T
-  k = B.k
-  m, n = size(A)
-  size(C) == (n, k) || throw(DimensionMismatch)
-  r = randperm(m)
-  idx = 0
-  @inbounds for j = 1:k
-    p = fld(m - j, k) + 1
-    s = crandn(T, p)
-    for i = 1:n
-      C[i,j] = 0
-      for l = 1:p
-        C[i,j] += conj(A[r[idx+l],i])*s[l]
+
+
+if VERSION < v"0.7-"
+  function A_mul_Bc!(C, A::SparseRandGauss, B::AbstractMatrix{T}) where T
+    k = A.k
+    m, n = size(B)
+    size(C) == (k, m) || throw(DimensionMismatch)
+    r = randperm(n)
+    idx = 0
+    @inbounds for i = 1:k
+      p = fld(n - i, k) + 1
+      s = crandn(T, p)
+      for j = 1:m
+        C[i,j] = 0
+        for l = 1:p
+          C[i,j] += s[l]*conj(B[j,r[idx+l]])
+        end
       end
+      idx += p
     end
-    idx += p
+    C
   end
-  C
+  function Ac_mul_B!(C, A::AbstractMatrix{T}, B::SparseRandGauss) where T
+    k = B.k
+    m, n = size(A)
+    size(C) == (n, k) || throw(DimensionMismatch)
+    r = randperm(m)
+    idx = 0
+    @inbounds for j = 1:k
+      p = fld(m - j, k) + 1
+      s = crandn(T, p)
+      for i = 1:n
+        C[i,j] = 0
+        for l = 1:p
+          C[i,j] += conj(A[r[idx+l],i])*s[l]
+        end
+      end
+      idx += p
+    end
+    C
+  end
+else
+  function mul!(C, A::SparseRandGauss, Bc::Adjoint{T,<:AbstractMatrix{T}}) where T
+    B = parent(Bc)
+    k = A.k
+    m, n = size(B)
+    size(C) == (k, m) || throw(DimensionMismatch)
+    r = randperm(n)
+    idx = 0
+    @inbounds for i = 1:k
+      p = fld(n - i, k) + 1
+      s = crandn(T, p)
+      for j = 1:m
+        C[i,j] = 0
+        for l = 1:p
+          C[i,j] += s[l]*conj(B[j,r[idx+l]])
+        end
+      end
+      idx += p
+    end
+    C
+  end
+  function mul!(C, Ac::Adjoint{T,<:AbstractMatrix{T}}, B::SparseRandGauss) where T
+    A = parent(Ac)
+    k = B.k
+    m, n = size(A)
+    size(C) == (n, k) || throw(DimensionMismatch)
+    r = randperm(m)
+    idx = 0
+    @inbounds for j = 1:k
+      p = fld(m - j, k) + 1
+      s = crandn(T, p)
+      for i = 1:n
+        C[i,j] = 0
+        for l = 1:p
+          C[i,j] += conj(A[r[idx+l],i])*s[l]
+        end
+      end
+      idx += p
+    end
+    C
+  end
 end
+
 
 ## sketch interface
 
