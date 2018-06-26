@@ -1,6 +1,7 @@
 using Compat
 using Compat.Test
 using LowRankApprox
+using Compat.LinearAlgebra, Compat.Random, Compat.SparseArrays
 
 srand(0)
 
@@ -11,11 +12,11 @@ include("trapezoidal.jl")
 
 println()
 
-include("cur.jl")
+include("sketch.jl")
 include("id.jl")
 include("pheig.jl")
 include("pqr.jl")
 include("prange.jl")
 include("psvd.jl")
-include("sketch.jl")
+include("cur.jl")
 include("lowrankmatrix.jl")

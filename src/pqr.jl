@@ -47,10 +47,23 @@ convert(::Type{PartialQR{T}}, A::PartialQR) where {T} =
 convert(::Factorization{T}, A::PartialQR) where {T} = convert(PartialQR{T}, A)
 convert(::Type{Array}, A::PartialQR) = full(A)
 convert(::Type{Array{T}}, A::PartialQR) where {T} = convert(Array{T}, full(A))
+convert(::Type{Matrix}, A::PartialQR) = full(A)
+convert(::Type{Matrix{T}}, A::PartialQR) where {T} = convert(Array{T}, full(A))
+Array(A::PartialQR)  = convert(Array, A)
+Matrix(A::PartialQR)  = convert(Array, A)
 
 copy(A::PartialQR) = PartialQR(copy(A.Q), copy(A.R), copy(A.p))
+if VERSION < v"0.7-"
+  full(A::PartialQR) = A_mul_Bc!(A[:Q]*A[:R], A[:P])
+else
+  full(A::PartialQR) = rmul!(A[:Q]*A[:R], A[:P]')
+  adjoint(A::PartialQR) = Adjoint(A)
+  transpose(A::PartialQR) = Transpose(A)
+end
 
-full(A::PartialQR) = A_mul_Bc!(A[:Q]*A[:R], A[:P])
+
+
+
 
 function getindex(A::PartialQR, d::Symbol)
   if     d == :P  return ColumnPermutation(A.p)
@@ -74,152 +87,312 @@ size(A::PartialQR, dim::Integer) =
   dim == 1 ? size(A.Q,1) : (dim == 2 ? size(A.R,2) : 1)
 
 # BLAS/LAPACK multiplication/division routines
+if VERSION < v"0.7-"
+  ## left-multiplication
 
-## left-multiplication
+  function mul!!(
+      C::StridedVecOrMat{T}, A::PartialQR{T}, B::StridedVecOrMat{T}) where T
+    Ac_mul_B!(A[:P], B)
+    mul!(C, A[:Q], A[:R]*B)
+  end  # overwrites B
+  mul!(C::StridedVecOrMat{T}, A::PartialQR{T}, B::StridedVecOrMat{T}) where {T} =
+    mul!!(C, A, copy(B))
 
-function A_mul_B!!(
-    C::StridedVecOrMat{T}, A::PartialQR{T}, B::StridedVecOrMat{T}) where T
-  Ac_mul_B!(A[:P], B)
-  A_mul_B!(C, A[:Q], A[:R]*B)
-end  # overwrites B
-A_mul_B!(C::StridedVecOrMat{T}, A::PartialQR{T}, B::StridedVecOrMat{T}) where {T} =
-  A_mul_B!!(C, A, copy(B))
-
-for (f!, g) in ((:A_mul_Bc!, :Ac_mul_Bc), (:A_mul_Bt!, :At_mul_Bt))
-  @eval begin
-    function $f!(C::StridedMatrix{T}, A::PartialQR{T}, B::StridedMatrix{T}) where T
-      tmp = $g(A[:P], B)
-      A_mul_B!(C, A[:Q], A[:R]*tmp)
+  for (f!, g) in ((:A_mul_Bc!, :Ac_mul_Bc), (:A_mul_Bt!, :At_mul_Bt))
+    @eval begin
+      function $f!(C::StridedMatrix{T}, A::PartialQR{T}, B::StridedMatrix{T}) where T
+        tmp = $g(A[:P], B)
+        mul!(C, A[:Q], A[:R]*tmp)
+      end
     end
   end
-end
 
-for f in (:Ac_mul_B, :At_mul_B)
-  f! = Symbol(f, "!")
-  @eval begin
-    function $f!(
-        C::StridedVecOrMat{T}, A::PartialQR{T}, B::StridedVecOrMat{T}) where T
-      tmp = $f(A[:Q], B)
-      $f!(C, A[:R], tmp)
-      A_mul_B!(A[:P], C)
+  for f in (:Ac_mul_B, :At_mul_B)
+    f! = Symbol(f, "!")
+    @eval begin
+      function $f!(
+          C::StridedVecOrMat{T}, A::PartialQR{T}, B::StridedVecOrMat{T}) where T
+        tmp = $f(A[:Q], B)
+        $f!(C, A[:R], tmp)
+        mul!(A[:P], C)
+      end
     end
   end
-end
 
-for (f, g!) in ((:Ac_mul_Bc, :Ac_mul_B!), (:At_mul_Bt, :At_mul_B!))
-  f! = Symbol(f, "!")
-  @eval begin
-    function $f!(C::StridedMatrix{T}, A::PartialQR{T}, B::StridedMatrix{T}) where T
-      tmp = $f(A[:Q], B)
-      $g!(C, A[:R], tmp)
-      A_mul_B!(A[:P], C)
+  for (f, g!) in ((:Ac_mul_Bc, :Ac_mul_B!), (:At_mul_Bt, :At_mul_B!))
+    f! = Symbol(f, "!")
+    @eval begin
+      function $f!(C::StridedMatrix{T}, A::PartialQR{T}, B::StridedMatrix{T}) where T
+        tmp = $f(A[:Q], B)
+        $g!(C, A[:R], tmp)
+        mul!(A[:P], C)
+      end
     end
   end
-end
 
-## right-multiplication
+  ## right-multiplication
 
-function A_mul_B!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialQR{T}) where T
-  A_mul_B!(C, A*B[:Q], B[:R])
-  A_mul_Bc!(C, B[:P])
-end
-
-for f in (:A_mul_Bc, :A_mul_Bt)
-  f!  = Symbol(f, "!")
-  f!! = Symbol(f, "!!")
-  @eval begin
-    function $f!!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialQR{T}) where T
-      A_mul_B!(A, B[:P])
-      tmp = $f(A, B[:R])
-      $f!(C, tmp, B[:Q])
-    end  # overwrites A
-    $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialQR{T}) where {T} =
-      $f!!(C, copy(A), B)
+  function mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialQR{T}) where T
+    mul!(C, A*B[:Q], B[:R])
+    A_mul_Bc!(C, B[:P])
   end
-end
 
-for f in (:Ac_mul_B, :At_mul_B)
-  f! = Symbol(f, "!")
-  @eval begin
-    function $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialQR{T}) where T
-      tmp = $f(A, B[:Q])
-      A_mul_B!(C, tmp, B[:R])
-      A_mul_Bc!(C, B[:P])
+  for f in (:A_mul_Bc, :A_mul_Bt)
+    f!  = Symbol(f, "!")
+    f!! = Symbol(f, "!!")
+    @eval begin
+      function $f!!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialQR{T}) where T
+        mul!(A, B[:P])
+        tmp = $f(A, B[:R])
+        $f!(C, tmp, B[:Q])
+      end  # overwrites A
+      $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialQR{T}) where {T} =
+        $f!!(C, copy(A), B)
     end
   end
-end
 
-for (f!, g, h) in ((:Ac_mul_Bc!, :Ac_mul_B, :A_mul_Bc),
-                   (:At_mul_Bt!, :At_mul_B, :A_mul_Bt))
-  h! = Symbol(h, "!")
-  @eval begin
-    function $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialQR{T}) where T
-      tmp = $g(A, B[:P])
-      tmp = $h(tmp, B[:R])
-      $h!(C, tmp, B[:Q])
+  for f in (:Ac_mul_B, :At_mul_B)
+    f! = Symbol(f, "!")
+    @eval begin
+      function $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialQR{T}) where T
+        tmp = $f(A, B[:Q])
+        mul!(C, tmp, B[:R])
+        A_mul_Bc!(C, B[:P])
+      end
     end
   end
-end
 
-## left-division (pseudoinverse left-multiplication)
-function A_ldiv_B!(
-    C::StridedVecOrMat{T}, A::PartialQR{T}, B::StridedVecOrMat{T}) where T
-  tmp = (A[:R]*A.R')\(A[:Q]'*B)
-  Ac_mul_B!(C, A[:R], tmp);
-  A_mul_B!(A[:P], C)
-end
-
-# standard operations
-
-## left-multiplication
-
-for (f, f!, i) in ((:*,        :A_mul_B!,  1),
-                   (:Ac_mul_B, :Ac_mul_B!, 2),
-                   (:At_mul_B, :At_mul_B!, 2))
-  @eval begin
-    function $f(A::PartialQR{TA}, B::StridedVector{TB}) where {TA,TB}
-      T = promote_type(TA, TB)
-      AT = convert(PartialQR{T}, A)
-      BT = (T == TB ? B : convert(Array{T}, B))
-      CT = Array{T}(uninitialized, size(A,$i))
-      $f!(CT, AT, BT)
+  for (f!, g, h) in ((:Ac_mul_Bc!, :Ac_mul_B, :A_mul_Bc),
+                     (:At_mul_Bt!, :At_mul_B, :A_mul_Bt))
+    h! = Symbol(h, "!")
+    @eval begin
+      function $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialQR{T}) where T
+        tmp = $g(A, B[:P])
+        tmp = $h(tmp, B[:R])
+        $h!(C, tmp, B[:Q])
+      end
     end
   end
-end
 
-for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
-                      (:A_mul_Bc,  :A_mul_Bc!,  1, 1),
-                      (:A_mul_Bt,  :A_mul_Bt!,  1, 1),
-                      (:Ac_mul_B,  :Ac_mul_B!,  2, 2),
-                      (:Ac_mul_Bc, :Ac_mul_Bc!, 2, 1),
-                      (:At_mul_B,  :At_mul_B!,  2, 2),
-                      (:At_mul_Bt, :At_mul_Bt!, 2, 1))
-  @eval begin
-    function $f(A::PartialQR{TA}, B::StridedMatrix{TB}) where {TA,TB}
-      T = promote_type(TA, TB)
-      AT = convert(PartialQR{T}, A)
-      BT = (T == TB ? B : convert(Array{T}, B))
-      CT = Array{T}(uninitialized, size(A,$i), size(B,$j))
-      $f!(CT, AT, BT)
+  ## left-division (pseudoinverse left-multiplication)
+  function ldiv!(
+      C::StridedVecOrMat{T}, A::PartialQR{T}, B::StridedVecOrMat{T}) where T
+    tmp = (A[:R]*A.R')\(A[:Q]'*B)
+    Ac_mul_B!(C, A[:R], tmp);
+    mul!(A[:P], C)
+  end
+
+  # standard operations
+
+  ## left-multiplication
+
+  for (f, f!, i) in ((:*,        :mul!,  1),
+                     (:Ac_mul_B, :Ac_mul_B!, 2),
+                     (:At_mul_B, :At_mul_B!, 2))
+    @eval begin
+      function $f(A::PartialQR{TA}, B::StridedVector{TB}) where {TA,TB}
+        T = promote_type(TA, TB)
+        AT = convert(PartialQR{T}, A)
+        BT = (T == TB ? B : convert(Array{T}, B))
+        CT = Array{T}(undef, size(A,$i))
+        $f!(CT, AT, BT)
+      end
     end
   end
-end
 
-## right-multiplication
-for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
-                      (:A_mul_Bc,  :A_mul_Bc!,  1, 1),
-                      (:A_mul_Bt,  :A_mul_Bt!,  1, 1),
-                      (:Ac_mul_B,  :Ac_mul_B!,  2, 2),
-                      (:Ac_mul_Bc, :Ac_mul_Bc!, 2, 1),
-                      (:At_mul_B,  :At_mul_B!,  2, 2),
-                      (:At_mul_Bt, :At_mul_Bt!, 2, 1))
-  @eval begin
-    function $f(A::StridedMatrix{TA}, B::PartialQR{TB}) where {TA,TB}
-      T = promote_type(TA, TB)
-      AT = (T == TA ? A : convert(Array{T}, A))
-      BT = convert(PartialQR{T}, B)
-      CT = Array{T}(uninitialized, size(A,$i), size(B,$j))
-      $f!(CT, AT, BT)
+  for (f, f!, i, j) in ((:*,         :mul!,   1, 2),
+                        (:A_mul_Bc,  :A_mul_Bc!,  1, 1),
+                        (:A_mul_Bt,  :A_mul_Bt!,  1, 1),
+                        (:Ac_mul_B,  :Ac_mul_B!,  2, 2),
+                        (:Ac_mul_Bc, :Ac_mul_Bc!, 2, 1),
+                        (:At_mul_B,  :At_mul_B!,  2, 2),
+                        (:At_mul_Bt, :At_mul_Bt!, 2, 1))
+    @eval begin
+      function $f(A::PartialQR{TA}, B::StridedMatrix{TB}) where {TA,TB}
+        T = promote_type(TA, TB)
+        AT = convert(PartialQR{T}, A)
+        BT = (T == TB ? B : convert(Array{T}, B))
+        CT = Array{T}(undef, size(A,$i), size(B,$j))
+        $f!(CT, AT, BT)
+      end
+    end
+  end
+
+  ## right-multiplication
+  for (f, f!, i, j) in ((:*,         :mul!,   1, 2),
+                        (:A_mul_Bc,  :A_mul_Bc!,  1, 1),
+                        (:A_mul_Bt,  :A_mul_Bt!,  1, 1),
+                        (:Ac_mul_B,  :Ac_mul_B!,  2, 2),
+                        (:Ac_mul_Bc, :Ac_mul_Bc!, 2, 1),
+                        (:At_mul_B,  :At_mul_B!,  2, 2),
+                        (:At_mul_Bt, :At_mul_Bt!, 2, 1))
+    @eval begin
+      function $f(A::StridedMatrix{TA}, B::PartialQR{TB}) where {TA,TB}
+        T = promote_type(TA, TB)
+        AT = (T == TA ? A : convert(Array{T}, A))
+        BT = convert(PartialQR{T}, B)
+        CT = Array{T}(undef, size(A,$i), size(B,$j))
+        $f!(CT, AT, BT)
+      end
+    end
+  end
+else
+  ## left-multiplication
+
+  function mul!!(C::StridedVecOrMat{T}, A::PartialQR{T}, B::StridedVecOrMat{T}) where T
+    lmul!(A[:P]', B)
+    mul!(C, A[:Q], A[:R]*B)
+  end  # overwrites B
+  mul!(C::StridedVecOrMat{T}, A::PartialQR{T}, B::StridedVecOrMat{T}) where {T} =
+    mul!!(C, A, copy(B))
+
+  for Adj in (:Transpose, :Adjoint)
+    @eval begin
+      function mul!(C::StridedMatrix{T}, A::PartialQR{T}, Bc::$Adj{T,<:StridedMatrix{T}}) where T
+        tmp = $Adj(A[:P]) * Bc
+        mul!(C, A[:Q], A[:R]*tmp)
+      end
+      function mul!(C::StridedVecOrMat{T}, Ac::$Adj{T,PartialQR{T}}, B::StridedVecOrMat{T}) where T
+        A = parent(Ac)
+        tmp = $Adj(A[:Q]) * B
+        mul!(C, $Adj(A[:R]), tmp)
+        lmul!(A[:P], C)
+      end
+      function mul!(C::StridedMatrix{T}, Ac::$Adj{T,PartialQR{T}}, Bc::$Adj{T,<:StridedMatrix{T}}) where T
+        A = parent(Ac)
+        tmp = $Adj(A[:Q]) * Bc
+        mul!(C, $Adj(A[:R]), tmp)
+        lmul!(A[:P], C)
+      end
+    end
+  end
+
+
+  ## right-multiplication
+
+  function mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialQR{T}) where T
+    mul!(C, A*B[:Q], B[:R])
+    rmul!(C, B[:P]')
+  end
+
+  for Adj in (:Transpose, :Adjoint)
+    @eval begin
+      function mul!!(C::StridedMatrix{T}, A::StridedMatrix{T}, Bc::$Adj{T,PartialQR{T}}) where T
+        B = parent(Bc)
+        rmul!(A, B[:P])
+        tmp = A * $Adj(B[:R])
+        mul!(C, tmp, $Adj(B[:Q]))
+      end  # overwrites A
+      mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, Bc::$Adj{T,PartialQR{T}}) where {T} =
+        mul!!(C, copy(A), Bc)
+      function mul!(C::StridedMatrix{T}, Ac::$Adj{T,<:StridedMatrix{T}}, B::PartialQR{T}) where T
+        tmp = Ac * B[:Q]
+        mul!(C, tmp, B[:R])
+        rmul!(C, $Adj(B[:P]))
+      end
+      function mul!(C::StridedMatrix{T}, Ac::$Adj{T,<:StridedMatrix{T}}, Bc::$Adj{T,PartialQR{T}}) where T
+        B = parent(Bc)
+        tmp = Ac * B[:P]
+        tmp = tmp * $Adj(B[:R])
+        mul!(C, tmp, $Adj(B[:Q]))
+      end
+    end
+  end
+
+
+  ## left-division (pseudoinverse left-multiplication)
+  function ldiv!(C::StridedVecOrMat{T}, A::PartialQR{T}, B::StridedVecOrMat{T}) where T
+    tmp = (A[:R]*A.R')\(A[:Q]'*B)
+    mul!(C, A[:R]', tmp)
+    lmul!(A[:P], C)
+  end
+
+  # standard operations
+
+  ## left-multiplication
+
+  function *(A::PartialQR{TA}, B::StridedVector{TB}) where {TA,TB}
+    T = promote_type(TA, TB)
+    AT = convert(PartialQR{T}, A)
+    BT = (T == TB ? B : convert(Array{T}, B))
+    CT = Array{T}(undef, size(A,1))
+    mul!(CT, AT, BT)
+  end
+  function *(A::PartialQR{TA}, B::StridedMatrix{TB}) where {TA,TB}
+    T = promote_type(TA, TB)
+    AT = convert(PartialQR{T}, A)
+    BT = (T == TB ? B : convert(Array{T}, B))
+    CT = Array{T}(undef, size(A,1), size(B,2))
+    mul!(CT, AT, BT)
+  end
+  function *(A::StridedMatrix{TA}, B::PartialQR{TB}) where {TA,TB}
+    T = promote_type(TA, TB)
+    AT = (T == TA ? A : convert(Array{T}, A))
+    BT = convert(PartialQR{T}, B)
+    CT = Array{T}(undef, size(A,1), size(B,2))
+    mul!(CT, AT, BT)
+  end
+
+  for Adj in (:Transpose, :Adjoint)
+    @eval begin
+      function *(Ac::$Adj{TA,PartialQR{TA}}, B::StridedVector{TB}) where {TA,TB}
+        A = parent(Ac)
+        T = promote_type(TA, TB)
+        AT = convert(PartialQR{T}, A)
+        BT = (T == TB ? B : convert(Array{T}, B))
+        CT = Array{T}(undef, size(Ac,1))
+        mul!(CT, $Adj(AT), BT)
+      end
+      function *(A::PartialQR{TA}, Bc::$Adj{TB,<:StridedMatrix{TB}}) where {TA,TB}
+        B = parent(Bc)
+        T = promote_type(TA, TB)
+        AT = convert(PartialQR{T}, A)
+        BT = (T == TB ? B : convert(Array{T}, B))
+        CT = Array{T}(undef, size(A,1), size(Bc,2))
+        mul!(CT, AT, $Adj(BT))
+      end
+      function *(Ac::$Adj{TA,PartialQR{TA}}, B::StridedMatrix{TB}) where {TA,TB}
+        A = parent(Ac)
+        T = promote_type(TA, TB)
+        AT = convert(PartialQR{T}, A)
+        BT = (T == TB ? B : convert(Array{T}, B))
+        CT = Array{T}(undef, size(Ac,1), size(B,2))
+        mul!(CT, $Adj(AT), BT)
+      end
+      function *(Ac::$Adj{TA,PartialQR{TA}}, Bc::$Adj{TB,<:StridedMatrix{TB}}) where {TA,TB}
+        A = parent(Ac)
+        B = parent(Bc)
+        T = promote_type(TA, TB)
+        AT = convert(PartialQR{T}, A)
+        BT = (T == TB ? B : convert(Array{T}, B))
+        CT = Array{T}(undef, size(Ac,1), size(Bc,2))
+        mul!(CT, $Adj(AT), $Adj(BT))
+      end
+      function *(A::StridedMatrix{TA}, Bc::$Adj{TB,PartialQR{TB}}) where {TA,TB}
+        B = parent(Bc)
+        T = promote_type(TA, TB)
+        AT = (T == TA ? A : convert(Array{T}, A))
+        BT = convert(PartialQR{T}, B)
+        CT = Array{T}(undef, size(A,1), size(Bc,2))
+        mul!(CT, AT, $Adj(BT))
+      end
+      function *(Ac::$Adj{TA,<:StridedMatrix{TA}}, B::PartialQR{TB}) where {TA,TB}
+        A = parent(Ac)
+        T = promote_type(TA, TB)
+        AT = (T == TA ? A : convert(Array{T}, A))
+        BT = convert(PartialQR{T}, B)
+        CT = Array{T}(undef, size(Ac,1), size(B,2))
+        mul!(CT, $Adj(AT), BT)
+      end
+      function *(Ac::$Adj{TA,<:StridedMatrix{TA}}, Bc::$Adj{TB,PartialQR{TB}}) where {TA,TB}
+        A = parent(Ac)
+        B = parent(Bc)
+        T = promote_type(TA, TB)
+        AT = (T == TA ? A : convert(Array{T}, A))
+        BT = convert(PartialQR{T}, B)
+        CT = Array{T}(undef, size(Ac,1), size(Bc,2))
+        mul!(CT, $Adj(AT), $Adj(BT))
+      end
     end
   end
 end
@@ -229,69 +402,111 @@ function \(A::PartialQR{TA}, B::StridedVector{TB}) where {TA,TB}
   T = promote_type(TA, TB)
   AT = convert(PartialQR{T}, A)
   BT = (T == TB ? B : convert(Array{T}, B))
-  CT = Array{T}(uninitialized, size(A,2))
-  A_ldiv_B!(CT, AT, BT)
+  CT = Array{T}(undef, size(A,2))
+  ldiv!(CT, AT, BT)
 end
 function \(A::PartialQR{TA}, B::StridedMatrix{TB}) where {TA,TB}
   T = promote_type(TA, TB)
   AT = convert(PartialQR{T}, A)
   BT = (T == TB ? B : convert(Array{T}, B))
-  CT = Array{T}(uninitialized, size(A,2), size(B,2))
-  A_ldiv_B!(CT, AT, BT)
+  CT = Array{T}(undef, size(A,2), size(B,2))
+  ldiv!(CT, AT, BT)
 end
 
 # factorization routines
+if VERSION < v"0.7-"
+  for sfx in ("", "!")
+    f = Symbol("pqrfact", sfx)
+    g = Symbol("pqrfact_none", sfx)
+    h = Symbol("pqr", sfx)
+    @eval begin
+      function $f(
+          trans::Symbol, A::AbstractMatOrLinOp{S}, opts::LRAOptions=LRAOptions(S);
+          args...) where S
+        chktrans(trans)
+        opts = copy(opts; args...)
+        chkopts!(opts, A)
+        opts.sketch == :none && return $g(trans, A, opts)
+        V = idfact(trans, A, opts)
+        F = qrfact!(convert(Matrix, getcols(trans, A, V[:sk])))
+        retq = occursin("q", opts.pqrfact_retval)
+        retr = occursin("r", opts.pqrfact_retval)
+        rett = occursin("t", opts.pqrfact_retval)
+        Q = retq ? Matrix(F[:Q]) : nothing
+        R = retr ? pqrr(F[:R], V[:T]) : nothing
+        T = rett ? V[:T] : nothing
+        retq && retr && !rett && return PartialQR(Q, R, V[:p])
+        PQRFactors(Q, R, V[:p], V[:k], T)
+      end
+      $f(trans::Symbol, A, args...; kwargs...) =
+        $f(trans, LinOp(A), args...; kwargs...)
+      $f(A, args...; kwargs...) = $f(:n, A, args...; kwargs...)
 
-for sfx in ("", "!")
-  f = Symbol("pqrfact", sfx)
-  g = Symbol("pqrfact_none", sfx)
-  h = Symbol("pqr", sfx)
-  @eval begin
-    function $f(
-        trans::Symbol, A::AbstractMatOrLinOp{S}, opts::LRAOptions=LRAOptions(S);
-        args...) where S
-      chktrans(trans)
-      opts = copy(opts; args...)
-      chkopts!(opts, A)
-      opts.sketch == :none && return $g(trans, A, opts)
-      V = idfact(trans, A, opts)
-      F = qrfact!(getcols(trans, A, V[:sk]))
-      retq = contains(opts.pqrfact_retval, "q")
-      retr = contains(opts.pqrfact_retval, "r")
-      rett = contains(opts.pqrfact_retval, "t")
-      Q = retq ? Matrix(F[:Q]) : nothing
-      R = retr ? pqrr(F[:R], V[:T]) : nothing
-      T = rett ? V[:T] : nothing
-      retq && retr && !rett && return PartialQR(Q, R, V[:p])
-      PQRFactors(Q, R, V[:p], V[:k], T)
+      function $h(trans::Symbol, A, args...; kwargs...)
+        push!(kwargs, (:pqrfact_retval, "qr"))
+        F = $f(trans, A, args...; kwargs...)
+        F.Q, F.R, F.p
+      end
+      $h(A, args...; kwargs...) = $h(:n, A, args...; kwargs...)
     end
-    $f(trans::Symbol, A, args...; kwargs...) =
-      $f(trans, LinOp(A), args...; kwargs...)
-    $f(A, args...; kwargs...) = $f(:n, A, args...; kwargs...)
+  end
+else
+  for sfx in ("", "!")
+    f = Symbol("pqrfact", sfx)
+    g = Symbol("pqrfact_none", sfx)
+    h = Symbol("pqr", sfx)
+    @eval begin
+      function $f(
+          trans::Symbol, A::AbstractMatOrLinOp{S}, opts::LRAOptions=LRAOptions(S);
+          args...) where S
+        chktrans(trans)
+        opts = copy(opts; args...)
+        chkopts!(opts, A)
+        opts.sketch == :none && return $g(trans, A, opts)
+        V = idfact(trans, A, opts)
+        F = qr!(convert(Matrix, getcols(trans, A, V[:sk])))
+        retq = occursin("q", opts.pqrfact_retval)
+        retr = occursin("r", opts.pqrfact_retval)
+        rett = occursin("t", opts.pqrfact_retval)
+        Q = retq ? Matrix(F.Q) : nothing
+        R = retr ? pqrr(F.R, V[:T]) : nothing
+        T = rett ? V[:T] : nothing
+        retq && retr && !rett && return PartialQR(Q, R, V[:p])
+        PQRFactors(Q, R, V[:p], V[:k], T)
+      end
+      $f(trans::Symbol, A, args...; kwargs...) =
+        $f(trans, LinOp(A), args...; kwargs...)
+      $f(A, args...; kwargs...) = $f(:n, A, args...; kwargs...)
 
-    function $h(trans::Symbol, A, args...; kwargs...)
-      push!(kwargs, (:pqrfact_retval, "qr"))
-      F = $f(trans, A, args...; kwargs...)
-      F.Q, F.R, F.p
+      function $h(trans::Symbol, A, args...; kwargs...)
+        push!(kwargs, (:pqrfact_retval, "qr"))
+        F = $f(trans, A, args...; kwargs...)
+        F.Q, F.R, F.p
+      end
+      $h(A, args...; kwargs...) = $h(:n, A, args...; kwargs...)
     end
-    $h(A, args...; kwargs...) = $h(:n, A, args...; kwargs...)
   end
 end
 
-pqrfact_none!(trans::Symbol, A::StridedMatrix, opts::LRAOptions) =
-  pqrfact_backend!(trans == :n ? A : A', opts)
-pqrfact_none(trans::Symbol, A::StridedMatrix, opts::LRAOptions) =
-  pqrfact_backend!(trans == :n ? copy(A) : A', opts)
+pqrfact_none!(trans::Symbol, A::AbstractMatrix, opts::LRAOptions) =
+  pqrfact_backend!(convert(Matrix, trans == :n ? A : A'), opts)
+if VERSION < v"0.7-"
+  pqrfact_none(trans::Symbol, A::AbstractMatrix, opts::LRAOptions) =
+    pqrfact_backend!(trans == :n ? copy(A) : A', opts)
+else
+  pqrfact_none(trans::Symbol, A::AbstractMatrix, opts::LRAOptions) =
+    pqrfact_backend!(Matrix(trans == :n ? A : A'), opts)
+end
 
 function pqrr(R::Matrix{S}, T::Matrix{S}) where S
   k, n = size(T)
   n += k
-  R_ = Array{S}(k, n)
+  R_ = Array{S}(undef, k, n)
   R1 = view(R_, :,   1:k)
   R2 = view(R_, :, k+1:n)
-  copy!(R1, R)
-  copy!(R2, T)
-  A_mul_B!(UpperTriangular(R1), R2)
+  copyto!(R1, R)
+  copyto!(R2, T)
+  lmul!(UpperTriangular(R1), R2)
   R_
 end
 
@@ -306,7 +521,7 @@ function geqp3_adap!(A::StridedMatrix{T}, opts::LRAOptions) where T
   jpvt = collect(BlasInt, 1:n)
   l    = min(m, n)
   k    = (opts.rank < 0 || opts.rank > l) ? l : opts.rank
-  tau  = Array{T}(uninitialized, k)
+  tau  = Array{T}(undef, k)
   if k > 0
     k = geqp3_adap_main!(A, jpvt, tau, opts)
   end
@@ -326,7 +541,7 @@ function geqp3_adap_main!(
   nb      = min(opts.nb, k)
   is_real = T <: Real
   lwork   = 2*n*is_real + (n + 1)*nb
-  work    = Array{T}(uninitialized, lwork)
+  work    = Array{T}(undef, lwork)
 
   # initialize column norms
   if is_real
@@ -334,7 +549,7 @@ function geqp3_adap_main!(
       work[j] = work[n+j] = norm(view(A,:,j))
     end
   else
-    rwork = Array{eltype(real(zero(T)))}(2*n)
+    rwork = Array{eltype(real(zero(T)))}(undef, 2*n)
     @inbounds for j = 1:n
       rwork[j] = rwork[n+j] = norm(view(A,:,j))
     end
@@ -376,9 +591,9 @@ end
 function pqrback_postproc(
     A::StridedMatrix{S}, p::Vector{Int}, tau::Vector{S}, k::Integer,
     opts::LRAOptions) where S
-  retq = contains(opts.pqrfact_retval, "q")
-  retr = contains(opts.pqrfact_retval, "r")
-  rett = contains(opts.pqrfact_retval, "t")
+  retq = occursin("q", opts.pqrfact_retval)
+  retr = occursin("r", opts.pqrfact_retval)
+  rett = occursin("t", opts.pqrfact_retval)
   maxdet = 0 < k < size(A,2) && opts.maxdet_tol >= 0
   Q = retq ? LAPACK.orgqr!(A[:,1:k], tau, k) : nothing
   R = retr || rett || maxdet ? triu!(A[1:k,:]) : nothing
@@ -394,7 +609,7 @@ end
 function maxdet_t(R::StridedMatrix{S}) where S
   k, n = size(R)
   T = R[:,k+1:n]
-  A_ldiv_B!(UpperTriangular(view(R,1:k,1:k)), T)
+  ldiv!(UpperTriangular(view(R,1:k,1:k)), T)
 end
 
 ## rank-revealing QR determinant maximization
@@ -403,9 +618,9 @@ function maxdet_swapcols!(
     opts::LRAOptions) where S
   k, n  = size(R)
   R1    = view(R, :, 1:k)
-  work  = Array{S}(uninitialized, max(n, 2*k))
-  retq  = contains(opts.pqrfact_retval, "q")
-  retr  = contains(opts.pqrfact_retval, "r")
+  work  = Array{S}(undef, max(n, 2*k))
+  retq  = occursin("q", opts.pqrfact_retval)
+  retr  = occursin("r", opts.pqrfact_retval)
   niter = 0
   while true
     Tmax, idx = findmaxabs(T)
@@ -425,8 +640,8 @@ function maxdet_swapcols!(
   if retr
     triu!(R1)
     R2 = view(R, :, k+1:n)
-    copy!(R2, T)
-    A_mul_B!(UpperTriangular(R1), R2)
+    copyto!(R2, T)
+    lmul!(UpperTriangular(R1), R2)
   end
 end
 
@@ -448,7 +663,7 @@ function maxdet_update!(
   end
   BLAS.ger!(-1/(1 + work[i]), view(work,1:k), view(work,k+1:n), T)
   if retr
-    A_mul_B!(view(work,k+1:2*k), R1, view(work,1:k))
+    mul!(view(work,k+1:2*k), R1, view(work,1:k))
     @inbounds @simd for l = 1:k
       R1[l,i] += work[k+l]
     end

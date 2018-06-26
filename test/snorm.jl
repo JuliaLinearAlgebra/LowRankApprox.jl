@@ -1,6 +1,10 @@
 #= test/snorm.jl
 =#
 
+if VERSION < v"0.7-"
+  opnorm(A) = norm(A)
+end
+
 @testset "snorm" begin
   m = 20
   n = 10
@@ -12,16 +16,16 @@
       rtol = 100*eps(real(T))
 
       A = rand(T, m, n)
-      nrm = norm(A)
+      nrm = opnorm(A)
       @test ≈(nrm, snorm(A); atol = rtol*nrm)
 
       A = rand(T, n, n)
       A += A'
-      nrm = norm(A)
+      nrm = opnorm(A)
       @test ≈(nrm, snorm(A); atol = rtol*nrm)
 
       B = rand(T, size(A))
-      nrm = norm(A - B)
+      nrm = opnorm(A - B)
       @test ≈(nrm, snormdiff(A, B); atol = rtol*nrm)
     end
   end

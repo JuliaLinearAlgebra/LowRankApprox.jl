@@ -1,3 +1,5 @@
+using LowRankApprox, Compat.Test, Compat
+
 #= test/psvd.jl
 =#
 
@@ -33,24 +35,24 @@
           xn = rand(T, n)
           y = A  *xn; @test norm(y - F  *xn) < approx_rtol*norm(y)
           y = A' *xm; @test norm(y - F' *xm) < approx_rtol*norm(y)
-          y = A.'*xm; @test norm(y - F.'*xm) < approx_rtol*norm(y)
+          y = transpose(A)*xm; @test norm(y - transpose(F)*xm) < approx_rtol*norm(y)
 
           Bm = rand(T, m, m)
           Bn = rand(T, n, n)
           C = A   *Bn  ; @test norm(C - F   *Bn  ) < approx_rtol*norm(C)
           C = A   *Bn' ; @test norm(C - F   *Bn' ) < approx_rtol*norm(C)
-          C = A   *Bn.'; @test norm(C - F   *Bn.') < approx_rtol*norm(C)
+          C = A   *transpose(Bn); @test norm(C - F   *transpose(Bn)) < approx_rtol*norm(C)
           C = A'  *Bm  ; @test norm(C - F'  *Bm  ) < approx_rtol*norm(C)
           C = A'  *Bm' ; @test norm(C - F'  *Bm' ) < approx_rtol*norm(C)
-          C = A.' *Bm  ; @test norm(C - F.' *Bm  ) < approx_rtol*norm(C)
-          C = A.' *Bm.'; @test norm(C - F.' *Bm.') < approx_rtol*norm(C)
+          C = transpose(A) *Bm  ; @test norm(C - transpose(F) *Bm  ) < approx_rtol*norm(C)
+          C = transpose(A) *transpose(Bm); @test norm(C - transpose(F) *transpose(Bm)) < approx_rtol*norm(C)
           C = Bm  *A   ; @test norm(C - Bm  *F   ) < approx_rtol*norm(C)
           C = Bn  *A'  ; @test norm(C - Bn  *F'  ) < approx_rtol*norm(C)
-          C = Bn  *A.' ; @test norm(C - Bn  *F.' ) < approx_rtol*norm(C)
+          C = Bn  *transpose(A) ; @test norm(C - Bn  *transpose(F) ) < approx_rtol*norm(C)
           C = Bm' *A   ; @test norm(C - Bm' *F   ) < approx_rtol*norm(C)
           C = Bn' *A'  ; @test norm(C - Bn' *F'  ) < approx_rtol*norm(C)
-          C = Bm.'*A   ; @test norm(C - Bm.'*F   ) < approx_rtol*norm(C)
-          C = Bn.'*A.' ; @test norm(C - Bn.'*F.' ) < approx_rtol*norm(C)
+          C = transpose(Bm)*A   ; @test norm(C - transpose(Bm)*F   ) < approx_rtol*norm(C)
+          C = transpose(Bn)*transpose(A) ; @test norm(C - transpose(Bn)*transpose(F) ) < approx_rtol*norm(C)
 
           x = A*rand(T, n)
           y = F\x; @test norm(x - A*y) < approx_rtol*norm(x)

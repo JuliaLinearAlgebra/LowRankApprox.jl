@@ -22,24 +22,24 @@
           xn = rand(T, n)
           @test A  *xn ≈ F  *xn
           @test A' *xm ≈ F' *xm
-          @test A.'*xm ≈ F.'*xm
+          @test transpose(A)*xm ≈ transpose(F)*xm
 
           Bm = rand(T, m, m)
           Bn = rand(T, n, n)
           @test A   *Bn   ≈ F   *Bn
           @test A   *Bn'  ≈ F   *Bn'
-          @test A   *Bn.' ≈ F   *Bn.'
+          @test A   *transpose(Bn) ≈ F   *transpose(Bn)
           @test A'  *Bm   ≈ F'  *Bm
           @test A'  *Bm'  ≈ F'  *Bm'
-          @test A.' *Bm   ≈ F.' *Bm
-          @test A.' *Bm.' ≈ F.' *Bm.'
+          @test transpose(A) *Bm   ≈ transpose(F) *Bm
+          @test transpose(A) *transpose(Bm) ≈ transpose(F) *transpose(Bm)
           @test Bm  *A    ≈ Bm  *F
           @test Bn  *A'   ≈ Bn  *F'
-          @test Bn  *A.'  ≈ Bn  *F.'
+          @test Bn  *transpose(A)  ≈ Bn  *transpose(F)
           @test Bm' *A    ≈ Bm' *F
           @test Bn' *A'   ≈ Bn' *F'
-          @test Bm.'*A    ≈ Bm.'*F
-          @test Bn.'*A.'  ≈ Bn.'*F.'
+          @test transpose(Bm)*A    ≈ transpose(Bm)*F
+          @test transpose(Bn)*transpose(A)  ≈ transpose(Bn)*transpose(F)
       end
     end
   end

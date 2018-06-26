@@ -87,21 +87,31 @@ function CUR(A::AbstractMatOrLinOp, U::CURPackedU)
   cols = U[:cols]
   C = A[:,cols]
   R = A[rows,:]
-  F = svdfact!(C[rows,:])
-  U = PartialSVD(Matrix(F[:V]), 1 ./ F[:S], Matrix(F[:U]'))
-  CUR(rows, cols, C, U, R)
+  U, σ, V = svd!(C[rows,:])
+  U2 = PartialSVD(Matrix(V), 1 ./ σ, Matrix(U'))
+  CUR(rows, cols, C, U2, R)
 end
 CUR(A::AbstractMatOrLinOp, U::HermCURPackedU) = HermCUR(A, U)
 CUR(A::AbstractMatOrLinOp, U::SymCURPackedU) = SymCUR(A, U)
 CUR(A::AbstractMatOrLinOp, rows, cols) = CUR(A, CURPackedU(rows, cols))
 CUR(A, args...) = CUR(LinOp(A), args...)
 
-function HermCUR(A::AbstractMatOrLinOp, U::HermCURPackedU)
-  cols = U[:cols]
-  C = A[:,cols]
-  F = eigfact!(Hermitian(C[cols,:]))
-  U = PartialHermEigen(1 ./ F[:values], F[:vectors])
-  HermCUR(cols, C, U)
+if VERSION < v"0.7-"
+  function HermCUR(A::AbstractMatOrLinOp, U::HermCURPackedU)
+    cols = U[:cols]
+    C = A[:,cols]
+    F = eigfact!(Hermitian(C[cols,:]))
+    U = PartialHermEigen(1 ./ F[:values], F[:vectors])
+    HermCUR(cols, C, U)
+  end
+else
+  function HermCUR(A::AbstractMatOrLinOp, U::HermCURPackedU)
+    cols = U[:cols]
+    C = A[:,cols]
+    F = eigen!(Hermitian(C[cols,:]))
+    U = PartialHermEigen(1 ./ F.values, F.vectors)
+    HermCUR(cols, C, U)
+  end
 end
 HermCUR(A::AbstractMatOrLinOp, cols) = HermCUR(A, HermCURPackedU(cols))
 HermCUR(A, args...) = HermCUR(LinOp(A), args...)
@@ -109,9 +119,9 @@ HermCUR(A, args...) = HermCUR(LinOp(A), args...)
 function SymCUR(A::AbstractMatOrLinOp, U::SymCURPackedU)
   cols = U[:cols]
   C = A[:,cols]
-  F = svdfact!(C[cols,:])
-  U = PartialSVD(F[:V], 1 ./ F[:S], F[:U]')
-  SymCUR(cols, C, U)
+  U, σ, V = svd!(C[cols,:])
+  U2 = PartialSVD(V, 1 ./ σ, U')
+  SymCUR(cols, C, U2)
 end
 SymCUR(A::AbstractMatOrLinOp, cols) = SymCUR(A, SymCURPackedU(cols))
 SymCUR(A, args...) = SymCUR(LinOp(A), args...)
@@ -138,6 +148,12 @@ convert(::Type{Factorization{T}}, A::HermCUR) where {T} = convert(HermCUR{T}, A)
 convert(::Type{Factorization{T}}, A::SymCUR) where {T} = convert(SymCUR{T}, A)
 convert(::Type{Array}, A::AbstractCUR) = full(A)
 convert(::Type{Array{T}}, A::AbstractCUR) where {T} = convert(Array{T}, full(A))
+convert(::Type{Matrix}, A::AbstractCUR) = full(A)
+convert(::Type{Matrix{T}}, A::AbstractCUR) where {T} = convert(Array{T}, full(A))
+Array(A::AbstractCUR) = convert(Array, A)
+Matrix(A::AbstractCUR) = convert(Array, A)
+Array{T}(A::AbstractCUR) where T = convert(Array{T}, A)
+Matrix{T}(A::AbstractCUR) where T = convert(Array{T}, A)
 
 copy(A::CUR) = CUR(copy(A.rows), copy(A.cols), copy(A.C), copy(A.U), copy(A.R))
 copy(A::HermCUR) = HermCUR(copy(A.cols), copy(A.C), copy(A.U))
@@ -203,15 +219,15 @@ if VERSION < v"0.7-"
 
   ## CUR left-multiplication
 
-  A_mul_B!(C::StridedVecOrMat{T}, A::CUR{T}, B::StridedVecOrMat{T}) where {T} =
-    A_mul_B!(C, A[:C], A[:U]*(A[:R]*B))
+  mul!(C::StridedVecOrMat{T}, A::CUR{T}, B::StridedVecOrMat{T}) where {T} =
+    mul!(C, A[:C], A[:U]*(A[:R]*B))
 
   for f in (:A_mul_Bc, :A_mul_Bt)
     f! = Symbol(f, "!")
     @eval begin
       function $f!(C::StridedMatrix{T}, A::CUR{T}, B::StridedMatrix{T}) where T
         tmp = $f(A[:R], B)
-        A_mul_B!(C, A[:C], A[:U]*tmp)
+        mul!(C, A[:C], A[:U]*tmp)
       end
     end
   end
@@ -241,8 +257,8 @@ if VERSION < v"0.7-"
 
   ## CUR right-multiplication
 
-  A_mul_B!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::CUR{T}) where {T} =
-    A_mul_B!(C, (A*B[:C])*B[:U], B[:R])
+  mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::CUR{T}) where {T} =
+    mul!(C, (A*B[:C])*B[:U], B[:R])
 
   for f in (:A_mul_Bc, :A_mul_Bt)
     f! = Symbol(f, "!")
@@ -260,7 +276,7 @@ if VERSION < v"0.7-"
     @eval begin
       function $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::CUR{T}) where T
         tmp = $f(A, B[:C])
-        A_mul_B!(C, tmp*B[:U], B[:R])
+        mul!(C, tmp*B[:U], B[:R])
       end
     end
   end
@@ -279,46 +295,46 @@ if VERSION < v"0.7-"
 
   ## HermCUR left-multiplication
 
-  A_mul_B!(C::StridedVecOrMat{T}, A::HermCUR{T}, B::StridedVecOrMat{T}) where {T} =
-    A_mul_B!(C, A[:C], A[:U]*(A[:C]'*B))
+  mul!(C::StridedVecOrMat{T}, A::HermCUR{T}, B::StridedVecOrMat{T}) where {T} =
+    mul!(C, A[:C], A[:U]*(A[:C]'*B))
 
   A_mul_Bc!(C::StridedMatrix{T}, A::HermCUR{T}, B::StridedMatrix{T}) where {T} =
-    A_mul_B!(C, A[:C], A[:U]*(A[:C]'*B'))
+    mul!(C, A[:C], A[:U]*(A[:C]'*B'))
   A_mul_Bt!(C::StridedMatrix{T}, A::HermCUR{T}, B::StridedMatrix{T}) where {T<:Real} =
-    A_mul_B!(C, A[:C], A[:U]*(A[:C].'*transpose(B)))
+    mul!(C, A[:C], A[:U]*(transpose(A[:C])*transpose(B)))
   A_mul_Bt!!(
   C::StridedMatrix{T}, A::HermCUR{T}, B::StridedMatrix{T}) where {T<:Complex} =
     A_mul_Bc!(C, A, conj!(B))  # overwrites B
   function A_mul_Bt!(
       C::StridedMatrix{T}, A::HermCUR{T}, B::StridedMatrix{T}) where T<:Complex
     size(B, 1) <= A[:k] && return A_mul_Bt!!(C, A, copy(B))
-    A_mul_B!(C, A[:C], A[:U]*((A[:C]')*transpose(B)))
+    mul!(C, A[:C], A[:U]*((A[:C]')*transpose(B)))
   end
 
   Ac_mul_B!(C::StridedVecOrMat{T}, A::HermCUR{T}, B::StridedVecOrMat{T}) where {T} =
-    A_mul_B!(C, A, B)
+    mul!(C, A, B)
   function At_mul_B!(
       C::StridedVecOrMat{T}, A::HermCUR{T}, B::StridedVecOrMat{T}) where T
-    tmp = A[:U].'*(A[:C].'*B)
-    A_mul_B!(C, A[:C], conj!(tmp))
+    tmp = transpose(A[:U])*(transpose(A[:C])*B)
+    mul!(C, A[:C], conj!(tmp))
     conj!(C)
   end
 
   Ac_mul_Bc!(C::StridedMatrix{T}, A::HermCUR{T}, B::StridedMatrix{T}) where {T} =
     A_mul_Bc!(C, A, B)
   function At_mul_Bt!(C::StridedMatrix{T}, A::HermCUR{T}, B::StridedMatrix{T}) where T
-    tmp = A[:U].'*(A[:C].'*transpose(B))
-    A_mul_B!(C, A[:C], conj!(tmp))
+    tmp = transpose(A[:U])*(transpose(A[:C])*transpose(B))
+    mul!(C, A[:C], conj!(tmp))
     conj!(C)
   end
 
   ## HermCUR right-multiplication
 
-  A_mul_B!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::HermCUR{T}) where {T} =
+  mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::HermCUR{T}) where {T} =
     A_mul_Bc!(C, (A*B[:C])*B[:U], B[:C])
 
   A_mul_Bc!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::HermCUR{T}) where {T} =
-    A_mul_B!(C, A, B)
+    mul!(C, A, B)
   function A_mul_Bt!!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::HermCUR{T}) where T
     tmp = conj!(A)*B[:C]
     A_mul_Bt!(C, conj!(tmp)*transpose(B[:U]), B[:C])
@@ -345,32 +361,32 @@ if VERSION < v"0.7-"
 
   ## SymCUR left-multiplication
 
-  A_mul_B!(C::StridedVecOrMat{T}, A::SymCUR{T}, B::StridedVecOrMat{T}) where {T} =
-    A_mul_B!(C, A[:C], A[:U]*(A[:C].'*B))
+  mul!(C::StridedVecOrMat{T}, A::SymCUR{T}, B::StridedVecOrMat{T}) where {T} =
+    mul!(C, A[:C], A[:U]*(transpose(A[:C])*B))
   A_mul_Bc!(C::StridedMatrix{T}, A::SymCUR{T}, B::StridedMatrix{T}) where {T<:Real} =
-    A_mul_B!(C, A[:C], A[:U]*(A[:C]'*B'))
+    mul!(C, A[:C], A[:U]*(A[:C]'*B'))
   A_mul_Bc!!(C::StridedMatrix{T}, A::SymCUR{T}, B::StridedMatrix{T}) where {T<:Complex} =
     A_mul_Bt!(C, A, conj!(B))  # overwrites B
   function A_mul_Bc!(
       C::StridedMatrix{T}, A::SymCUR{T}, B::StridedMatrix{T}) where T<:Complex
     size(B, 1) <= A[:k] && return A_mul_Bc!!(C, A, copy(B))
-    A_mul_B!(C, A[:C], A[:U]*(transpose(A[:C])*B'))
+    mul!(C, A[:C], A[:U]*(transpose(A[:C])*B'))
   end
   A_mul_Bt!(C::StridedMatrix{T}, A::SymCUR{T}, B::StridedMatrix{T}) where {T} =
-    A_mul_B!(C, A[:C], A[:U]*(A[:C].'*transpose(B)))
+    mul!(C, A[:C], A[:U]*(transpose(A[:C])*transpose(B)))
 
   function Ac_mul_B!(
       C::StridedVecOrMat{T}, A::SymCUR{T}, B::StridedVecOrMat{T}) where T
     tmp = A[:U]'*(A[:C]'*B)
-    A_mul_B!(C, A[:C], conj!(tmp))
+    mul!(C, A[:C], conj!(tmp))
     conj!(C)
   end
   At_mul_B!(C::StridedVecOrMat{T}, A::SymCUR{T}, B::StridedVecOrMat{T}) where {T} =
-    A_mul_B!(C, A, B)
+    mul!(C, A, B)
 
   function Ac_mul_Bc!(C::StridedMatrix{T}, A::SymCUR{T}, B::StridedMatrix{T}) where T
     tmp = A[:U]'*(A[:C]'*B')
-    A_mul_B!(C, A[:C], conj!(tmp))
+    mul!(C, A[:C], conj!(tmp))
     conj!(C)
   end
   At_mul_Bt!(C::StridedMatrix{T}, A::SymCUR{T}, B::StridedMatrix{T}) where {T} =
@@ -378,7 +394,7 @@ if VERSION < v"0.7-"
 
   ## SymCUR right-multiplication
 
-  A_mul_B!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T}) where {T} =
+  mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T}) where {T} =
     A_mul_Bt!(C, (A*B[:C])*B[:U], B[:C])
 
   function A_mul_Bc!!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T}) where T
@@ -390,7 +406,7 @@ if VERSION < v"0.7-"
     A_mul_Bc!(C, (A*conj(B[:C]))*B[:U]', B[:C])
   end
   A_mul_Bt!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T}) where {T} =
-    A_mul_B!(C, A, B)
+    mul!(C, A, B)
 
   for f in (:Ac_mul_B, :At_mul_B)
     f! = Symbol(f, "!")
@@ -403,7 +419,7 @@ if VERSION < v"0.7-"
   end
 
   Ac_mul_Bc!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T}) where {T} =
-    A_mul_Bc!(C, conj!(A.'*B[:C])*B[:U]', B[:C])
+    A_mul_Bc!(C, conj!(transpose(A)*B[:C])*B[:U]', B[:C])
   At_mul_Bt!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T}) where {T} =
     At_mul_B!(C, A, B)
 
@@ -411,7 +427,7 @@ if VERSION < v"0.7-"
 
   ## left-multiplication
 
-  for (f, f!, i) in ((:*,        :A_mul_B!,  1),
+  for (f, f!, i) in ((:*,        :mul!,  1),
                      (:Ac_mul_B, :Ac_mul_B!, 2),
                      (:At_mul_B, :At_mul_B!, 2))
     @eval begin
@@ -419,13 +435,13 @@ if VERSION < v"0.7-"
         T = promote_type(TA, TB)
         AT = convert(AbstractCUR{T}, A)
         BT = (T == TB ? B : convert(Array{T}, B))
-        CT = Array{T}(uninitialized, size(A,$i))
+        CT = Array{T}(undef, size(A,$i))
         $f!(CT, AT, BT)
       end
     end
   end
 
-  for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
+  for (f, f!, i, j) in ((:*,         :mul!,   1, 2),
                         (:A_mul_Bc,  :A_mul_Bc!,  1, 1),
                         (:A_mul_Bt,  :A_mul_Bt!,  1, 1),
                         (:Ac_mul_B,  :Ac_mul_B!,  2, 2),
@@ -437,14 +453,14 @@ if VERSION < v"0.7-"
         T = promote_type(TA, TB)
         AT = convert(AbstractCUR{T}, A)
         BT = (T == TB ? B : convert(Array{T}, B))
-        CT = Array{T}(uninitialized, size(A,$i), size(B,$j))
+        CT = Array{T}(undef, size(A,$i), size(B,$j))
         $f!(CT, AT, BT)
       end
     end
   end
 
   ## right-multiplication
-  for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
+  for (f, f!, i, j) in ((:*,         :mul!,   1, 2),
                         (:A_mul_Bc,  :A_mul_Bc!,  1, 1),
                         (:A_mul_Bt,  :A_mul_Bt!,  1, 1),
                         (:Ac_mul_B,  :Ac_mul_B!,  2, 2),
@@ -456,87 +472,296 @@ if VERSION < v"0.7-"
         T = promote_type(TA, TB)
         AT = (T == TA ? A : convert(Array{T}, A))
         BT = convert(AbstractCUR{T}, B)
-        CT = Array{T}(uninitialized, size(A,$i), size(B,$j))
+        CT = Array{T}(undef, size(A,$i), size(B,$j))
         $f!(CT, AT, BT)
       end
     end
   end
 else # VERSION > v"0.7-"
-  ## left-multiplication
+  # BLAS/LAPACK multiplication routines
+
+  ## CUR left-multiplication
+
   mul!(C::StridedVecOrMat{T}, A::CUR{T}, B::StridedVecOrMat{T}) where {T} =
     mul!(C, A[:C], A[:U]*(A[:R]*B))
 
-  for (adj, Adj) in ((:transpose, :Transpose), (:adjoint, :Adjoint))
+  ## CUR right-multiplication
+
+  mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::CUR{T}) where {T} =
+    mul!(C, (A*B[:C])*B[:U], B[:R])
+
+  ## HermCUR left-multiplication
+
+  mul!(C::StridedVecOrMat{T}, A::HermCUR{T}, B::StridedVecOrMat{T}) where {T} =
+    mul!(C, A[:C], A[:U]*(A[:C]'*B))
+
+  for Adj in (:Adjoint, :Transpose)
     @eval begin
-      function mul!(C::StridedVecOrMat{T}, adjA::$Adj{T,<:AbstractCUR{T}}, B::StridedVecOrMat{T}) where T
-          A = parent(adjA)
-          tmp = $adj(A[:C]) * B
-          tmp = $adj(A[:U]) * tmp
-          mul!(C, $adj(A[:R]), tmp)
+      ## CUR left-multiplication
+      function mul!(C::StridedMatrix{T}, A::CUR{T}, Bc::$Adj{T,<:StridedMatrix{T}}) where T
+        tmp = A[:R]*Bc
+        mul!(C, A[:C], A[:U]*tmp)
       end
-      function mul!(C::StridedVecOrMat{T}, A::$AbstractCUR{T}, adjB::$Adj{T,<:StridedMatrix{T}}) where T
-          tmp = A[:R] * adjB
-          mul!(C, A[:C], A[:U]*tmp)
+
+      function mul!(C::StridedVecOrMat{T}, Ac::$Adj{T,CUR{T}}, B::StridedVecOrMat{T}) where T
+        A = parent(Ac)
+        tmp = $Adj(A[:C]) * B
+        tmp = $Adj(A[:U]) * tmp
+        mul!(C, $Adj(A[:R]), tmp)
       end
-      function mul!(C::StridedVecOrMat{T}, adjA::$Adj{T,<:$AbstractCUR{T}}, adjB::$Adj{T,<:StridedMatrix{T}}) where T
-          A = parent(adjA)
-          tmp = $adj(A[:C]) * adjB
-          tmp = $adj(A[:U]) * tmp
-          mul!(C, $adj(A[:R]), tmp)
+      function mul!(C::StridedMatrix{T}, Ac::$Adj{T,CUR{T}}, Bc::$Adj{T,<:StridedMatrix{T}}) where T
+        A = parent(Ac)
+        tmp = $Adj(A[:C]) * Bc
+        tmp = $Adj(A[:U]) * tmp
+        mul!(C, $Adj(A[:R]), tmp)
+      end
+        ## CUR right-multiplication
+      function mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, Bc::$Adj{T,CUR{T}}) where T
+        B = parent(Bc)
+        tmp = A * $Adj(B[:R])
+        tmp = tmp * $Adj(B[:U])
+        mul!(C, tmp, $Adj(B[:C]))
+      end
+      function mul!(C::StridedMatrix{T}, Ac::$Adj{T,<:StridedMatrix{T}}, B::CUR{T}) where T
+        tmp = Ac * B[:C]
+        mul!(C, tmp*B[:U], B[:R])
+      end
+
+      function mul!(C::StridedMatrix{T}, Ac::$Adj{T,<:StridedMatrix{T}}, Bc::$Adj{T,CUR{T}}) where T
+        B = parent(Bc)
+        tmp = Ac * $Adj(B[:R])
+        tmp = tmp * $Adj(B[:U])
+        mul!(C, tmp, $Adj(B[:C]))
       end
     end
   end
 
+  ## HermCUR left-multiplication
+
+
+  mul!(C::StridedMatrix{T}, A::HermCUR{T}, Bc::Adjoint{T,<:StridedMatrix{T}}) where {T} =
+    mul!(C, A[:C], A[:U]*(A[:C]'*Bc))
+  mul!(C::StridedMatrix{T}, A::HermCUR{T}, Bt::Transpose{T,<:StridedMatrix{T}}) where {T<:Real} =
+    mul!(C, A[:C], A[:U]*(transpose(A[:C])*Bt))
+  mul!!(C::StridedMatrix{T}, A::HermCUR{T}, Bt::Transpose{T,<:StridedMatrix{T}}) where {T<:Complex} =
+    mul!(C, A, conj!(parent(Bt))')  # overwrites B
+  function mul!(C::StridedMatrix{T}, A::HermCUR{T}, Bt::Transpose{T,<:StridedMatrix{T}}) where T<:Complex
+    B = parent(Bt)
+    size(B, 1) <= A[:k] && return mul!!(C, A, transpose(copy(B)))
+    mul!(C, A[:C], A[:U]*((A[:C]')*Bt))
+  end
+
+  mul!(C::StridedVecOrMat{T}, Ac::Adjoint{T,HermCUR{T}}, B::StridedVecOrMat{T}) where {T} =
+    mul!(C, parent(Ac), B)
+  function mul!(C::StridedVecOrMat{T}, At::Transpose{T,HermCUR{T}}, B::StridedVecOrMat{T}) where T
+    A = parent(At)
+    tmp = transpose(A[:U])*(transpose(A[:C])*B)
+    mul!(C, A[:C], conj!(tmp))
+    conj!(C)
+  end
+
+  mul!(C::StridedMatrix{T}, At::Adjoint{T,HermCUR{T}}, Bt::Adjoint{T,<:StridedMatrix{T}}) where {T} =
+    mul!(C, parent(At), Bt)
+  function mul!(C::StridedMatrix{T}, At::Transpose{T,HermCUR{T}}, Bt::Transpose{T,<:StridedMatrix{T}}) where T
+    A = parent(At)
+    B = parent(Bt)
+    tmp = transpose(A[:U])*(transpose(A[:C])*Bt)
+    mul!(C, A[:C], conj!(tmp))
+    conj!(C)
+  end
+
+  ## HermCUR right-multiplication
+
+  mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::HermCUR{T}) where {T} =
+    mul!(C, (A*B[:C])*B[:U], B[:C]')
+
+  mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, Bt::Adjoint{T,HermCUR{T}}) where {T} =
+    mul!(C, A, parent(Bt))
+  function mul!!(C::StridedMatrix{T}, A::StridedMatrix{T}, Bt::Transpose{T,HermCUR{T}}) where T
+    B = parent(Bt)
+    tmp = conj!(A)*B[:C]
+    mul!(C, conj!(tmp)*transpose(B[:U]), transpose(B[:C]))
+  end  # overwrites A
+  function mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, Bt::Transpose{T,HermCUR{T}}) where T
+    B = parent(Bt)
+    size(A, 1) <= B[:k] && return mul!!(C, copy(A), Bt)
+    mul!(C, (A*conj(B[:C]))*transpose(B[:U]), transpose(B[:C]))
+  end
+
+  for Adj in (:Transpose, :Adjoint)
+    @eval begin
+      function mul!(C::StridedMatrix{T}, Ac::$Adj{T,<:StridedMatrix{T}}, B::HermCUR{T}) where T
+        tmp = Ac * B[:C]
+        mul!(C, tmp*B[:U], B[:C]')
+      end
+    end
+  end
+
+  mul!(C::StridedMatrix{T}, Ac::Adjoint{T,<:StridedMatrix{T}}, Bc::Adjoint{T,HermCUR{T}}) where {T} =
+    mul!(C, Ac, parent(Bc))
+  function mul!(C::StridedMatrix{T}, At::Transpose{T,<:StridedMatrix{T}}, Bt::Transpose{T,HermCUR{T}}) where {T}
+    B = parent(Bt)
+    A = parent(At)
+    mul!(C, conj!(A'*B[:C])*transpose(B[:U]), transpose(B[:C]))
+  end
+
+  ## SymCUR left-multiplication
+
+  mul!(C::StridedVecOrMat{T}, A::SymCUR{T}, B::StridedVecOrMat{T}) where {T} =
+    mul!(C, A[:C], A[:U]*(transpose(A[:C])*B))
+  mul!(C::StridedMatrix{T}, A::SymCUR{T}, Bc::Adjoint{T,<:StridedMatrix{T}}) where {T<:Real} =
+    mul!(C, A[:C], A[:U]*(A[:C]'*Bc))
+  mul!!(C::StridedMatrix{T}, A::SymCUR{T}, Bc::Adjoint{T,<:StridedMatrix{T}}) where {T<:Complex} =
+    mul!(C, A, transpose(conj!(parent(Bc))))  # overwrites B
+  function mul!(C::StridedMatrix{T}, A::SymCUR{T}, Bc::Adjoint{T,<:StridedMatrix{T}}) where T<:Complex
+    B = parent(Bc)
+    size(B, 1) <= A[:k] && return mul!!(C, A, copy(B)')
+    mul!(C, A[:C], A[:U]*(transpose(A[:C])*B'))
+  end
+  mul!(C::StridedMatrix{T}, A::SymCUR{T}, Bt::Transpose{T,<:StridedMatrix{T}}) where {T} =
+    mul!(C, A[:C], A[:U]*(transpose(A[:C])*Bt))
+
+  function mul!(C::StridedVecOrMat{T}, Ac::Adjoint{T,SymCUR{T}}, B::StridedVecOrMat{T}) where T
+    A = parent(Ac)
+    tmp = A[:U]'*(A[:C]'*B)
+    mul!(C, A[:C], conj!(tmp))
+    conj!(C)
+  end
+  mul!(C::StridedVecOrMat{T}, At::Transpose{T,<:SymCUR{T}}, B::StridedVecOrMat{T}) where {T} =
+    mul!(C, parent(At), B)
+
+  function mul!(C::StridedMatrix{T}, Ac::Adjoint{T,SymCUR{T}}, Bc::Adjoint{T,<:StridedMatrix{T}}) where T
+    A = parent(Ac)
+    tmp = A[:U]'*(A[:C]'*Bc)
+    mul!(C, A[:C], conj!(tmp))
+    conj!(C)
+  end
+  mul!(C::StridedMatrix{T}, At::Transpose{T,SymCUR{T}}, Bt::Transpose{T,<:StridedMatrix{T}}) where {T} =
+    mul!(C, parent(At), Bt)
+
+  ## SymCUR right-multiplication
+
+  mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::SymCUR{T}) where {T} =
+    mul!(C, (A*B[:C])*B[:U], transpose(B[:C]))
+
+  function mul!!(C::StridedMatrix{T}, A::StridedMatrix{T}, Bc::Adjoint{T,SymCUR{T}}) where T
+    B = parent(Bc)
+    tmp = conj!(A)*B[:C]
+    mul!(C, conj!(tmp)*transpose(B[:U]), transpose(B[:C]))
+  end  # overwrites A
+  function mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, Bc::Adjoint{T,SymCUR{T}}) where T
+    B = parent(Bc)
+    size(A, 1) <= B[:k] && return mul!!(C, copy(A), Bc)
+    mul!(C, (A*conj(B[:C]))*B[:U]', B[:C]')
+  end
+  mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, Bt::Transpose{T,SymCUR{T}}) where {T} =
+    mul!(C, A, parent(Bt))
+
+  for Adj in (:Adjoint, :Transpose)
+    @eval begin
+      function mul!(C::StridedMatrix{T}, Ac::$Adj{T,<:StridedMatrix{T}}, B::SymCUR{T}) where T
+        tmp = Ac * B[:C]
+        mul!(C, tmp*B[:U], transpose(B[:C]))
+      end
+    end
+  end
+
+  function mul!(C::StridedMatrix{T}, Ac::Adjoint{T,<:StridedMatrix{T}}, Bc::Adjoint{T,SymCUR{T}}) where {T}
+    B = parent(Bc)
+    A = parent(Ac)
+    mul!(C, conj!(transpose(A)*B[:C])*B[:U]', B[:C]')
+  end
+  mul!(C::StridedMatrix{T}, At::Transpose{T,<:StridedMatrix{T}}, Bt::Transpose{T,<:SymCUR{T}}) where {T} =
+    mul!(C, At, parent(Bt))
+
+  # standard operations
+
+  ## left-multiplication
   function *(A::AbstractCUR{TA}, B::StridedVector{TB}) where {TA,TB}
     T = promote_type(TA, TB)
     AT = convert(AbstractCUR{T}, A)
     BT = (T == TB ? B : convert(Array{T}, B))
-    CT = Array{T}(uninitialized, size(A,1))
+    CT = Array{T}(undef, size(A,1))
     mul!(CT, AT, BT)
+  end
+
+  for Adj in (:Adjoint, :Transpose)
+    @eval function *(Ac::$Adj{TA,AbstractCUR{TA}}, B::StridedVector{TB}) where {TA,TB}
+      A = parent(Ac)
+      T = promote_type(TA, TB)
+      AT = convert(AbstractCUR{T}, A)
+      BT = (T == TB ? B : convert(Array{T}, B))
+      CT = Array{T}(undef, size(A,2))
+      mul!(CT, $Adj(AT), BT)
+    end
   end
 
   function *(A::AbstractCUR{TA}, B::StridedMatrix{TB}) where {TA,TB}
     T = promote_type(TA, TB)
     AT = convert(AbstractCUR{T}, A)
     BT = (T == TB ? B : convert(Array{T}, B))
-    CT = Array{T}(uninitialized, size(A,1), size(B,2))
+    CT = Array{T}(undef, size(A,1), size(B,2))
     mul!(CT, AT, BT)
   end
-
   function *(A::StridedMatrix{TA}, B::AbstractCUR{TB}) where {TA,TB}
     T = promote_type(TA, TB)
     AT = (T == TA ? A : convert(Array{T}, A))
     BT = convert(AbstractCUR{T}, B)
-    CT = Array{T}(uninitialized, size(A,1), size(B,2))
+    CT = Array{T}(undef, size(A,1), size(B,2))
     mul!(CT, AT, BT)
   end
 
-  for Adj in (:Transpose, :Adjoint)
+  for Adj in (:Adjoint, :Transpose)
     @eval begin
-      function *(adjA::$Adj{TA,<:AbstractCUR{TA}}, B::StridedVector{TB}) where {TA,TB}
-        A = parent(adjA)
+      function *(A::AbstractCUR{TA}, Bc::$Adj{TB,<:StridedMatrix{TB}}) where {TA,TB}
+        B = parent(Bc)
         T = promote_type(TA, TB)
         AT = convert(AbstractCUR{T}, A)
         BT = (T == TB ? B : convert(Array{T}, B))
-        CT = Array{T}(uninitialized, size(A,2))
-        mul!(CT, $Adj(AT), BT)
-      end
-
-      function *(adjA::$Adj{TA,<:AbstractCUR{TA}}, B::StridedMatrix{TB}) where {TA,TB}
-        A = parent(adjA)
-        T = promote_type(TA, TB)
-        AT = convert(AbstractCUR{T}, A)
-        BT = (T == TB ? B : convert(Array{T}, B))
-        CT = Array{T}(uninitialized, size(A,2), size(B,2))
-        mul!(CT, $Adj(AT), BT)
-      end
-      function *(A::AbstractCUR{TA}, adjB::$Adj{TB,<:StridedMatrix{TB}}) where {TA,TB}
-        B = parent(adjB)
-        T = promote_type(TA, TB)
-        AT = convert(AbstractCUR{T}, A)
-        BT = (T == TB ? B : convert(Array{T}, B))
-        CT = Array{T}(uninitialized, size(A,1), size(B,1))
+        CT = Array{T}(undef, size(A,1), size(Bc,2))
         mul!(CT, AT, $Adj(BT))
+      end
+      function *(Ac::$Adj{TA,<:AbstractCUR{TA}}, B::StridedMatrix{TB}) where {TA,TB}
+        A = parent(Ac)
+        T = promote_type(TA, TB)
+        AT = convert(AbstractCUR{T}, A)
+        BT = (T == TB ? B : convert(Array{T}, B))
+        CT = Array{T}(undef, size(Ac,1), size(B,2))
+        mul!(CT, $Adj(AT), BT)
+      end
+      function *(Ac::$Adj{TA,<:AbstractCUR{TA}}, Bc::$Adj{TB,<:StridedMatrix{TB}}) where {TA,TB}
+        A = parent(Ac)
+        B = parent(Bc)
+        T = promote_type(TA, TB)
+        AT = convert(AbstractCUR{T}, A)
+        BT = (T == TB ? B : convert(Array{T}, B))
+        CT = Array{T}(undef, size(Ac,1), size(Bc,2))
+        mul!(CT, $Adj(AT), $Adj(BT))
+      end
+      function *(A::StridedMatrix{TA}, Bc::$Adj{TB,<:AbstractCUR{TB}}) where {TA,TB}
+        B = parent(Bc)
+        T = promote_type(TA, TB)
+        AT = (T == TA ? A : convert(Array{T}, A))
+        BT = convert(AbstractCUR{T}, B)
+        CT = Array{T}(undef, size(A,1), size(Bc,2))
+        mul!(CT, AT, $Adj(BT))
+      end
+      function *(Ac::$Adj{TA,<:StridedMatrix{TA}}, B::AbstractCUR{TB}) where {TA,TB}
+        A = parent(Ac)
+        T = promote_type(TA, TB)
+        AT = (T == TA ? A : convert(Array{T}, A))
+        BT = convert(AbstractCUR{T}, B)
+        CT = Array{T}(undef, size(Ac,1), size(B,2))
+        mul!(CT, $Adj(AT), BT)
+      end
+      function *(Ac::$Adj{TA,<:StridedMatrix{TA}}, Bc::$Adj{TB,<:AbstractCUR{TB}}) where {TA,TB}
+        A = parent(Ac)
+        B = parent(Bc)
+        T = promote_type(TA, TB)
+        AT = (T == TA ? A : convert(Array{T}, A))
+        BT = convert(AbstractCUR{T}, B)
+        CT = Array{T}(undef, size(Ac,1), size(Bc,2))
+        mul!(CT, $Adj(AT), $Adj(BT))
       end
     end
   end
@@ -549,8 +774,7 @@ for sfx in ("", "!")
   g = Symbol("curfact_none", sfx)
   h = Symbol("cur", sfx)
   @eval begin
-    function $f(
-        A::AbstractMatOrLinOp{T}, opts::LRAOptions=LRAOptions(T); args...) where T
+    function $f(A::AbstractMatOrLinOp{T}, opts::LRAOptions=LRAOptions(T); args...) where T
       opts = copy(opts; args...)
       opts.pqrfact_retval = ""
       chkopts!(opts, A)

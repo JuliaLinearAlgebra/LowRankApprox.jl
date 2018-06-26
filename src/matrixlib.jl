@@ -13,7 +13,7 @@ matrixlib(name::Symbol, args...) = matrixlib(Float64, name, args...)
 function matrixlib_cauchy(::Type{T}, x::AbstractVector, y::AbstractVector) where T
   m = length(x)
   n = length(y)
-  A = Array{T}(uninitialized, m, n)
+  A = Array{T}(undef, m, n)
   @inbounds for j = 1:n
     @simd for i = 1:m
       A[i,j] = 1/(x[i] - y[j])
@@ -26,7 +26,7 @@ function matrixlib_fourier(::Type{T}, x::AbstractVector, y::AbstractVector) wher
   S = eltype(complex(zero(T)))
   m = length(x)
   n = length(y)
-  A = Array{S}(m, n)
+  A = Array{S}(undef, m, n)
   @inbounds for j = 1:n, i = 1:m
     A[i,j] = exp(-2im*pi*x[i]*y[j])
   end
@@ -39,7 +39,7 @@ matrixlib_fourier(::Type{T}, n::Integer) where {T} = matrixlib_fourier(T, n, n)
 function matrixlib_hilb(::Type{T}, m::Integer, n::Integer) where T
   m >= 0 || throw(ArgumentError("m"))
   n >= 0 || throw(ArgumentError("n"))
-  A = Array{T}(uninitialized, m, n)
+  A = Array{T}(undef, m, n)
   @inbounds for j = 1:n, i = 1:m
     A[i,j] = 1/(i + j - 1)
   end

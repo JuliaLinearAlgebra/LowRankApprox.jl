@@ -5,10 +5,15 @@ mutable struct PartialSVD{T,Tr<:Real} <: Factorization{T}
   U::Matrix{T}
   S::Vector{Tr}
   Vt::Matrix{T}
+
+  function PartialSVD{T,Tr}(U::Matrix{T}, S::Vector{Tr}, Vt::Matrix{T}) where {T,Tr<:Real}
+    size(U,2) == size(Vt,1) == length(S) || throw(DimensionMismatch("$(size(U)), $(length(S)), $(size(Vt)) not compatible"))
+    new{T,Tr}(U, S, Vt)
+  end
 end
 
-PartialSVD(U::AbstractMatrix{T}, S::AbstractVector, Vt::AbstractMatrix{T}) where T =
-  PartialSVD(Matrix(U), Vector(S), Matrix(Vt))
+PartialSVD(U::AbstractMatrix{T}, S::AbstractVector{Tr}, Vt::AbstractMatrix{T}) where {T,Tr<:Real} =
+  PartialSVD{T,Tr}(Matrix(U), Vector(S), Matrix(Vt))
 
 conj!(A::PartialSVD) = PartialSVD(conj!(A.U), A.S, conj!(A.Vt))
 conj(A::PartialSVD) = PartialSVD(conj(A.U), A.S, conj(A.Vt))
@@ -27,8 +32,8 @@ copy(A::PartialSVD) = PartialSVD(copy(A.U), copy(A.S), copy(A.Vt))
 
 adjoint!(A::PartialSVD) = PartialSVD(A.Vt', A.S, A.U')
 adjoint(A::PartialSVD) = PartialSVD(A.Vt', copy(A.S), A.U')
-transpose!(A::PartialSVD) = PartialSVD(A.Vt.', A.S, A.U.')
-transpose(A::PartialSVD) = PartialSVD(A.Vt.', copy(A.S), A.U.')
+transpose!(A::PartialSVD) = PartialSVD(transpose(A.Vt), A.S, transpose(A.U))
+transpose(A::PartialSVD) = PartialSVD(transpose(A.Vt), copy(A.S), transpose(A.U))
 
 full(A::PartialSVD) = (A[:U]*Diagonal(A[:S]))*A[:Vt]
 
@@ -54,149 +59,306 @@ size(A::PartialSVD, dim::Integer) =
   dim == 1 ? size(A.U,1) : (dim == 2 ? size(A.Vt,2) : 1)
 
 # BLAS/LAPACK multiplication/division routines
+if VERSION < v"0.7-"
+  ## left-multiplication
 
-## left-multiplication
+  mul!(y::StridedVector{T}, A::PartialSVD{T}, x::StridedVector{T}) where {T} =
+    mul!(y, A[:U], scalevec!(A[:S], A[:Vt]*x))
+  mul!(C::StridedMatrix{T}, A::PartialSVD{T}, B::StridedMatrix{T}) where {T} =
+    mul!(C, A[:U], scale!(A[:S], A[:Vt]*B))
 
-A_mul_B!(y::StridedVector{T}, A::PartialSVD{T}, x::StridedVector{T}) where {T} =
-  A_mul_B!(y, A[:U], scalevec!(A[:S], A[:Vt]*x))
-A_mul_B!(C::StridedMatrix{T}, A::PartialSVD{T}, B::StridedMatrix{T}) where {T} =
-  A_mul_B!(C, A[:U], scale!(A[:S], A[:Vt]*B))
-
-for f in (:A_mul_Bc, :A_mul_Bt)
-  f! = Symbol(f, "!")
-  @eval begin
-    function $f!(C::StridedMatrix{T}, A::PartialSVD{T}, B::StridedMatrix{T}) where T
-      tmp = $f(A[:Vt], B)
-      scale!(A[:S], tmp)
-      A_mul_B!(C, A[:U], tmp)
+  for f in (:A_mul_Bc, :A_mul_Bt)
+    f! = Symbol(f, "!")
+    @eval begin
+      function $f!(C::StridedMatrix{T}, A::PartialSVD{T}, B::StridedMatrix{T}) where T
+        tmp = $f(A[:Vt], B)
+        scale!(A[:S], tmp)
+        mul!(C, A[:U], tmp)
+      end
     end
   end
-end
 
-for f in (:Ac_mul_B, :At_mul_B)
-  f! = Symbol(f, "!")
-  @eval begin
-    function $f!(
-        y::StridedVector{T}, A::PartialSVD{T}, x::StridedVector{T}) where T
-      tmp = $f(A[:U], x)
-      scalevec!(A[:S], tmp)
-      $f!(y, A[:Vt], tmp)
-    end
-    function $f!(
-        C::StridedMatrix{T}, A::PartialSVD{T}, B::StridedMatrix{T}) where T
-      tmp = $f(A[:U], B)
-      scale!(A[:S], tmp)
-      $f!(C, A[:Vt], tmp)
-    end
-  end
-end
-
-for (f, g!) in ((:Ac_mul_Bc, :Ac_mul_B!), (:At_mul_Bt, :At_mul_B!))
-  f! = Symbol(f, "!")
-  @eval begin
-    function $f!(C::StridedMatrix{T}, A::PartialSVD{T}, B::StridedMatrix{T}) where T
-      tmp = $f(A[:U], B)
-      scale!(A[:S], tmp)
-      $g!(C, A[:Vt], tmp)
+  for f in (:Ac_mul_B, :At_mul_B)
+    f! = Symbol(f, "!")
+    @eval begin
+      function $f!(
+          y::StridedVector{T}, A::PartialSVD{T}, x::StridedVector{T}) where T
+        tmp = $f(A[:U], x)
+        scalevec!(A[:S], tmp)
+        $f!(y, A[:Vt], tmp)
+      end
+      function $f!(
+          C::StridedMatrix{T}, A::PartialSVD{T}, B::StridedMatrix{T}) where T
+        tmp = $f(A[:U], B)
+        scale!(A[:S], tmp)
+        $f!(C, A[:Vt], tmp)
+      end
     end
   end
-end
 
-## right-multiplication
-
-A_mul_B!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialSVD{T}) where {T} =
-  A_mul_B!(C, scale!(A*B[:U], B[:S]), B[:Vt])
-
-for f in (:A_mul_Bc, :A_mul_Bt)
-  f! = Symbol(f, "!")
-  @eval begin
-    function $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialSVD{T}) where T
-      tmp = $f(A, B[:Vt])
-      scale!(tmp, B[:S])
-      $f!(C, tmp, B[:U])
+  for (f, g!) in ((:Ac_mul_Bc, :Ac_mul_B!), (:At_mul_Bt, :At_mul_B!))
+    f! = Symbol(f, "!")
+    @eval begin
+      function $f!(C::StridedMatrix{T}, A::PartialSVD{T}, B::StridedMatrix{T}) where T
+        tmp = $f(A[:U], B)
+        scale!(A[:S], tmp)
+        $g!(C, A[:Vt], tmp)
+      end
     end
   end
-end
 
-for f in (:Ac_mul_B, :At_mul_B)
-  f! = Symbol(f, "!")
-  @eval begin
-    function $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialSVD{T}) where T
-      tmp = $f(A, B[:U])
-      scale!(tmp, B[:S])
-      A_mul_B!(C, tmp, B[:Vt])
+  ## right-multiplication
+
+  mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialSVD{T}) where {T} =
+    mul!(C, scale!(A*B[:U], B[:S]), B[:Vt])
+
+  for f in (:A_mul_Bc, :A_mul_Bt)
+    f! = Symbol(f, "!")
+    @eval begin
+      function $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialSVD{T}) where T
+        tmp = $f(A, B[:Vt])
+        scale!(tmp, B[:S])
+        $f!(C, tmp, B[:U])
+      end
     end
   end
-end
 
-for (f, g!) in ((:Ac_mul_Bc, :A_mul_Bc!), (:At_mul_Bt, :A_mul_Bt!))
-  f! = Symbol(f, "!")
-  @eval begin
-    function $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialSVD{T}) where T
-      tmp = $f(A, B[:Vt])
-      scale!(tmp, B[:S])
-      $g!(C, tmp, B[:U])
+  for f in (:Ac_mul_B, :At_mul_B)
+    f! = Symbol(f, "!")
+    @eval begin
+      function $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialSVD{T}) where T
+        tmp = $f(A, B[:U])
+        scale!(tmp, B[:S])
+        mul!(C, tmp, B[:Vt])
+      end
     end
   end
-end
 
-## left-division (pseudoinverse left-multiplication)
-A_ldiv_B!(y::StridedVector{T}, A::PartialSVD{T}, x::StridedVector{T}) where {T} =
-  Ac_mul_B!(y, A[:Vt], iscalevec!(A[:S], A[:U]'*x))
-A_ldiv_B!(C::StridedMatrix{T}, A::PartialSVD{T}, B::StridedMatrix{T}) where {T} =
-  Ac_mul_B!(C, A[:Vt], iscale!(A[:S], A[:U]'*B))
-
-# standard operations
-
-## left-multiplication
-
-for (f, f!, i) in ((:*,        :A_mul_B!,  1),
-                   (:Ac_mul_B, :Ac_mul_B!, 2),
-                   (:At_mul_B, :At_mul_B!, 2))
-  @eval begin
-    function $f(A::PartialSVD{TA}, B::StridedVector{TB}) where {TA,TB}
-      T = promote_type(TA, TB)
-      AT = convert(PartialSVD{T}, A)
-      BT = (T == TB ? B : convert(Array{T}, B))
-      CT = Array{T}(uninitialized, size(A,$i))
-      $f!(CT, AT, BT)
+  for (f, g!) in ((:Ac_mul_Bc, :A_mul_Bc!), (:At_mul_Bt, :A_mul_Bt!))
+    f! = Symbol(f, "!")
+    @eval begin
+      function $f!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialSVD{T}) where T
+        tmp = $f(A, B[:Vt])
+        scale!(tmp, B[:S])
+        $g!(C, tmp, B[:U])
+      end
     end
   end
-end
 
-for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
-                      (:A_mul_Bc,  :A_mul_Bc!,  1, 1),
-                      (:A_mul_Bt,  :A_mul_Bt!,  1, 1),
-                      (:Ac_mul_B,  :Ac_mul_B!,  2, 2),
-                      (:Ac_mul_Bc, :Ac_mul_Bc!, 2, 1),
-                      (:At_mul_B,  :At_mul_B!,  2, 2),
-                      (:At_mul_Bt, :At_mul_Bt!, 2, 1))
-  @eval begin
-    function $f(A::PartialSVD{TA}, B::StridedMatrix{TB}) where {TA,TB}
-      T = promote_type(TA, TB)
-      AT = convert(PartialSVD{T}, A)
-      BT = (T == TB ? B : convert(Array{T}, B))
-      CT = Array{T}(uninitialized, size(A,$i), size(B,$j))
-      $f!(CT, AT, BT)
+  ## left-division (pseudoinverse left-multiplication)
+  ldiv!(y::StridedVector{T}, A::PartialSVD{T}, x::StridedVector{T}) where {T} =
+    Ac_mul_B!(y, A[:Vt], iscalevec!(A[:S], A[:U]'*x))
+  ldiv!(C::StridedMatrix{T}, A::PartialSVD{T}, B::StridedMatrix{T}) where {T} =
+    Ac_mul_B!(C, A[:Vt], iscale!(A[:S], A[:U]'*B))
+
+  # standard operations
+
+  ## left-multiplication
+
+  for (f, f!, i) in ((:*,        :mul!,  1),
+                     (:Ac_mul_B, :Ac_mul_B!, 2),
+                     (:At_mul_B, :At_mul_B!, 2))
+    @eval begin
+      function $f(A::PartialSVD{TA}, B::StridedVector{TB}) where {TA,TB}
+        T = promote_type(TA, TB)
+        AT = convert(PartialSVD{T}, A)
+        BT = (T == TB ? B : convert(Array{T}, B))
+        CT = Array{T}(undef, size(A,$i))
+        $f!(CT, AT, BT)
+      end
     end
   end
-end
 
-## right-multiplication
-for (f, f!, i, j) in ((:*,         :A_mul_B!,   1, 2),
-                      (:A_mul_Bc,  :A_mul_Bc!,  1, 1),
-                      (:A_mul_Bt,  :A_mul_Bt!,  1, 1),
-                      (:Ac_mul_B,  :Ac_mul_B!,  2, 2),
-                      (:Ac_mul_Bc, :Ac_mul_Bc!, 2, 1),
-                      (:At_mul_B,  :At_mul_B!,  2, 2),
-                      (:At_mul_Bt, :At_mul_Bt!, 2, 1))
-  @eval begin
-    function $f(A::StridedMatrix{TA}, B::PartialSVD{TB}) where {TA,TB}
-      T = promote_type(TA, TB)
-      AT = (T == TA ? A : convert(Array{T}, A))
-      BT = convert(PartialSVD{T}, B)
-      CT = Array{T}(uninitialized, size(A,$i), size(B,$j))
-      $f!(CT, AT, BT)
+  for (f, f!, i, j) in ((:*,         :mul!,   1, 2),
+                        (:A_mul_Bc,  :A_mul_Bc!,  1, 1),
+                        (:A_mul_Bt,  :A_mul_Bt!,  1, 1),
+                        (:Ac_mul_B,  :Ac_mul_B!,  2, 2),
+                        (:Ac_mul_Bc, :Ac_mul_Bc!, 2, 1),
+                        (:At_mul_B,  :At_mul_B!,  2, 2),
+                        (:At_mul_Bt, :At_mul_Bt!, 2, 1))
+    @eval begin
+      function $f(A::PartialSVD{TA}, B::StridedMatrix{TB}) where {TA,TB}
+        T = promote_type(TA, TB)
+        AT = convert(PartialSVD{T}, A)
+        BT = (T == TB ? B : convert(Array{T}, B))
+        CT = Array{T}(undef, size(A,$i), size(B,$j))
+        $f!(CT, AT, BT)
+      end
+    end
+  end
+
+  ## right-multiplication
+  for (f, f!, i, j) in ((:*,         :mul!,   1, 2),
+                        (:A_mul_Bc,  :A_mul_Bc!,  1, 1),
+                        (:A_mul_Bt,  :A_mul_Bt!,  1, 1),
+                        (:Ac_mul_B,  :Ac_mul_B!,  2, 2),
+                        (:Ac_mul_Bc, :Ac_mul_Bc!, 2, 1),
+                        (:At_mul_B,  :At_mul_B!,  2, 2),
+                        (:At_mul_Bt, :At_mul_Bt!, 2, 1))
+    @eval begin
+      function $f(A::StridedMatrix{TA}, B::PartialSVD{TB}) where {TA,TB}
+        T = promote_type(TA, TB)
+        AT = (T == TA ? A : convert(Array{T}, A))
+        BT = convert(PartialSVD{T}, B)
+        CT = Array{T}(undef, size(A,$i), size(B,$j))
+        $f!(CT, AT, BT)
+      end
+    end
+  end
+else
+  ## left-multiplication
+
+  mul!(y::StridedVector{T}, A::PartialSVD{T}, x::StridedVector{T}) where {T} =
+    mul!(y, A[:U], scalevec!(A[:S], A[:Vt]*x))
+  mul!(C::StridedMatrix{T}, A::PartialSVD{T}, B::StridedMatrix{T}) where {T} =
+    mul!(C, A[:U], lmul!(Diagonal(A[:S]), A[:Vt]*B))
+
+  ## right-multiplication
+
+  mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialSVD{T}) where {T} =
+    mul!(C, rmul!(A*B[:U], Diagonal(B[:S])), B[:Vt])
+
+  for Adj in (:Adjoint, :Transpose)
+    @eval begin
+      function mul!(C::StridedMatrix{T}, A::PartialSVD{T}, Bc::$Adj{T,<:StridedMatrix{T}}) where T
+        tmp = A[:Vt] * Bc
+        lmul!(Diagonal(A[:S]), tmp)
+        mul!(C, A[:U], tmp)
+      end
+      function mul!(y::StridedVector{T}, Ac::$Adj{T,<:PartialSVD{T}}, x::StridedVector{T}) where T
+        A = parent(Ac)
+        tmp = $Adj(A[:U]) * x
+        scalevec!(A[:S], tmp)
+        mul!(y, $Adj(A[:Vt]), tmp)
+      end
+      function mul!(C::StridedMatrix{T}, Ac::$Adj{T,<:PartialSVD{T}}, B::StridedMatrix{T}) where T
+        A = parent(Ac)
+        tmp = $Adj(A[:U]) * B
+        lmul!(Diagonal(A[:S]), tmp)
+        mul!(C, $Adj(A[:Vt]), tmp)
+      end
+      function mul!(C::StridedMatrix{T}, Ac::$Adj{T,<:PartialSVD{T}}, Bc::$Adj{T,<:StridedMatrix{T}}) where T
+        A = parent(Ac)
+        tmp = $Adj(A[:U]) * Bc
+        lmul!(Diagonal(A[:S]), tmp)
+        mul!(C, $Adj(A[:Vt]), tmp)
+      end
+      ## right-multiplication
+      function mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, Bc::$Adj{T,<:PartialSVD{T}}) where T
+        B = parent(Bc)
+        tmp = A * $Adj(B[:Vt])
+        rmul!(tmp, Diagonal(B[:S]))
+        mul!(C, tmp, $Adj(B[:U]))
+      end
+      function mul!(C::StridedMatrix{T}, Ac::$Adj{T,<:StridedMatrix{T}}, B::PartialSVD{T}) where T
+        tmp = Ac * B[:U]
+        rmul!(tmp, Diagonal(B[:S]))
+        mul!(C, tmp, B[:Vt])
+      end
+      function mul!(C::StridedMatrix{T}, Ac::$Adj{T,<:StridedMatrix{T}}, Bc::$Adj{T,<:PartialSVD{T}}) where T
+        tmp = Ac * $Adj(B[:Vt])
+        rmul!(tmp, Diagonal(B[:S]))
+        mul!(C, tmp, $Adj(B[:U]))
+      end
+    end
+  end
+
+  ## left-division (pseudoinverse left-multiplication)
+  ldiv!(y::StridedVector{T}, A::PartialSVD{T}, x::StridedVector{T}) where {T} =
+    mul!(y, A[:Vt]', iscalevec!(A[:S], A[:U]'*x))
+  ldiv!(C::StridedMatrix{T}, A::PartialSVD{T}, B::StridedMatrix{T}) where {T} =
+    mul!(C, A[:Vt]', iscale!(A[:S], A[:U]'*B))
+
+  # standard operations
+
+  ## left-multiplication
+  function *(A::PartialSVD{TA}, B::StridedVector{TB}) where {TA,TB}
+    T = promote_type(TA, TB)
+    AT = convert(PartialSVD{T}, A)
+    BT = (T == TB ? B : convert(Array{T}, B))
+    CT = Array{T}(undef, size(A,1))
+    mul!(CT, AT, BT)
+  end
+
+  for Adj in (:Transpose, :Adjoint)
+    @eval begin
+      function *(Ac::$Adj{TA,<:PartialSVD{TA}}, B::StridedVector{TB}) where {TA,TB}
+        A = parent(Ac)
+        T = promote_type(TA, TB)
+        AT = convert(PartialSVD{T}, A)
+        BT = (T == TB ? B : convert(Array{T}, B))
+        CT = Array{T}(undef, size(Ac,1))
+        mul!(CT, $Adj(AT), BT)
+      end
+    end
+  end
+
+  function *(A::PartialSVD{TA}, B::StridedMatrix{TB}) where {TA,TB}
+    T = promote_type(TA, TB)
+    AT = convert(PartialSVD{T}, A)
+    BT = (T == TB ? B : convert(Array{T}, B))
+    CT = Array{T}(undef, size(A,1), size(B,2))
+    mul!(CT, AT, BT)
+  end
+  function *(A::StridedMatrix{TA}, B::PartialSVD{TB}) where {TA,TB}
+    T = promote_type(TA, TB)
+    AT = (T == TA ? A : convert(Array{T}, A))
+    BT = convert(PartialSVD{T}, B)
+    CT = Array{T}(undef, size(A,1), size(B,2))
+    mul!(CT, AT, BT)
+  end
+  for Adj in (:Transpose, :Adjoint)
+    @eval begin
+      function *(A::PartialSVD{TA}, Bc::$Adj{TB,<:StridedMatrix{TB}}) where {TA,TB}
+        B = parent(Bc)
+        T = promote_type(TA, TB)
+        AT = convert(PartialSVD{T}, A)
+        BT = (T == TB ? B : convert(Array{T}, B))
+        CT = Array{T}(undef, size(A,1), size(Bc,2))
+        mul!(CT, AT, $Adj(BT))
+      end
+      function *(Ac::$Adj{TA,<:PartialSVD{TA}}, B::StridedMatrix{TB}) where {TA,TB}
+        A = parent(Ac)
+        T = promote_type(TA, TB)
+        AT = convert(PartialSVD{T}, A)
+        BT = (T == TB ? B : convert(Array{T}, B))
+        CT = Array{T}(undef, size(Ac,1), size(B,2))
+        mul!(CT, $Adj(AT), BT)
+      end
+      function *(Ac::$Adj{TA,<:PartialSVD{TA}}, Bc::$Adj{TB,<:StridedMatrix{TB}}) where {TA,TB}
+        A = parent(Ac)
+        B = parent(Bc)
+        T = promote_type(TA, TB)
+        AT = convert(PartialSVD{T}, A)
+        BT = (T == TB ? B : convert(Array{T}, B))
+        CT = Array{T}(undef, size(Ac,1), size(Bc,2))
+        mul!(CT, $Adj(AT), $Adj(BT))
+      end
+      function *(A::StridedMatrix{TA}, Bc::$Adj{TB,<:PartialSVD{TB}}) where {TA,TB}
+        B = parent(Bc)
+        T = promote_type(TA, TB)
+        AT = (T == TA ? A : convert(Array{T}, A))
+        BT = convert(PartialSVD{T}, B)
+        CT = Array{T}(undef, size(A,1), size(Bc,2))
+        mul!(CT, AT, $Adj(BT))
+      end
+      function *(Ac::$Adj{TA,<:StridedMatrix{TA}}, B::PartialSVD{TB}) where {TA,TB}
+        A = parent(Ac)
+        T = promote_type(TA, TB)
+        AT = (T == TA ? A : convert(Array{T}, A))
+        BT = convert(PartialSVD{T}, B)
+        CT = Array{T}(undef, size(Ac,1), size(B,2))
+        mul!(CT, $Adj(AT), BT)
+      end
+      function *(Ac::$Adj{TA,<:StridedMatrix{TA}}, Bc::$Adj{TB,<:PartialSVD{TB}}) where {TA,TB}
+        A = parent(Ac)
+        B = parent(Bc)
+        T = promote_type(TA, TB)
+        AT = (T == TA ? A : convert(Array{T}, A))
+        BT = convert(PartialSVD{T}, B)
+        CT = Array{T}(undef, size(Ac,1), size(Bc,2))
+        mul!(CT, $Adj(AT), $Adj(BT))
+      end
     end
   end
 end
@@ -206,15 +368,15 @@ function \(A::PartialSVD{TA}, B::StridedVector{TB}) where {TA,TB}
   T = promote_type(TA, TB)
   AT = convert(PartialSVD{T}, A)
   BT = (T == TB ? B : convert(Array{T}, B))
-  CT = Array{T}(uninitialized, size(A,2))
-  A_ldiv_B!(CT, AT, BT)
+  CT = Array{T}(undef, size(A,2))
+  ldiv!(CT, AT, BT)
 end
 function \(A::PartialSVD{TA}, B::StridedMatrix{TB}) where {TA,TB}
   T = promote_type(TA, TB)
   AT = convert(PartialSVD{T}, A)
   BT = (T == TB ? B : convert(Array{T}, B))
-  CT = Array{T}(uninitialized, size(A,2), size(B,2))
-  A_ldiv_B!(CT, AT, BT)
+  CT = Array{T}(undef, size(A,2), size(B,2))
+  ldiv!(CT, AT, BT)
 end
 
 # factorization routines
@@ -225,33 +387,31 @@ function psvdfact(
   m, n = size(A)
   if m >= n
     V = idfact(:n, A, opts)
-    F = qrfact!(getcols(:n, A, V[:sk]))
-    Q = F[:Q]
-    F = svdfact!(F[:R]*V)
-    k = psvdrank(F[:S], opts)
+    Q,R = qr!(getcols(:n, A, V[:sk]))
+    Ũ, σ, Ṽ = svd!(R*V)
+    k = psvdrank(σ, opts)
     if k < V[:k]
-      U  = Q*view(F.U,:,1:k)
-      S  = F.S[1:k]
-      Vt = F.Vt[1:k,:]
+      U  = Q*view(Ũ,:,1:k)
+      S  = σ[1:k]
+      Vt = Ṽ'[1:k,:]
     else
-      U  = Q*F.U
-      S  = F.S
-      Vt = F.Vt
+      U  = Q*Ũ
+      S  = σ
+      Vt = Ṽ'
     end
   else
     V = idfact(:c, A, opts)
-    F = qrfact!(getcols(:c, A, V[:sk]))
-    Q = F[:Q]
-    F = svdfact!(V'*F[:R]')
-    k = psvdrank(F[:S], opts)
+    Q,R = qr!(getcols(:c, A, V[:sk]))
+    Ũ, σ, Ṽ = svd!(V'*R')
+    k = psvdrank(σ, opts)
     if k < V[:k]
-      U  = F.U[:,1:k]
-      S  = F.S[1:k]
-      Vt = view(F.Vt,1:k,:)*Q'
+      U  = Ũ[:,1:k]
+      S  = σ[1:k]
+      Vt = view(Ṽ',1:k,:)*Q'
     else
-      U  = F.U
-      S  = F.S
-      Vt = F.Vt*Q'
+      U  = Ũ
+      S  = σ
+      Vt = Ṽ'*Q'
     end
   end
   PartialSVD(U, S, Vt)
@@ -263,12 +423,12 @@ function psvdvals(
   m, n = size(A)
   if m >= n
     V = idfact(:n, A, opts)
-    F = qrfact!(getcols(:n, A, V[:sk]))
-    s = svdvals!(F[:R]*V)
+    Q,R = qr!(getcols(:n, A, V[:sk]))
+    s = svdvals!(R*V)
   else
     V = idfact(:c, A, opts)
-    F = qrfact!(getcols(:c, A, V[:sk]))
-    s = svdvals!(V'*F[:R]')
+    Q,R = qr!(getcols(:c, A, V[:sk]))
+    s = svdvals!(V'*R')
   end
   k = psvdrank(s, opts)
   k < V[:k] && return s[1:k]
