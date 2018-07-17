@@ -44,7 +44,7 @@ similar(L::LowRankMatrix, ::Type{T}, dims::Dims{2}) where {T} = LowRankMatrix{T}
 similar(L::LowRankMatrix{T}) where {T} = LowRankMatrix{T}(undef, size(L), rank(L))
 similar(L::LowRankMatrix{T}, dims::Dims{2}) where {T} = LowRankMatrix(undef, dims, rank(L))
 similar(L::LowRankMatrix{T}, m::Int) where {T} = Vector{T}(undef, m)
-similar(L::LowRankMatrix{T}, S) where {T} = LowRankMatrix{S}(undef, size(L), rank(L))
+similar(L::LowRankMatrix{T}, ::Type{S}) where {S,T} = LowRankMatrix{S}(undef, size(L), rank(L))
 
 function LowRankMatrix{T}(A::AbstractMatrix{T}) where T
     U,Σ,V = svd(A)
