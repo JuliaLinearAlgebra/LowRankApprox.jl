@@ -39,6 +39,8 @@ using LowRankApprox, Compat, FillArrays, Compat.Test
         @test LowRankMatrix{Float64}(fill(x,10,5)) == LowRankMatrix(fill(x,10,5))  ==
                     LowRankMatrix{Float64}(fill(x,10,5))
         @test rank(LowRankMatrix(Fill(x,10,5))) == 1
+
+
     end
 
 
@@ -57,10 +59,24 @@ using LowRankApprox, Compat, FillArrays, Compat.Test
 
         B = LowRankApprox._LowRankMatrix(randn(12,2), randn(14,2))
 
+        @test A*B isa LowRankMatrix
         @test rank(A*B) == size((A*B).U,2) == 4
 
-
         @test Matrix(A)*Matrix(B) ≈ Matrix(A*Matrix(B)) ≈ Matrix(Matrix(A)*B) ≈ Matrix(A*B)
+
+        B = LowRankApprox._LowRankMatrix(randn(10,2), randn(14,2))
+        @test_throws DimensionMismatch A*B
+        @test_throws DimensionMismatch B*A
+
+        B = randn(12,14)
+        @test A*B isa LowRankMatrix
+        @test rank(A*B) == size((A*B).U,2) == 4
+        @test Matrix(A)*B ≈ Matrix(A*B)
+
+        B = randn(20,20)
+        @test B*A isa LowRankMatrix
+        @test rank(B*A) == size((B*A).U,2) == 4
+        @test B*Matrix(A) ≈ Matrix(B*A)
 
         v = randn(12)
         @test all(LowRankApprox.mul!(randn(size(A,1)), A, v) .=== A*v )

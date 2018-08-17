@@ -153,7 +153,7 @@ for op in (:+,:-)
         $op(L::LowRankMatrix,a::Number) = $op(L, LowRankMatrix(Fill(a,size(L))))
 
         function $op(L::LowRankMatrix, M::LowRankMatrix)
-            @assert size(L) == size(M)
+            size(L) == size(M) || throw(DimensionMismatch("A has dimensions $(size(L)) but B has dimensions $(size(M))"))
             _LowRankMatrix(hcat(L.U,$op(M.U)), hcat(L.V,M.V))
         end
         $op(L::LowRankMatrix,A::Matrix) = $op(promote(L,A)...)
