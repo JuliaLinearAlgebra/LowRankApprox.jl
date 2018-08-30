@@ -64,11 +64,11 @@ mul!(y::StridedVector{T}, A::PartialHermEigen{T}, x::StridedVector{T}) where {T}
     mul!(C, A[:vectors], lmul!(Diagonal(A[:values]), A[:vectors]'*Bc))
   mul!(C::StridedMatrix{T}, A::PartialHermEigen{T}, Bt::Transpose{T,<:StridedMatrix{T}}) where {T<:Real} =
     mul!(C, A, parent(Bt)')
-  A_mul_Bt!!(C::StridedMatrix{T}, A::PartialHermEigen{T}, B::StridedMatrix{T}) where {T<:Complex} =
-    mul!(C, A, conj!(B)')  # overwrites B
+  mul!!(C::StridedMatrix{T}, A::PartialHermEigen{T}, Bt::Transpose{T,<:StridedMatrix{T}}) where {T<:Complex} =
+    mul!(C, A, conj!(parent(Bt))')  # overwrites B
   function mul!(C::StridedMatrix{T}, A::PartialHermEigen{T}, Bt::Transpose{T,<:StridedMatrix{T}}) where T<:Complex
     B = parent(Bt)
-    size(B, 1) <= A[:k] && return A_mul_Bt!!(C, A, copy(B))
+    size(B, 1) <= A[:k] && return mul!!(C, A, transpose(copy(B)))
     tmp = (A[:vectors]')*transpose(B)
     lmul!(Diagonal(A[:values]), tmp)
     mul!(C, A[:vectors], tmp)
