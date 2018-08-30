@@ -1,4 +1,4 @@
-using LowRankApprox, Compat, FillArrays, Compat.Test
+using LowRankApprox, FillArrays, Test
 
 @testset "LowRankMatrix" begin
     @testset "Constructors" begin

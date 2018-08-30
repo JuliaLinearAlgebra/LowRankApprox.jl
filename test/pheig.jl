@@ -23,7 +23,7 @@
 
           A = convert(Array{T}, T <: Real ? real(M) : M)
           F = pheigfact(A, opts)
-          @test norm(A - full(F)) < approx_rtol*norm(A)
+          @test norm(A - Matrix(F)) < approx_rtol*norm(A)
 
           s = pheigvals(A, opts, rank=F[:k], rtol=0.)
           @test norm(s - F[:values]) < approx_rtol*norm(s)

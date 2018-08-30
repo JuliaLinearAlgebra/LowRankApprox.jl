@@ -162,7 +162,7 @@ Linear operators can be scaled, added, and composed together using the usual syn
 
 ## Low-Rank Factorizations
 
-We now detail the various low-rank approximations implemented, which all nominally return compact `Factorization` types storing the matrix factors in structured form. All such factorizations provide optimized multiplication routines. Furthermore, the rank of any factorization `F` can be queried with `F[:k]` and the matrix approximant defined by `F` can be reconstructed as `full(F)`. For concreteness of exposition, assume in the following that `A` has size `m` by `n` with factorization rank `F[:k] = k`. Note that certain matrix identities below should be interpreted only as equalities up to the approximation precision.
+We now detail the various low-rank approximations implemented, which all nominally return compact `Factorization` types storing the matrix factors in structured form. All such factorizations provide optimized multiplication routines. Furthermore, the rank of any factorization `F` can be queried with `F[:k]` and the matrix approximant defined by `F` can be reconstructed as `Matrix(F)`. For concreteness of exposition, assume in the following that `A` has size `m` by `n` with factorization rank `F[:k] = k`. Note that certain matrix identities below should be interpreted only as equalities up to the approximation precision.
 
 ### QR Decomposition
 

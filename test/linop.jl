@@ -16,10 +16,10 @@
       L = LinearOperator(A)
       @test isa(L, t)
 
-      F = full(L)
+      F = Matrix(L)
 
       @test A ≈ F
-      @test F' ≈ full(L')
+      @test F' ≈ Matrix(L')
       @test A ≈ L*Matrix(1.0I,n,n)
       @test A ≈ Matrix(1.0I,n,n)*L
 

@@ -15,7 +15,7 @@
 
           A = t{T}(T <: Real ? real(data) : data)
           m, n = size(A)
-          F = full(A)
+          F = Matrix(A)
           @test trilu(A.data) ≈ F
 
           xm = rand(T, m)

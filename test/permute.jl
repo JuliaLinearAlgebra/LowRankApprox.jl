@@ -9,7 +9,7 @@
     println("  $t")
 
     A = t(p)
-    P = full(A)
+    P = Matrix(A)
     @test P == sparse(A)
     @test P == A*Matrix(I,n,n)
     @test P == Matrix(I,n,n)*A

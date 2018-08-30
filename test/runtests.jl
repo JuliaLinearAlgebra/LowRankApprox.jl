@@ -1,13 +1,10 @@
-using Compat
-using Compat.Test
+using Test
 using LowRankApprox
-using Compat.LinearAlgebra, Compat.Random, Compat.SparseArrays
+using LinearAlgebra, Random, SparseArrays
 
-if VERSION < v"0.7"
-    srand(0)
-else
-    Random.seed!(0)
-end
+
+Random.seed!(0)
+
 
 include("linop.jl")
 include("permute.jl")

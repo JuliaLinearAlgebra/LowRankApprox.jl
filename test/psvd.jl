@@ -1,4 +1,4 @@
-using LowRankApprox, Compat.Test, Compat
+using LowRankApprox, Test
 
 #= test/psvd.jl
 =#
@@ -26,7 +26,7 @@ using LowRankApprox, Compat.Test, Compat
           A = convert(Array{T}, T <: Real ? real(M) : M)
 
           F = psvdfact(A, opts)
-          @test norm(A - full(F)) < approx_rtol*norm(A)
+          @test norm(A - Matrix(F)) < approx_rtol*norm(A)
 
           s = psvdvals(A, opts, rank=F[:k], rtol=0.)
           @test norm(s - F[:S]) < approx_rtol*norm(s)

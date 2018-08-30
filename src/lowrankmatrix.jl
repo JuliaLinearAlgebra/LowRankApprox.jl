@@ -103,7 +103,7 @@ for MAT in (:LowRankMatrix, :AbstractMatrix, :AbstractArray)
     @eval convert(::Type{$MAT{T}}, L::LowRankMatrix) where {T} =
         _LowRankMatrix(convert(Matrix{T}, L.U), convert(Matrix{T}, L.V))
 end
-convert(::Type{Matrix{T}}, L::LowRankMatrix) where {T} = convert(Matrix{T}, full(L))
+convert(::Type{Matrix{T}}, L::LowRankMatrix) where {T} = convert(Matrix{T}, Matrix(L))
 promote_rule(::Type{LowRankMatrix{T}}, ::Type{LowRankMatrix{V}}) where {T,V} = LowRankMatrix{promote_type(T,V)}
 promote_rule(::Type{LowRankMatrix{T}}, ::Type{Matrix{V}}) where {T,V} = Matrix{promote_type(T,V)}
 
@@ -133,7 +133,7 @@ end
 getindex(L::LowRankMatrix, i::Int, jr::AbstractRange) = transpose(eltype(L)[L[i,j] for j=jr])
 getindex(L::LowRankMatrix, ir::AbstractRange, j::Int) = eltype(L)[L[i,j] for i=ir]
 getindex(L::LowRankMatrix, ir::AbstractRange, jr::AbstractRange) = eltype(L)[L[i,j] for i=ir,j=jr]
-full(L::LowRankMatrix) = L[1:size(L,1),1:size(L,2)]
+Matrix(L::LowRankMatrix) = L[1:size(L,1),1:size(L,2)]
 
 # constructors
 
@@ -165,32 +165,7 @@ end
 *(L::LowRankMatrix, a::Number) = _LowRankMatrix(L.U,L.V*a)
 
 # override default:
-if VERSION < v"0.7-"
-    Base.A_mul_Bc(A::LowRankMatrix, B::LowRankMatrix) = A*adjoint(B)
 
-    function mul!(b::AbstractVector, L::LowRankMatrix, x::AbstractVector)
-        temp = zeros(promote_type(eltype(L),eltype(x)), rank(L))
-        At_mul_B!(temp, L.V, x)
-        mul!(b, L.U, temp)
-        b
-    end
-    function *(L::LowRankMatrix, M::LowRankMatrix)
-        T = promote_type(eltype(L),eltype(M))
-        temp = zeros(T,rank(L),rank(M))
-        At_mul_B!(temp,L.V,M.U)
-        V = zeros(T,size(M,2),rank(L))
-        A_mul_Bt!(V,M.V,temp)
-        _LowRankMatrix(copy(L.U),V)
-    end
-
-
-
-    function *(L::LowRankMatrix, A::Matrix)
-        V = zeros(promote_type(eltype(L),eltype(A)),size(A,2),rank(L))
-        At_mul_B!(V,A,L.V)
-        _LowRankMatrix(copy(L.U),V)
-    end
-else
     *(A::LowRankMatrix, B::Adjoint{T,LowRankMatrix{T}}) where T = A*adjoint(B)
 
     function mul!(b::AbstractVector, L::LowRankMatrix, x::AbstractVector)
@@ -215,7 +190,7 @@ else
         mul!(V, transpose(A), L.V)
         _LowRankMatrix(copy(L.U),V)
     end
-end
+
 
 
 function *(A::Matrix, L::LowRankMatrix)

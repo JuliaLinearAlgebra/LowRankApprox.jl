@@ -11,38 +11,6 @@ References:
 =#
 
 # spectral norm
-if VERSION < v"0.7-"
-  function snorm(A::AbstractLinOp{T}, opts::LRAOptions=LRAOptions(T); args...) where T
-    opts = isempty(args) ? opts : copy(opts; args...)
-    m, n   = size(A)
-    isherm = ishermitian(A)
-    xn     = crandn(T, n)
-    xm     = Array{T}(undef, m)
-    xnrm   = vecnorm(xn)
-    s      = one(real(T))
-    t      = 0
-    niter  = 0
-    while s > 0 && abs(s - t) > max(opts.atol, t*opts.rtol)
-      if niter == opts.snorm_niter
-        opts.verb && warn("iteration limit ($(opts.snorm_niter)) reached")
-        break
-      end
-      niter += 1
-      rmul!(xn, 1/xnrm)
-      if isherm
-        mul!(xm, A, xn)
-        copyto!(xn, xm)
-      else
-         mul!(xm, A, xn)
-        Ac_mul_B!(xn, A, xm)
-      end
-      xnrm = vecnorm(xn)
-      t = s
-      s = isherm ? xnrm : sqrt(xnrm)
-    end
-    s
-  end
-else
   function snorm(A::AbstractLinOp{T}, opts::LRAOptions=LRAOptions(T); args...) where T
     opts = isempty(args) ? opts : copy(opts; args...)
     m, n   = size(A)
@@ -73,7 +41,7 @@ else
     end
     s
   end
-end
+
 snorm(A, args...; kwargs...) = snorm(LinOp(A), args...; kwargs...)
 
 # spectral norm difference

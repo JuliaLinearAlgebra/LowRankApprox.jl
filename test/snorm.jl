@@ -1,10 +1,6 @@
 #= test/snorm.jl
 =#
 
-if VERSION < v"0.7-"
-  opnorm(A) = norm(A)
-end
-
 @testset "snorm" begin
   m = 20
   n = 10
