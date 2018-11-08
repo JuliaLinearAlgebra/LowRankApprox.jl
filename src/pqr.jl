@@ -87,26 +87,39 @@ size(A::PartialQR, dim::Integer) =
 
   ## left-multiplication
 
-  function mul!!(C::StridedVecOrMat{T}, A::PartialQR{T}, B::StridedVecOrMat{T}) where T
+function mul!!(C::AbstractVector{T}, A::PartialQR{T}, B::AbstractVector{T}) where T
     lmul!(A[:P]', B)
     mul!(C, A[:Q], A[:R]*B)
-  end  # overwrites B
-  mul!(C::StridedVecOrMat{T}, A::PartialQR{T}, B::StridedVecOrMat{T}) where {T} =
+end  # overwrites B
+function mul!!(C::AbstractMatrix{T}, A::PartialQR{T}, B::AbstractMatrix{T}) where T
+    lmul!(A[:P]', B)
+    mul!(C, A[:Q], A[:R]*B)
+end  # overwrites B
+mul!(C::AbstractVector{T}, A::PartialQR{T}, B::AbstractVector{T}) where {T} =
+    mul!!(C, A, copy(B))
+
+mul!(C::AbstractMatrix{T}, A::PartialQR{T}, B::AbstractMatrix{T}) where {T} =
     mul!!(C, A, copy(B))
 
   for Adj in (:Transpose, :Adjoint)
     @eval begin
-      function mul!(C::StridedMatrix{T}, A::PartialQR{T}, Bc::$Adj{T,<:StridedMatrix{T}}) where T
+      function mul!(C::AbstractMatrix{T}, A::PartialQR{T}, Bc::$Adj{T,<:AbstractMatrix{T}}) where T
         tmp = $Adj(A[:P]) * Bc
         mul!(C, A[:Q], A[:R]*tmp)
       end
-      function mul!(C::StridedVecOrMat{T}, Ac::$Adj{T,PartialQR{T}}, B::StridedVecOrMat{T}) where T
+      function mul!(C::AbstractVector{T}, Ac::$Adj{T,PartialQR{T}}, B::AbstractVector{T}) where T
         A = parent(Ac)
         tmp = $Adj(A[:Q]) * B
         mul!(C, $Adj(A[:R]), tmp)
         lmul!(A[:P], C)
       end
-      function mul!(C::StridedMatrix{T}, Ac::$Adj{T,PartialQR{T}}, Bc::$Adj{T,<:StridedMatrix{T}}) where T
+      function mul!(C::AbstractMatrix{T}, Ac::$Adj{T,PartialQR{T}}, B::AbstractMatrix{T}) where T
+        A = parent(Ac)
+        tmp = $Adj(A[:Q]) * B
+        mul!(C, $Adj(A[:R]), tmp)
+        lmul!(A[:P], C)
+      end
+      function mul!(C::AbstractMatrix{T}, Ac::$Adj{T,PartialQR{T}}, Bc::$Adj{T,<:AbstractMatrix{T}}) where T
         A = parent(Ac)
         tmp = $Adj(A[:Q]) * Bc
         mul!(C, $Adj(A[:R]), tmp)
@@ -118,27 +131,27 @@ size(A::PartialQR, dim::Integer) =
 
   ## right-multiplication
 
-  function mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialQR{T}) where T
+  function mul!(C::AbstractMatrix{T}, A::AbstractMatrix{T}, B::PartialQR{T}) where T
     mul!(C, A*B[:Q], B[:R])
     rmul!(C, B[:P]')
   end
 
   for Adj in (:Transpose, :Adjoint)
     @eval begin
-      function mul!!(C::StridedMatrix{T}, A::StridedMatrix{T}, Bc::$Adj{T,PartialQR{T}}) where T
+      function mul!!(C::AbstractMatrix{T}, A::AbstractMatrix{T}, Bc::$Adj{T,PartialQR{T}}) where T
         B = parent(Bc)
         rmul!(A, B[:P])
         tmp = A * $Adj(B[:R])
         mul!(C, tmp, $Adj(B[:Q]))
       end  # overwrites A
-      mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, Bc::$Adj{T,PartialQR{T}}) where {T} =
+      mul!(C::AbstractMatrix{T}, A::AbstractMatrix{T}, Bc::$Adj{T,PartialQR{T}}) where {T} =
         mul!!(C, copy(A), Bc)
-      function mul!(C::StridedMatrix{T}, Ac::$Adj{T,<:StridedMatrix{T}}, B::PartialQR{T}) where T
+      function mul!(C::AbstractMatrix{T}, Ac::$Adj{T,<:AbstractMatrix{T}}, B::PartialQR{T}) where T
         tmp = Ac * B[:Q]
         mul!(C, tmp, B[:R])
         rmul!(C, $Adj(B[:P]))
       end
-      function mul!(C::StridedMatrix{T}, Ac::$Adj{T,<:StridedMatrix{T}}, Bc::$Adj{T,PartialQR{T}}) where T
+      function mul!(C::AbstractMatrix{T}, Ac::$Adj{T,<:AbstractMatrix{T}}, Bc::$Adj{T,PartialQR{T}}) where T
         B = parent(Bc)
         tmp = Ac * B[:P]
         tmp = tmp * $Adj(B[:R])
@@ -149,31 +162,37 @@ size(A::PartialQR, dim::Integer) =
 
 
   ## left-division (pseudoinverse left-multiplication)
-  function ldiv!(C::StridedVecOrMat{T}, A::PartialQR{T}, B::StridedVecOrMat{T}) where T
+  function ldiv!(C::AbstractVector{T}, A::PartialQR{T}, B::AbstractVector{T}) where T
     tmp = (A[:R]*A.R')\(A[:Q]'*B)
     mul!(C, A[:R]', tmp)
     lmul!(A[:P], C)
   end
 
+function ldiv!(C::AbstractMatrix{T}, A::PartialQR{T}, B::AbstractMatrix{T}) where T
+    tmp = (A[:R]*A.R')\(A[:Q]'*B)
+    mul!(C, A[:R]', tmp)
+    lmul!(A[:P], C)
+end
+
   # standard operations
 
   ## left-multiplication
 
-  function *(A::PartialQR{TA}, B::StridedVector{TB}) where {TA,TB}
+  function *(A::PartialQR{TA}, B::AbstractVector{TB}) where {TA,TB}
     T = promote_type(TA, TB)
     AT = convert(PartialQR{T}, A)
     BT = (T == TB ? B : convert(Array{T}, B))
     CT = Array{T}(undef, size(A,1))
     mul!(CT, AT, BT)
   end
-  function *(A::PartialQR{TA}, B::StridedMatrix{TB}) where {TA,TB}
+  function *(A::PartialQR{TA}, B::AbstractMatrix{TB}) where {TA,TB}
     T = promote_type(TA, TB)
     AT = convert(PartialQR{T}, A)
     BT = (T == TB ? B : convert(Array{T}, B))
     CT = Array{T}(undef, size(A,1), size(B,2))
     mul!(CT, AT, BT)
   end
-  function *(A::StridedMatrix{TA}, B::PartialQR{TB}) where {TA,TB}
+  function *(A::AbstractMatrix{TA}, B::PartialQR{TB}) where {TA,TB}
     T = promote_type(TA, TB)
     AT = (T == TA ? A : convert(Array{T}, A))
     BT = convert(PartialQR{T}, B)
@@ -183,7 +202,7 @@ size(A::PartialQR, dim::Integer) =
 
   for Adj in (:Transpose, :Adjoint)
     @eval begin
-      function *(Ac::$Adj{TA,PartialQR{TA}}, B::StridedVector{TB}) where {TA,TB}
+      function *(Ac::$Adj{TA,PartialQR{TA}}, B::AbstractVector{TB}) where {TA,TB}
         A = parent(Ac)
         T = promote_type(TA, TB)
         AT = convert(PartialQR{T}, A)
@@ -191,7 +210,7 @@ size(A::PartialQR, dim::Integer) =
         CT = Array{T}(undef, size(Ac,1))
         mul!(CT, $Adj(AT), BT)
       end
-      function *(A::PartialQR{TA}, Bc::$Adj{TB,<:StridedMatrix{TB}}) where {TA,TB}
+      function *(A::PartialQR{TA}, Bc::$Adj{TB,<:AbstractMatrix{TB}}) where {TA,TB}
         B = parent(Bc)
         T = promote_type(TA, TB)
         AT = convert(PartialQR{T}, A)
@@ -199,7 +218,7 @@ size(A::PartialQR, dim::Integer) =
         CT = Array{T}(undef, size(A,1), size(Bc,2))
         mul!(CT, AT, $Adj(BT))
       end
-      function *(Ac::$Adj{TA,PartialQR{TA}}, B::StridedMatrix{TB}) where {TA,TB}
+      function *(Ac::$Adj{TA,PartialQR{TA}}, B::AbstractMatrix{TB}) where {TA,TB}
         A = parent(Ac)
         T = promote_type(TA, TB)
         AT = convert(PartialQR{T}, A)
@@ -207,7 +226,7 @@ size(A::PartialQR, dim::Integer) =
         CT = Array{T}(undef, size(Ac,1), size(B,2))
         mul!(CT, $Adj(AT), BT)
       end
-      function *(Ac::$Adj{TA,PartialQR{TA}}, Bc::$Adj{TB,<:StridedMatrix{TB}}) where {TA,TB}
+      function *(Ac::$Adj{TA,PartialQR{TA}}, Bc::$Adj{TB,<:AbstractMatrix{TB}}) where {TA,TB}
         A = parent(Ac)
         B = parent(Bc)
         T = promote_type(TA, TB)
@@ -216,7 +235,7 @@ size(A::PartialQR, dim::Integer) =
         CT = Array{T}(undef, size(Ac,1), size(Bc,2))
         mul!(CT, $Adj(AT), $Adj(BT))
       end
-      function *(A::StridedMatrix{TA}, Bc::$Adj{TB,PartialQR{TB}}) where {TA,TB}
+      function *(A::AbstractMatrix{TA}, Bc::$Adj{TB,PartialQR{TB}}) where {TA,TB}
         B = parent(Bc)
         T = promote_type(TA, TB)
         AT = (T == TA ? A : convert(Array{T}, A))
@@ -224,7 +243,7 @@ size(A::PartialQR, dim::Integer) =
         CT = Array{T}(undef, size(A,1), size(Bc,2))
         mul!(CT, AT, $Adj(BT))
       end
-      function *(Ac::$Adj{TA,<:StridedMatrix{TA}}, B::PartialQR{TB}) where {TA,TB}
+      function *(Ac::$Adj{TA,<:AbstractMatrix{TA}}, B::PartialQR{TB}) where {TA,TB}
         A = parent(Ac)
         T = promote_type(TA, TB)
         AT = (T == TA ? A : convert(Array{T}, A))
@@ -232,7 +251,7 @@ size(A::PartialQR, dim::Integer) =
         CT = Array{T}(undef, size(Ac,1), size(B,2))
         mul!(CT, $Adj(AT), BT)
       end
-      function *(Ac::$Adj{TA,<:StridedMatrix{TA}}, Bc::$Adj{TB,PartialQR{TB}}) where {TA,TB}
+      function *(Ac::$Adj{TA,<:AbstractMatrix{TA}}, Bc::$Adj{TB,PartialQR{TB}}) where {TA,TB}
         A = parent(Ac)
         B = parent(Bc)
         T = promote_type(TA, TB)
@@ -246,14 +265,14 @@ size(A::PartialQR, dim::Integer) =
 
 
 ## left-division
-function \(A::PartialQR{TA}, B::StridedVector{TB}) where {TA,TB}
+function \(A::PartialQR{TA}, B::AbstractVector{TB}) where {TA,TB}
   T = promote_type(TA, TB)
   AT = convert(PartialQR{T}, A)
   BT = (T == TB ? B : convert(Array{T}, B))
   CT = Array{T}(undef, size(A,2))
   ldiv!(CT, AT, BT)
 end
-function \(A::PartialQR{TA}, B::StridedMatrix{TB}) where {TA,TB}
+function \(A::PartialQR{TA}, B::AbstractMatrix{TB}) where {TA,TB}
   T = promote_type(TA, TB)
   AT = convert(PartialQR{T}, A)
   BT = (T == TB ? B : convert(Array{T}, B))
@@ -320,12 +339,12 @@ function pqrr(R::Matrix{S}, T::Matrix{S}) where S
 end
 
 ## core backend routine: rank-adaptive GEQP3 with determinant maximization
-function pqrfact_backend!(A::StridedMatrix, opts::LRAOptions)
+function pqrfact_backend!(A::AbstractMatrix, opts::LRAOptions)
   p, tau, k = geqp3_adap!(A, opts)
   pqrback_postproc(A, p, tau, k, opts)
 end
 
-function geqp3_adap!(A::StridedMatrix{T}, opts::LRAOptions) where T
+function geqp3_adap!(A::AbstractMatrix{T}, opts::LRAOptions) where T
   m, n = size(A)
   jpvt = collect(BlasInt, 1:n)
   l    = min(m, n)
@@ -339,7 +358,7 @@ function geqp3_adap!(A::StridedMatrix{T}, opts::LRAOptions) where T
 end
 
 function geqp3_adap_main!(
-    A::StridedMatrix{T}, jpvt::Vector{BlasInt}, tau::Vector{T},
+    A::AbstractMatrix{T}, jpvt::Vector{BlasInt}, tau::Vector{T},
     opts::LRAOptions) where T<:BlasFloat
   chkstride1(A)
   lda = stride(A, 2)
@@ -398,7 +417,7 @@ function geqp3_adap_main!(
 end
 
 function pqrback_postproc(
-    A::StridedMatrix{S}, p::Vector{Int}, tau::Vector{S}, k::Integer,
+    A::AbstractMatrix{S}, p::Vector{Int}, tau::Vector{S}, k::Integer,
     opts::LRAOptions) where S
   retq = occursin("q", opts.pqrfact_retval)
   retr = occursin("r", opts.pqrfact_retval)
@@ -415,7 +434,7 @@ function pqrback_postproc(
   PQRFactors(Q, R, p, k, T)
 end
 
-function maxdet_t(R::StridedMatrix{S}) where S
+function maxdet_t(R::AbstractMatrix{S}) where S
   k, n = size(R)
   T = R[:,k+1:n]
   ldiv!(UpperTriangular(view(R,1:k,1:k)), T)
@@ -456,7 +475,7 @@ end
 
 ## column swap update based on Sherman-Morrison
 function maxdet_update!(
-    R1::StridedMatrix{S}, p::Vector{Int}, T::Matrix{S}, work::Vector{S},
+    R1::AbstractMatrix{S}, p::Vector{Int}, T::Matrix{S}, work::Vector{S},
     i::Integer, j::Integer, retr::Bool) where S
   k, n = size(T)
   n += k

@@ -62,54 +62,54 @@ size(A::PartialSVD, dim::Integer) =
 
   ## left-multiplication
 
-  mul!(y::StridedVector{T}, A::PartialSVD{T}, x::StridedVector{T}) where {T} =
+  mul!(y::AbstractVector{T}, A::PartialSVD{T}, x::AbstractVector{T}) where {T} =
     mul!(y, A[:U], scalevec!(A[:S], A[:Vt]*x))
-  mul!(C::StridedMatrix{T}, A::PartialSVD{T}, B::StridedMatrix{T}) where {T} =
+  mul!(C::AbstractMatrix{T}, A::PartialSVD{T}, B::AbstractMatrix{T}) where {T} =
     mul!(C, A[:U], lmul!(Diagonal(A[:S]), A[:Vt]*B))
 
   ## right-multiplication
 
-  mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialSVD{T}) where {T} =
+  mul!(C::AbstractMatrix{T}, A::AbstractMatrix{T}, B::PartialSVD{T}) where {T} =
     mul!(C, rmul!(A*B[:U], Diagonal(B[:S])), B[:Vt])
 
   for Adj in (:Adjoint, :Transpose)
     @eval begin
-      function mul!(C::StridedMatrix{T}, A::PartialSVD{T}, Bc::$Adj{T,<:StridedMatrix{T}}) where T
+      function mul!(C::AbstractMatrix{T}, A::PartialSVD{T}, Bc::$Adj{T,<:AbstractMatrix{T}}) where T
         tmp = A[:Vt] * Bc
         lmul!(Diagonal(A[:S]), tmp)
         mul!(C, A[:U], tmp)
       end
-      function mul!(y::StridedVector{T}, Ac::$Adj{T,<:PartialSVD{T}}, x::StridedVector{T}) where T
+      function mul!(y::AbstractVector{T}, Ac::$Adj{T,<:PartialSVD{T}}, x::AbstractVector{T}) where T
         A = parent(Ac)
         tmp = $Adj(A[:U]) * x
         scalevec!(A[:S], tmp)
         mul!(y, $Adj(A[:Vt]), tmp)
       end
-      function mul!(C::StridedMatrix{T}, Ac::$Adj{T,<:PartialSVD{T}}, B::StridedMatrix{T}) where T
+      function mul!(C::AbstractMatrix{T}, Ac::$Adj{T,<:PartialSVD{T}}, B::AbstractMatrix{T}) where T
         A = parent(Ac)
         tmp = $Adj(A[:U]) * B
         lmul!(Diagonal(A[:S]), tmp)
         mul!(C, $Adj(A[:Vt]), tmp)
       end
-      function mul!(C::StridedMatrix{T}, Ac::$Adj{T,<:PartialSVD{T}}, Bc::$Adj{T,<:StridedMatrix{T}}) where T
+      function mul!(C::AbstractMatrix{T}, Ac::$Adj{T,<:PartialSVD{T}}, Bc::$Adj{T,<:AbstractMatrix{T}}) where T
         A = parent(Ac)
         tmp = $Adj(A[:U]) * Bc
         lmul!(Diagonal(A[:S]), tmp)
         mul!(C, $Adj(A[:Vt]), tmp)
       end
       ## right-multiplication
-      function mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, Bc::$Adj{T,<:PartialSVD{T}}) where T
+      function mul!(C::AbstractMatrix{T}, A::AbstractMatrix{T}, Bc::$Adj{T,<:PartialSVD{T}}) where T
         B = parent(Bc)
         tmp = A * $Adj(B[:Vt])
         rmul!(tmp, Diagonal(B[:S]))
         mul!(C, tmp, $Adj(B[:U]))
       end
-      function mul!(C::StridedMatrix{T}, Ac::$Adj{T,<:StridedMatrix{T}}, B::PartialSVD{T}) where T
+      function mul!(C::AbstractMatrix{T}, Ac::$Adj{T,<:AbstractMatrix{T}}, B::PartialSVD{T}) where T
         tmp = Ac * B[:U]
         rmul!(tmp, Diagonal(B[:S]))
         mul!(C, tmp, B[:Vt])
       end
-      function mul!(C::StridedMatrix{T}, Ac::$Adj{T,<:StridedMatrix{T}}, Bc::$Adj{T,<:PartialSVD{T}}) where T
+      function mul!(C::AbstractMatrix{T}, Ac::$Adj{T,<:AbstractMatrix{T}}, Bc::$Adj{T,<:PartialSVD{T}}) where T
         tmp = Ac * $Adj(B[:Vt])
         rmul!(tmp, Diagonal(B[:S]))
         mul!(C, tmp, $Adj(B[:U]))
@@ -118,15 +118,15 @@ size(A::PartialSVD, dim::Integer) =
   end
 
   ## left-division (pseudoinverse left-multiplication)
-  ldiv!(y::StridedVector{T}, A::PartialSVD{T}, x::StridedVector{T}) where {T} =
+  ldiv!(y::AbstractVector{T}, A::PartialSVD{T}, x::AbstractVector{T}) where {T} =
     mul!(y, A[:Vt]', iscalevec!(A[:S], A[:U]'*x))
-  ldiv!(C::StridedMatrix{T}, A::PartialSVD{T}, B::StridedMatrix{T}) where {T} =
+  ldiv!(C::AbstractMatrix{T}, A::PartialSVD{T}, B::AbstractMatrix{T}) where {T} =
     mul!(C, A[:Vt]', iscale!(A[:S], A[:U]'*B))
 
   # standard operations
 
   ## left-multiplication
-  function *(A::PartialSVD{TA}, B::StridedVector{TB}) where {TA,TB}
+  function *(A::PartialSVD{TA}, B::AbstractVector{TB}) where {TA,TB}
     T = promote_type(TA, TB)
     AT = convert(PartialSVD{T}, A)
     BT = (T == TB ? B : convert(Array{T}, B))
@@ -136,7 +136,7 @@ size(A::PartialSVD, dim::Integer) =
 
   for Adj in (:Transpose, :Adjoint)
     @eval begin
-      function *(Ac::$Adj{TA,<:PartialSVD{TA}}, B::StridedVector{TB}) where {TA,TB}
+      function *(Ac::$Adj{TA,<:PartialSVD{TA}}, B::AbstractVector{TB}) where {TA,TB}
         A = parent(Ac)
         T = promote_type(TA, TB)
         AT = convert(PartialSVD{T}, A)
@@ -147,14 +147,14 @@ size(A::PartialSVD, dim::Integer) =
     end
   end
 
-  function *(A::PartialSVD{TA}, B::StridedMatrix{TB}) where {TA,TB}
+  function *(A::PartialSVD{TA}, B::AbstractMatrix{TB}) where {TA,TB}
     T = promote_type(TA, TB)
     AT = convert(PartialSVD{T}, A)
     BT = (T == TB ? B : convert(Array{T}, B))
     CT = Array{T}(undef, size(A,1), size(B,2))
     mul!(CT, AT, BT)
   end
-  function *(A::StridedMatrix{TA}, B::PartialSVD{TB}) where {TA,TB}
+  function *(A::AbstractMatrix{TA}, B::PartialSVD{TB}) where {TA,TB}
     T = promote_type(TA, TB)
     AT = (T == TA ? A : convert(Array{T}, A))
     BT = convert(PartialSVD{T}, B)
@@ -163,7 +163,7 @@ size(A::PartialSVD, dim::Integer) =
   end
   for Adj in (:Transpose, :Adjoint)
     @eval begin
-      function *(A::PartialSVD{TA}, Bc::$Adj{TB,<:StridedMatrix{TB}}) where {TA,TB}
+      function *(A::PartialSVD{TA}, Bc::$Adj{TB,<:AbstractMatrix{TB}}) where {TA,TB}
         B = parent(Bc)
         T = promote_type(TA, TB)
         AT = convert(PartialSVD{T}, A)
@@ -171,7 +171,7 @@ size(A::PartialSVD, dim::Integer) =
         CT = Array{T}(undef, size(A,1), size(Bc,2))
         mul!(CT, AT, $Adj(BT))
       end
-      function *(Ac::$Adj{TA,<:PartialSVD{TA}}, B::StridedMatrix{TB}) where {TA,TB}
+      function *(Ac::$Adj{TA,<:PartialSVD{TA}}, B::AbstractMatrix{TB}) where {TA,TB}
         A = parent(Ac)
         T = promote_type(TA, TB)
         AT = convert(PartialSVD{T}, A)
@@ -179,7 +179,7 @@ size(A::PartialSVD, dim::Integer) =
         CT = Array{T}(undef, size(Ac,1), size(B,2))
         mul!(CT, $Adj(AT), BT)
       end
-      function *(Ac::$Adj{TA,<:PartialSVD{TA}}, Bc::$Adj{TB,<:StridedMatrix{TB}}) where {TA,TB}
+      function *(Ac::$Adj{TA,<:PartialSVD{TA}}, Bc::$Adj{TB,<:AbstractMatrix{TB}}) where {TA,TB}
         A = parent(Ac)
         B = parent(Bc)
         T = promote_type(TA, TB)
@@ -188,7 +188,7 @@ size(A::PartialSVD, dim::Integer) =
         CT = Array{T}(undef, size(Ac,1), size(Bc,2))
         mul!(CT, $Adj(AT), $Adj(BT))
       end
-      function *(A::StridedMatrix{TA}, Bc::$Adj{TB,<:PartialSVD{TB}}) where {TA,TB}
+      function *(A::AbstractMatrix{TA}, Bc::$Adj{TB,<:PartialSVD{TB}}) where {TA,TB}
         B = parent(Bc)
         T = promote_type(TA, TB)
         AT = (T == TA ? A : convert(Array{T}, A))
@@ -196,7 +196,7 @@ size(A::PartialSVD, dim::Integer) =
         CT = Array{T}(undef, size(A,1), size(Bc,2))
         mul!(CT, AT, $Adj(BT))
       end
-      function *(Ac::$Adj{TA,<:StridedMatrix{TA}}, B::PartialSVD{TB}) where {TA,TB}
+      function *(Ac::$Adj{TA,<:AbstractMatrix{TA}}, B::PartialSVD{TB}) where {TA,TB}
         A = parent(Ac)
         T = promote_type(TA, TB)
         AT = (T == TA ? A : convert(Array{T}, A))
@@ -204,7 +204,7 @@ size(A::PartialSVD, dim::Integer) =
         CT = Array{T}(undef, size(Ac,1), size(B,2))
         mul!(CT, $Adj(AT), BT)
       end
-      function *(Ac::$Adj{TA,<:StridedMatrix{TA}}, Bc::$Adj{TB,<:PartialSVD{TB}}) where {TA,TB}
+      function *(Ac::$Adj{TA,<:AbstractMatrix{TA}}, Bc::$Adj{TB,<:PartialSVD{TB}}) where {TA,TB}
         A = parent(Ac)
         B = parent(Bc)
         T = promote_type(TA, TB)
@@ -218,14 +218,14 @@ size(A::PartialSVD, dim::Integer) =
 
 
 ## left-division
-function \(A::PartialSVD{TA}, B::StridedVector{TB}) where {TA,TB}
+function \(A::PartialSVD{TA}, B::AbstractVector{TB}) where {TA,TB}
   T = promote_type(TA, TB)
   AT = convert(PartialSVD{T}, A)
   BT = (T == TB ? B : convert(Array{T}, B))
   CT = Array{T}(undef, size(A,2))
   ldiv!(CT, AT, BT)
 end
-function \(A::PartialSVD{TA}, B::StridedMatrix{TB}) where {TA,TB}
+function \(A::PartialSVD{TA}, B::AbstractMatrix{TB}) where {TA,TB}
   T = promote_type(TA, TB)
   AT = convert(PartialSVD{T}, A)
   BT = (T == TB ? B : convert(Array{T}, B))

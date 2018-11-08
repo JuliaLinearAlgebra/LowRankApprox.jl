@@ -53,20 +53,20 @@ size(A::PartialHermEigen, dim::Integer) =
 
 ## left-multiplication
 
-mul!(y::StridedVector{T}, A::PartialHermEigen{T}, x::StridedVector{T}) where {T} =
+mul!(y::AbstractVector{T}, A::PartialHermEigen{T}, x::AbstractVector{T}) where {T} =
   mul!(y, A[:vectors], scalevec!(A[:values], A[:vectors]'*x))
 
 
-  mul!(C::StridedMatrix{T}, A::PartialHermEigen{T}, B::StridedMatrix{T}) where {T} =
+  mul!(C::AbstractMatrix{T}, A::PartialHermEigen{T}, B::AbstractMatrix{T}) where {T} =
     mul!(C, A[:vectors], lmul!(Diagonal(A[:values]), A[:vectors]'*B))
 
-  mul!(C::StridedMatrix{T}, A::PartialHermEigen{T}, Bc::Adjoint{T,<:StridedMatrix{T}}) where {T} =
+  mul!(C::AbstractMatrix{T}, A::PartialHermEigen{T}, Bc::Adjoint{T,<:AbstractMatrix{T}}) where {T} =
     mul!(C, A[:vectors], lmul!(Diagonal(A[:values]), A[:vectors]'*Bc))
-  mul!(C::StridedMatrix{T}, A::PartialHermEigen{T}, Bt::Transpose{T,<:StridedMatrix{T}}) where {T<:Real} =
+  mul!(C::AbstractMatrix{T}, A::PartialHermEigen{T}, Bt::Transpose{T,<:AbstractMatrix{T}}) where {T<:Real} =
     mul!(C, A, parent(Bt)')
-  mul!!(C::StridedMatrix{T}, A::PartialHermEigen{T}, Bt::Transpose{T,<:StridedMatrix{T}}) where {T<:Complex} =
+  mul!!(C::AbstractMatrix{T}, A::PartialHermEigen{T}, Bt::Transpose{T,<:AbstractMatrix{T}}) where {T<:Complex} =
     mul!(C, A, conj!(parent(Bt))')  # overwrites B
-  function mul!(C::StridedMatrix{T}, A::PartialHermEigen{T}, Bt::Transpose{T,<:StridedMatrix{T}}) where T<:Complex
+  function mul!(C::AbstractMatrix{T}, A::PartialHermEigen{T}, Bt::Transpose{T,<:AbstractMatrix{T}}) where T<:Complex
     B = parent(Bt)
     size(B, 1) <= A[:k] && return mul!!(C, A, transpose(copy(B)))
     tmp = (A[:vectors]')*transpose(B)
@@ -74,16 +74,18 @@ mul!(y::StridedVector{T}, A::PartialHermEigen{T}, x::StridedVector{T}) where {T}
     mul!(C, A[:vectors], tmp)
   end
 
-  mul!(C::StridedVecOrMat{T}, Ac::Adjoint{T,<:PartialHermEigen{T}}, B::StridedVecOrMat{T}) where {T} =
+  mul!(C::AbstractVector{T}, Ac::Adjoint{T,<:PartialHermEigen{T}}, B::AbstractVector{T}) where {T} =
     mul!(C, parent(Ac), B)
-  function mul!(y::StridedVector{T}, At::Transpose{T,<:PartialHermEigen{T}}, x::StridedVector{T}) where T
+  mul!(C::AbstractMatrix{T}, Ac::Adjoint{T,<:PartialHermEigen{T}}, B::AbstractMatrix{T}) where {T} =
+    mul!(C, parent(Ac), B)
+  function mul!(y::AbstractVector{T}, At::Transpose{T,<:PartialHermEigen{T}}, x::AbstractVector{T}) where T
     A = parent(At)
     tmp = transpose(A[:vectors])*x
     scalevec!(A[:values], tmp)
     mul!(y, A[:vectors], conj!(tmp))
     conj!(y)
   end
-  function mul!(C::StridedMatrix{T}, At::Transpose{T,<:PartialHermEigen{T}}, B::StridedMatrix{T}) where T
+  function mul!(C::AbstractMatrix{T}, At::Transpose{T,<:PartialHermEigen{T}}, B::AbstractMatrix{T}) where T
     A = parent(At)
     tmp = transpose(A[:vectors])*B
     lmul!(Diagonal(A[:values]), tmp)
@@ -91,9 +93,9 @@ mul!(y::StridedVector{T}, A::PartialHermEigen{T}, x::StridedVector{T}) where {T}
     conj!(C)
   end
 
-  mul!(C::StridedMatrix{T}, Ac::Adjoint{T,<:PartialHermEigen{T}}, Bc::Adjoint{T,<:StridedMatrix{T}}) where {T} =
+  mul!(C::AbstractMatrix{T}, Ac::Adjoint{T,<:PartialHermEigen{T}}, Bc::Adjoint{T,<:AbstractMatrix{T}}) where {T} =
     mul!(C, parent(Ac), Bc)
-  function mul!(C::StridedMatrix{T}, At::Transpose{T,<:PartialHermEigen{T}}, Bt::Transpose{T,<:StridedMatrix{T}}) where T
+  function mul!(C::AbstractMatrix{T}, At::Transpose{T,<:PartialHermEigen{T}}, Bt::Transpose{T,<:AbstractMatrix{T}}) where T
     A = parent(At)
     B = parent(Bt)
     tmp = transpose(A[:vectors])*transpose(B)
@@ -104,18 +106,18 @@ mul!(y::StridedVector{T}, A::PartialHermEigen{T}, x::StridedVector{T}) where {T}
 
   ## right-multiplication
 
-  mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::PartialHermEigen{T}) where {T} =
+  mul!(C::AbstractMatrix{T}, A::AbstractMatrix{T}, B::PartialHermEigen{T}) where {T} =
     mul!(C, rmul!(A*B[:vectors], Diagonal(B[:values])), B[:vectors]')
 
-  mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, Bc::Adjoint{T,<:PartialHermEigen{T}}) where {T} =
+  mul!(C::AbstractMatrix{T}, A::AbstractMatrix{T}, Bc::Adjoint{T,<:PartialHermEigen{T}}) where {T} =
     mul!(C, A, parent(Bc))
-  function mul!!(C::StridedMatrix{T}, A::StridedMatrix{T}, Bt::Transpose{T,<:PartialHermEigen{T}}) where T
+  function mul!!(C::AbstractMatrix{T}, A::AbstractMatrix{T}, Bt::Transpose{T,<:PartialHermEigen{T}}) where T
     B = parent(Bt)
     tmp = conj!(A)*B[:vectors]
     rmul!(conj!(tmp), Diagonal(B[:values]))
     mul!(C, tmp, transpose(B[:vectors]))
   end  # overwrites A
-  function mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, Bt::Transpose{T,<:PartialHermEigen{T}}) where T
+  function mul!(C::AbstractMatrix{T}, A::AbstractMatrix{T}, Bt::Transpose{T,<:PartialHermEigen{T}}) where T
     B = parent(Bt)
     size(A, 1) <= B[:k] && return mul!!(C, copy(A), Bt)
     tmp = A*conj(B[:vectors])
@@ -125,7 +127,7 @@ mul!(y::StridedVector{T}, A::PartialHermEigen{T}, x::StridedVector{T}) where {T}
 
   for Adj in (:Transpose, :Adjoint)
     @eval begin
-      function mul!(C::StridedMatrix{T}, Ac::$Adj{T,<:StridedMatrix{T}}, B::PartialHermEigen{T}) where T
+      function mul!(C::AbstractMatrix{T}, Ac::$Adj{T,<:AbstractMatrix{T}}, B::PartialHermEigen{T}) where T
         tmp = Ac * B[:vectors]
         rmul!(tmp, Diagonal(B[:values]))
         mul!(C, tmp, B[:vectors]')
@@ -133,9 +135,9 @@ mul!(y::StridedVector{T}, A::PartialHermEigen{T}, x::StridedVector{T}) where {T}
     end
   end
 
-  mul!(C::StridedMatrix{T}, Ac::Adjoint{T,<:StridedMatrix{T}}, Bc::Adjoint{T,<:PartialHermEigen{T}}) where {T} =
+  mul!(C::AbstractMatrix{T}, Ac::Adjoint{T,<:AbstractMatrix{T}}, Bc::Adjoint{T,<:PartialHermEigen{T}}) where {T} =
     mul!(C, Ac, parent(Bc))
-  function mul!(C::StridedMatrix{T}, At::Transpose{T,<:StridedMatrix{T}}, Bt::Transpose{T,<:PartialHermEigen{T}}) where T
+  function mul!(C::AbstractMatrix{T}, At::Transpose{T,<:AbstractMatrix{T}}, Bt::Transpose{T,<:PartialHermEigen{T}}) where T
     A = parent(At)
     B = parent(Bt)
     tmp = A'*B[:vectors]
@@ -144,16 +146,16 @@ mul!(y::StridedVector{T}, A::PartialHermEigen{T}, x::StridedVector{T}) where {T}
   end
 
   ## left-division (pseudoinverse left-multiplication)
-  ldiv!(y::StridedVector{T}, A::PartialHermEigen{T}, x::StridedVector{T}) where {T} =
+  ldiv!(y::AbstractVector{T}, A::PartialHermEigen{T}, x::AbstractVector{T}) where {T} =
     mul!(y, A[:vectors], iscalevec!(A[:values], A[:vectors]'*x))
-  ldiv!(C::StridedMatrix{T}, A::PartialHermEigen{T}, B::StridedMatrix{T}) where {T} =
+  ldiv!(C::AbstractMatrix{T}, A::PartialHermEigen{T}, B::AbstractMatrix{T}) where {T} =
     mul!(C, A[:vectors], iscale!(A[:values], A[:vectors]'*B))
 
   # standard operations
 
   ## left-multiplication
 
-  function *(A::PartialHermEigen{TA}, B::StridedVector{TB}) where {TA,TB}
+  function *(A::PartialHermEigen{TA}, B::AbstractVector{TB}) where {TA,TB}
     T = promote_type(TA, TB)
     AT = convert(PartialHermEigen{T}, A)
     BT = (T == TB ? B : convert(Array{T}, B))
@@ -163,7 +165,7 @@ mul!(y::StridedVector{T}, A::PartialHermEigen{T}, x::StridedVector{T}) where {T}
 
   for Adj in (:Transpose, :Adjoint)
     @eval begin
-      function mul!(Ac::$Adj{TA,<:PartialHermEigen{TA}}, B::StridedVector{TB}) where {TA,TB}
+      function mul!(Ac::$Adj{TA,<:PartialHermEigen{TA}}, B::AbstractVector{TB}) where {TA,TB}
         A = parent(Ac)
         T = promote_type(TA, TB)
         AT = convert(PartialHermEigen{T}, A)
@@ -174,7 +176,7 @@ mul!(y::StridedVector{T}, A::PartialHermEigen{T}, x::StridedVector{T}) where {T}
     end
   end
 
-  function *(A::PartialHermEigen{TA}, B::StridedMatrix{TB}) where {TA,TB}
+  function *(A::PartialHermEigen{TA}, B::AbstractMatrix{TB}) where {TA,TB}
     T = promote_type(TA, TB)
     AT = convert(PartialHermEigen{T}, A)
     BT = (T == TB ? B : convert(Array{T}, B))
@@ -184,7 +186,7 @@ mul!(y::StridedVector{T}, A::PartialHermEigen{T}, x::StridedVector{T}) where {T}
 
   for Adj in (:Transpose, :Adjoint)
     @eval begin
-      function *(A::PartialHermEigen{TA}, Bc::$Adj{TB,<:StridedMatrix{TB}}) where {TA,TB}
+      function *(A::PartialHermEigen{TA}, Bc::$Adj{TB,<:AbstractMatrix{TB}}) where {TA,TB}
         B = parent(Bc)
         T = promote_type(TA, TB)
         AT = convert(PartialHermEigen{T}, A)
@@ -192,7 +194,7 @@ mul!(y::StridedVector{T}, A::PartialHermEigen{T}, x::StridedVector{T}) where {T}
         CT = Array{T}(undef, size(A,1), size(Bc,2))
         mul!(CT, AT, $Adj(BT))
       end
-      function *(Ac::$Adj{TA,<:PartialHermEigen{TA}}, B::StridedMatrix{TB}) where {TA,TB}
+      function *(Ac::$Adj{TA,<:PartialHermEigen{TA}}, B::AbstractMatrix{TB}) where {TA,TB}
         A = parent(Ac)
         T = promote_type(TA, TB)
         AT = convert(PartialHermEigen{T}, A)
@@ -200,7 +202,7 @@ mul!(y::StridedVector{T}, A::PartialHermEigen{T}, x::StridedVector{T}) where {T}
         CT = Array{T}(undef, size(Ac,1), size(B,2))
         mul!(CT, $Adj(AT), BT)
       end
-      function *(Ac::$Adj{TA,<:PartialHermEigen{TA}}, Bc::$Adj{TB,<:StridedMatrix{TB}}) where {TA,TB}
+      function *(Ac::$Adj{TA,<:PartialHermEigen{TA}}, Bc::$Adj{TB,<:AbstractMatrix{TB}}) where {TA,TB}
         A = parent(Ac)
         B = parent(Bc)
         T = promote_type(TA, TB)
@@ -212,7 +214,7 @@ mul!(y::StridedVector{T}, A::PartialHermEigen{T}, x::StridedVector{T}) where {T}
     end
   end
 
-  function *(A::StridedMatrix{TA}, B::PartialHermEigen{TB}) where {TA,TB}
+  function *(A::AbstractMatrix{TA}, B::PartialHermEigen{TB}) where {TA,TB}
     T = promote_type(TA, TB)
     AT = (T == TA ? A : convert(Array{T}, A))
     BT = convert(PartialHermEigen{T}, B)
@@ -223,7 +225,7 @@ mul!(y::StridedVector{T}, A::PartialHermEigen{T}, x::StridedVector{T}) where {T}
   ## right-multiplication
   for Adj in (:Transpose, :Adjoint)
     @eval begin
-      function *(Ac::$Adj{TA,<:StridedMatrix{TA}}, B::PartialHermEigen{TB}) where {TA,TB}
+      function *(Ac::$Adj{TA,<:AbstractMatrix{TA}}, B::PartialHermEigen{TB}) where {TA,TB}
         A = parent(Ac)
         T = promote_type(TA, TB)
         AT = (T == TA ? A : convert(Array{T}, A))
@@ -231,7 +233,7 @@ mul!(y::StridedVector{T}, A::PartialHermEigen{T}, x::StridedVector{T}) where {T}
         CT = Array{T}(undef, size(Ac,1), size(B,2))
         mul!(CT, $Adj(AT), BT)
       end
-      function *(A::StridedMatrix{TA}, Bc::$Adj{TB,<:PartialHermEigen{TB}}) where {TA,TB}
+      function *(A::AbstractMatrix{TA}, Bc::$Adj{TB,<:PartialHermEigen{TB}}) where {TA,TB}
         B = parent(Bc)
         T = promote_type(TA, TB)
         AT = (T == TA ? A : convert(Array{T}, A))
@@ -239,7 +241,7 @@ mul!(y::StridedVector{T}, A::PartialHermEigen{T}, x::StridedVector{T}) where {T}
         CT = Array{T}(undef, size(A,1), size(Bc,2))
         mul!(CT, AT, $Adj(BT))
       end
-      function *(Ac::$Adj{TA,<:StridedMatrix{TA}}, Bc::$Adj{TB,<:PartialHermEigen{TB}}) where {TA,TB}
+      function *(Ac::$Adj{TA,<:AbstractMatrix{TA}}, Bc::$Adj{TB,<:PartialHermEigen{TB}}) where {TA,TB}
         A = parent(Ac)
         B = parent(Bc)
         T = promote_type(TA, TB)
@@ -254,14 +256,14 @@ mul!(y::StridedVector{T}, A::PartialHermEigen{T}, x::StridedVector{T}) where {T}
 
 
 ## left-division
-function \(A::PartialHermEigen{TA}, B::StridedVector{TB}) where {TA,TB}
+function \(A::PartialHermEigen{TA}, B::AbstractVector{TB}) where {TA,TB}
   T = promote_type(TA, TB)
   AT = convert(PartialHermEigen{T}, A)
   BT = (T == TB ? B : convert(Array{T}, B))
   CT = Array{T}(undef, size(A,2))
   ldiv!(CT, AT, BT)
 end
-function \(A::PartialHermEigen{TA}, B::StridedMatrix{TB}) where {TA,TB}
+function \(A::PartialHermEigen{TA}, B::AbstractMatrix{TB}) where {TA,TB}
   T = promote_type(TA, TB)
   AT = convert(PartialHermEigen{T}, A)
   BT = (T == TB ? B : convert(Array{T}, B))
@@ -326,7 +328,7 @@ function pheigrank(w::Vector{T}, opts::LRAOptions) where T<:Real
   kp = pheigrank1(view(w,n:-1:last(idx)+1), opts, wmax)
   kn, kp
 end
-function pheigrank1(w::StridedVector, opts::LRAOptions, wmax::T) where T<:Real
+function pheigrank1(w::AbstractVector, opts::LRAOptions, wmax::T) where T<:Real
   k = length(w)
   k = opts.rank >= 0 ? min(opts.rank, k) : k
   ptol = max(opts.atol, opts.rtol*wmax)

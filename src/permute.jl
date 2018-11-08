@@ -62,7 +62,7 @@ sparse(A::ColPerm) = sparse(A.p, 1:length(A.p), fill(1.0,length(A.p)))
 
 # in-place permutation routines
 
-function rowperm!(fwd::Bool, x::StridedVector, p::Vector{Int})
+function rowperm!(fwd::Bool, x::AbstractVector, p::Vector{Int})
   n = length(x)
   length(p) == n || throw(DimensionMismatch)
   rmul!(p, -1)
@@ -93,7 +93,7 @@ function rowperm!(fwd::Bool, x::StridedVector, p::Vector{Int})
   end
   x
 end
-function rowperm!(fwd::Bool, A::StridedMatrix, p::Vector{Int})
+function rowperm!(fwd::Bool, A::AbstractMatrix, p::Vector{Int})
   m, n = size(A)
   length(p) == m || throw(DimensionMismatch)
   rmul!(p, -1)
@@ -129,7 +129,7 @@ function rowperm!(fwd::Bool, A::StridedMatrix, p::Vector{Int})
   A
 end
 
-function colperm!(fwd::Bool, A::StridedMatrix, p::Vector{Int})
+function colperm!(fwd::Bool, A::AbstractMatrix, p::Vector{Int})
   m, n = size(A)
   length(p) == n || throw(DimensionMismatch)
   rmul!(p, -1)
@@ -167,22 +167,22 @@ end
 
 
   ## RowPermutation
-  lmul!(A::RowPerm, B::StridedVecOrMat) = rowperm!(true, B, A.p)
-  rmul!(A::StridedMatrix, B::RowPerm) = colperm!(false, A, B.p)
+  lmul!(A::RowPerm, B::AbstractVecOrMat) = rowperm!(true, B, A.p)
+  rmul!(A::AbstractMatrix, B::RowPerm) = colperm!(false, A, B.p)
 
-  rmul!(A::StridedMatrix, Bc::Adjoint{<:Any,<:RowPerm}) = colperm!(true, A, parent(Bc).p)
-  lmul!(Ac::Adjoint{<:Any,<:RowPerm}, B::StridedVecOrMat) = rowperm!(false, B, parent(Ac).p)
+  rmul!(A::AbstractMatrix, Bc::Adjoint{<:Any,<:RowPerm}) = colperm!(true, A, parent(Bc).p)
+  lmul!(Ac::Adjoint{<:Any,<:RowPerm}, B::AbstractVecOrMat) = rowperm!(false, B, parent(Ac).p)
 
   ## ColumnPermutation
-  lmul!(A::ColPerm, B::StridedVecOrMat) = rowperm!(false, B, A.p)
-  rmul!(A::StridedMatrix, B::ColPerm) = colperm!(true, A, B.p)
+  lmul!(A::ColPerm, B::AbstractVecOrMat) = rowperm!(false, B, A.p)
+  rmul!(A::AbstractMatrix, B::ColPerm) = colperm!(true, A, B.p)
 
-  rmul!(A::StridedMatrix, Bc::Adjoint{<:Any,<:ColPerm}) = colperm!(false, A, parent(Bc).p)
-  lmul!(Ac::Adjoint{<:Any,<:ColPerm}, B::StridedVecOrMat) = rowperm!(true, B, parent(Ac).p)
+  rmul!(A::AbstractMatrix, Bc::Adjoint{<:Any,<:ColPerm}) = colperm!(false, A, parent(Bc).p)
+  lmul!(Ac::Adjoint{<:Any,<:ColPerm}, B::AbstractVecOrMat) = rowperm!(true, B, parent(Ac).p)
 
   ## transpose multiplication
-  rmul!(A::StridedMatrix, Bt::Transpose{<:Any,<:PermMat}) = rmul!(A, parent(Bt)')
-  lmul!(At::Transpose{<:Any,<:PermMat}, B::StridedVecOrMat) = lmul!(parent(At)', B)
+  rmul!(A::AbstractMatrix, Bt::Transpose{<:Any,<:PermMat}) = rmul!(A, parent(Bt)')
+  lmul!(At::Transpose{<:Any,<:PermMat}, B::AbstractVecOrMat) = lmul!(parent(At)', B)
 
 
 
@@ -192,13 +192,16 @@ end
   for t in (:RowPerm, :ColPerm)
     @eval begin
       ## left-multiplication
-      *(A::$t, B::StridedVecOrMat) = lmul!(A, copy(B))
-      *(A::Adjoint{<:Any,<:$t}, B::StridedVecOrMat) = lmul!(A, copy(B))
-      *(A::Transpose{<:Any,<:$t}, B::StridedVecOrMat) = lmul!(A, copy(B))
+      *(A::$t, B::AbstractVector) = lmul!(A, copy(B))
+      *(A::$t, B::AbstractMatrix) = lmul!(A, copy(B))
+      *(A::Adjoint{<:Any,<:$t}, B::AbstractVector) = lmul!(A, copy(B))
+      *(A::Adjoint{<:Any,<:$t}, B::AbstractMatrix) = lmul!(A, copy(B))
+      *(A::Transpose{<:Any,<:$t}, B::AbstractVector) = lmul!(A, copy(B))
+      *(A::Transpose{<:Any,<:$t}, B::AbstractMatrix) = lmul!(A, copy(B))
 
       ## right-multiplication
-      *(A::StridedMatrix, B::$t) = rmul!(copy(A), B)
-      *(A::StridedMatrix, B::Adjoint{<:Any,<:$t}) = rmul!(copy(A), B)
-      *(A::StridedMatrix, B::Transpose{<:Any,<:$t}) = rmul!(copy(A), B)
+      *(A::AbstractMatrix, B::$t) = rmul!(copy(A), B)
+      *(A::AbstractMatrix, B::Adjoint{<:Any,<:$t}) = rmul!(copy(A), B)
+      *(A::AbstractMatrix, B::Transpose{<:Any,<:$t}) = rmul!(copy(A), B)
     end
   end

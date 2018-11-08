@@ -29,7 +29,7 @@ convert(::Type{Array{T}}, A::IDPackedV) where {T} = convert(Array{T}, Matrix(A))
 
 copy(A::IDPackedV) = IDPackedV(copy(A.sk), copy(A.rd), copy(A.T))
 
-  function _Matrix!(trans::Symbol, A::StridedMatrix{T}, V::IDPackedV{T}) where T
+  function _Matrix!(trans::Symbol, A::AbstractMatrix{T}, V::IDPackedV{T}) where T
     chktrans(trans)
     k, n = size(V)
     if trans == :n
@@ -54,7 +54,7 @@ copy(A::IDPackedV) = IDPackedV(copy(A.sk), copy(A.rd), copy(A.T))
     A
   end
 
-_Matrix!(A::StridedMatrix{T}, V::IDPackedV{T}) where {T} = _Matrix!(:n, A, V)
+_Matrix!(A::AbstractMatrix{T}, V::IDPackedV{T}) where {T} = _Matrix!(:n, A, V)
 function _Matrix(trans::Symbol, A::IDPackedV{T}) where T
   chktrans(trans)
   k, n = size(A)
@@ -93,30 +93,39 @@ size(A::IDPackedV, dim::Integer) =
 
 ## BLAS/LAPACK multiplication routines
   ### left-multiplication
-  function mul!!(y::StridedVector{T}, A::IDPackedV{T}, x::StridedVector{T}) where T<:BlasFloat
+  function mul!!(y::AbstractVector{T}, A::IDPackedV{T}, x::AbstractVector{T}) where T<:BlasFloat
     k, n = size(A)
     lmul!(A[:P]', x)
     copyto!(y, view(x,1:k))
     BLAS.gemv!('N', one(T), A[:T], view(x,k+1:n), one(T), y)
   end  # overwrites x
-  function mul!!(C::StridedMatrix{T}, A::IDPackedV{T}, B::StridedMatrix{T}) where T<:BlasFloat
+  function mul!!(C::AbstractMatrix{T}, A::IDPackedV{T}, B::AbstractMatrix{T}) where T<:BlasFloat
     k, n = size(A)
     lmul!(A[:P]', B)
     copyto!(C, view(B,1:k,:))
     BLAS.gemm!('N', 'N', one(T), A[:T], view(B,k+1:n,:), one(T), C)
   end  # overwrites B
-  mul!(C::StridedVecOrMat{T}, A::IDPackedV{T}, B::StridedVecOrMat{T}) where {T} =
+  mul!(C::AbstractVector{T}, A::IDPackedV{T}, B::AbstractVector{T}) where {T} =
+    mul!!(C, A, copy(B))
+  mul!(C::AbstractMatrix{T}, A::IDPackedV{T}, B::AbstractMatrix{T}) where {T} =
     mul!!(C, A, copy(B))
 
   for Adj in (:Transpose, :Adjoint)
     @eval begin
-      function mul!(C::StridedMatrix{T}, A::IDPackedV{T}, Bc::$Adj{T,<:StridedMatrix{T}}) where T<:BlasFloat
+      function mul!(C::AbstractMatrix{T}, A::IDPackedV{T}, Bc::$Adj{T,<:AbstractMatrix{T}}) where T<:BlasFloat
         k, n = size(A)
         tmp = $Adj(A[:P]) * Bc
         copyto!(C, view(tmp,1:k,:))
         BLAS.gemm!('N', 'N', one(T), A[:T], view(tmp,k+1:n,:), one(T), C)
       end
-      function mul!(C::StridedVecOrMat{T}, Ac::$Adj{T,IDPackedV{T}}, B::StridedVecOrMat{T}) where T
+      function mul!(C::AbstractVector{T}, Ac::$Adj{T,IDPackedV{T}}, B::AbstractVector{T}) where T
+        A = parent(Ac)
+        k, n = size(A)
+        copyto!(view(C,1:k,:), B)
+        mul!(view(C,k+1:n,:), $Adj(A[:T]), B)
+        lmul!(A[:P], C)
+      end
+      function mul!(C::AbstractMatrix{T}, Ac::$Adj{T,IDPackedV{T}}, B::AbstractMatrix{T}) where T
         A = parent(Ac)
         k, n = size(A)
         copyto!(view(C,1:k,:), B)
@@ -128,7 +137,7 @@ size(A::IDPackedV, dim::Integer) =
 
   for (Adj, adj!) in ((:Transpose, :transpose!), (:Adjoint,:adjoint!))
     @eval begin
-      function mul!(C::StridedMatrix{T}, Ac::$Adj{T,IDPackedV{T}}, Bc::$Adj{T,<:StridedMatrix{T}}) where T
+      function mul!(C::AbstractMatrix{T}, Ac::$Adj{T,IDPackedV{T}}, Bc::$Adj{T,<:AbstractMatrix{T}}) where T
         A = parent(Ac)
         B = parent(Bc)
         k, n = size(A)
@@ -141,7 +150,7 @@ size(A::IDPackedV, dim::Integer) =
 
   ### right-multiplication
 
-  function mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::IDPackedV{T}) where T
+  function mul!(C::AbstractMatrix{T}, A::AbstractMatrix{T}, B::IDPackedV{T}) where T
     k, n = size(B)
     copyto!(view(C,:,1:k), A)
     mul!(view(C,:,k+1:n), A, B[:T])
@@ -150,21 +159,21 @@ size(A::IDPackedV, dim::Integer) =
 
   for (Adj, trans) in ((:Adjoint, 'C'), (:Transpose, 'T'))
     @eval begin
-      function mul!!(C::StridedMatrix{T}, A::StridedMatrix{T}, Bc::$Adj{T,IDPackedV{T}}) where T<:BlasFloat
+      function mul!!(C::AbstractMatrix{T}, A::AbstractMatrix{T}, Bc::$Adj{T,IDPackedV{T}}) where T<:BlasFloat
         B = parent(Bc)
         k, n = size(B)
         rmul!(A, B[:P])
         copyto!(C, view(A,:,1:k))
         BLAS.gemm!('N', $trans, one(T), view(A,:,k+1:n), B[:T], one(T), C)
       end  # overwrites A
-      mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, Bc::$Adj{T,IDPackedV{T}}) where {T} =
+      mul!(C::AbstractMatrix{T}, A::AbstractMatrix{T}, Bc::$Adj{T,IDPackedV{T}}) where {T} =
         mul!!(C, copy(A), Bc)
     end
   end
 
   for (Adj, adj!) in ((:Transpose, :transpose!), (:Adjoint,:adjoint!))
     @eval begin
-      function mul!(C::StridedMatrix{T}, Ac::$Adj{T,<:StridedMatrix{T}}, B::IDPackedV{T}) where T
+      function mul!(C::AbstractMatrix{T}, Ac::$Adj{T,<:AbstractMatrix{T}}, B::IDPackedV{T}) where T
         A = parent(Ac)
         k, n = size(B)
         $adj!(view(C,:,1:k), A)
@@ -176,7 +185,7 @@ size(A::IDPackedV, dim::Integer) =
 
   for (Adj, trans) in ((:Adjoint, 'C'), (:Transpose, 'T'))
     @eval begin
-      function mul!(C::StridedMatrix{T}, Ac::$Adj{T,<:StridedMatrix{T}}, Bc::$Adj{T,IDPackedV{T}}) where T<:BlasFloat
+      function mul!(C::AbstractMatrix{T}, Ac::$Adj{T,<:AbstractMatrix{T}}, Bc::$Adj{T,IDPackedV{T}}) where T<:BlasFloat
         B = parent(Bc)
         k, n = size(B)
         tmp = Ac * B[:P]
@@ -258,50 +267,57 @@ size(A::ID, dim::Integer) =
 
 ### left-multiplication
 
-function mul!!(y::StridedVector{T}, A::ID{T}, x::StridedVector{T}) where T
+function mul!!(y::AbstractVector{T}, A::ID{T}, x::AbstractVector{T}) where T
   tmp = Array{T}(undef, A[:k])
   mul!!(tmp, A[:V], x)
   mul!(y, A[:C], tmp)
 end  # overwrites x
-function mul!!(C::StridedMatrix{T}, A::ID{T}, B::StridedMatrix{T}) where T
+function mul!!(C::AbstractMatrix{T}, A::ID{T}, B::AbstractMatrix{T}) where T
   tmp = Array{T}(undef, A[:k], size(B,2))
   mul!!(tmp, A[:V], B)
   mul!(C, A[:C], tmp)
 end  # overwrites B
-mul!(C::StridedVecOrMat{T}, A::ID{T}, B::StridedVecOrMat{T}) where {T} =
+mul!(C::AbstractVector{T}, A::ID{T}, B::AbstractVector{T}) where {T} =
+  mul!!(C, A, copy(B))
+mul!(C::AbstractMatrix{T}, A::ID{T}, B::AbstractMatrix{T}) where {T} =
   mul!!(C, A, copy(B))
 
 
   for Adj in (:Transpose, :Adjoint)
     @eval begin
-      function mul!(C::StridedMatrix{T}, A::ID{T}, Bc::$Adj{T,<:StridedMatrix{T}}) where T
+      function mul!(C::AbstractMatrix{T}, A::ID{T}, Bc::$Adj{T,<:AbstractMatrix{T}}) where T
         tmp = A[:V] * Bc
         mul!(C, A[:C], tmp)
       end
-      function mul!(C::StridedVecOrMat{T}, Ac::$Adj{T,ID{T}}, B::StridedVecOrMat{T}) where T
+      function mul!(C::AbstractVector{T}, Ac::$Adj{T,ID{T}}, B::AbstractVector{T}) where T
         A = parent(Ac)
         tmp = $Adj(A[:C]) * B
         mul!(C, $Adj(A[:V]), tmp)
       end
-      function mul!(C::StridedMatrix{T}, Ac::$Adj{T,ID{T}}, Bc::$Adj{T,<:StridedMatrix{T}}) where T
+      function mul!(C::AbstractMatrix{T}, Ac::$Adj{T,ID{T}}, B::AbstractMatrix{T}) where T
+        A = parent(Ac)
+        tmp = $Adj(A[:C]) * B
+        mul!(C, $Adj(A[:V]), tmp)
+      end
+      function mul!(C::AbstractMatrix{T}, Ac::$Adj{T,ID{T}}, Bc::$Adj{T,<:AbstractMatrix{T}}) where T
         A = parent(Ac)
         tmp = $Adj(A[:C]) * Bc
         mul!(C, $Adj(A[:V]), tmp)
       end
         ### right-multiplication
-      function mul!!(C::StridedMatrix{T}, A::StridedMatrix{T}, Bc::$Adj{T,ID{T}}) where T
+      function mul!!(C::AbstractMatrix{T}, A::AbstractMatrix{T}, Bc::$Adj{T,ID{T}}) where T
         B = parent(Bc)
         tmp = Array{T}(undef, size(A,1), B[:k])
         mul!!(tmp, A, $Adj(B[:V]))
         mul!(C, tmp, $Adj(B[:C]))
       end  # overwrites A
-      mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, Bc::$Adj{T,ID{T}}) where {T} =
+      mul!(C::AbstractMatrix{T}, A::AbstractMatrix{T}, Bc::$Adj{T,ID{T}}) where {T} =
         mul!!(C, copy(A), Bc)
-      function mul!(C::StridedMatrix{T}, Ac::$Adj{T,<:StridedMatrix{T}}, B::ID{T}) where T
+      function mul!(C::AbstractMatrix{T}, Ac::$Adj{T,<:AbstractMatrix{T}}, B::ID{T}) where T
         tmp = Ac * B[:C]
         mul!(C, tmp, B[:V])
       end
-      function mul!(C::StridedMatrix{T}, Ac::$Adj{T,<:StridedMatrix{T}}, Bc::$Adj{T,ID{T}}) where T
+      function mul!(C::AbstractMatrix{T}, Ac::$Adj{T,<:AbstractMatrix{T}}, Bc::$Adj{T,ID{T}}) where T
         B = parent(Bc)
         tmp = Ac * $Adj(B[:V])
         mul!(C, tmp, $Adj(B[:C]))
@@ -311,7 +327,7 @@ mul!(C::StridedVecOrMat{T}, A::ID{T}, B::StridedVecOrMat{T}) where {T} =
 
   ### right-multiplication
 
-  mul!(C::StridedMatrix{T}, A::StridedMatrix{T}, B::ID{T}) where {T} =
+  mul!(C::AbstractMatrix{T}, A::AbstractMatrix{T}, B::ID{T}) where {T} =
     mul!(C, A*B[:C], B[:V])
 
 
@@ -321,21 +337,21 @@ mul!(C::StridedVecOrMat{T}, A::ID{T}, B::StridedVecOrMat{T}) where {T} =
   ## left-multiplication
   for t in (:IDPackedV, :ID)
     @eval begin
-      function *(A::$t{TA}, B::StridedVector{TB}) where {TA,TB}
+      function *(A::$t{TA}, B::AbstractVector{TB}) where {TA,TB}
         T = promote_type(TA, TB)
         AT = convert($t{T}, A)
         BT = (T == TB ? B : convert(Array{T}, B))
         CT = Array{T}(undef, size(A,1))
         mul!(CT, AT, BT)
       end
-      function *(A::$t{TA}, B::StridedMatrix{TB}) where {TA,TB}
+      function *(A::$t{TA}, B::AbstractMatrix{TB}) where {TA,TB}
         T = promote_type(TA, TB)
         AT = convert($t{T}, A)
         BT = (T == TB ? B : convert(Array{T}, B))
         CT = Array{T}(undef, size(A,1), size(B,2))
         mul!(CT, AT, BT)
       end
-      function *(A::StridedMatrix{TA}, B::$t{TB}) where {TA,TB}
+      function *(A::AbstractMatrix{TA}, B::$t{TB}) where {TA,TB}
         T = promote_type(TA, TB)
         AT = (T == TA ? A : convert(Array{T}, A))
         BT = convert($t{T}, B)
@@ -345,7 +361,7 @@ mul!(C::StridedVecOrMat{T}, A::ID{T}, B::StridedVecOrMat{T}) where {T} =
     end
     for Adj in (:Transpose, :Adjoint)
       @eval begin
-        function *(Ac::$Adj{TA,$t{TA}}, B::StridedVector{TB}) where {TA,TB}
+        function *(Ac::$Adj{TA,$t{TA}}, B::AbstractVector{TB}) where {TA,TB}
           A = parent(Ac)
           T = promote_type(TA, TB)
           AT = convert($t{T}, A)
@@ -353,7 +369,7 @@ mul!(C::StridedVecOrMat{T}, A::ID{T}, B::StridedVecOrMat{T}) where {T} =
           CT = Array{T}(undef, size(Ac,1))
           mul!(CT, $Adj(AT), BT)
         end
-        function *(A::$t{TA}, Bc::$Adj{TB,<:StridedMatrix{TB}}) where {TA,TB}
+        function *(A::$t{TA}, Bc::$Adj{TB,<:AbstractMatrix{TB}}) where {TA,TB}
           B = parent(Bc)
           T = promote_type(TA, TB)
           AT = convert($t{T}, A)
@@ -361,7 +377,7 @@ mul!(C::StridedVecOrMat{T}, A::ID{T}, B::StridedVecOrMat{T}) where {T} =
           CT = Array{T}(undef, size(A,1), size(Bc,2))
           mul!(CT, AT, $Adj(BT))
         end
-        function *(Ac::$Adj{TA,$t{TA}}, B::StridedMatrix{TB}) where {TA,TB}
+        function *(Ac::$Adj{TA,$t{TA}}, B::AbstractMatrix{TB}) where {TA,TB}
           A = parent(Ac)
           T = promote_type(TA, TB)
           AT = convert($t{T}, A)
@@ -369,7 +385,7 @@ mul!(C::StridedVecOrMat{T}, A::ID{T}, B::StridedVecOrMat{T}) where {T} =
           CT = Array{T}(undef, size(Ac,1), size(B,2))
           mul!(CT, $Adj(AT), BT)
         end
-        function *(Ac::$Adj{TA,$t{TA}}, Bc::$Adj{TB,<:StridedMatrix{TB}}) where {TA,TB}
+        function *(Ac::$Adj{TA,$t{TA}}, Bc::$Adj{TB,<:AbstractMatrix{TB}}) where {TA,TB}
           A = parent(Ac)
           B = parent(Bc)
           T = promote_type(TA, TB)
@@ -378,7 +394,7 @@ mul!(C::StridedVecOrMat{T}, A::ID{T}, B::StridedVecOrMat{T}) where {T} =
           CT = Array{T}(undef, size(Ac,1), size(Bc,2))
           mul!(CT, $Adj(AT), $Adj(BT))
         end
-        function *(A::StridedMatrix{TA}, Bc::$Adj{TB,$t{TB}}) where {TA,TB}
+        function *(A::AbstractMatrix{TA}, Bc::$Adj{TB,$t{TB}}) where {TA,TB}
           B = parent(Bc)
           T = promote_type(TA, TB)
           AT = (T == TA ? A : convert(Array{T}, A))
@@ -386,7 +402,7 @@ mul!(C::StridedVecOrMat{T}, A::ID{T}, B::StridedVecOrMat{T}) where {T} =
           CT = Array{T}(undef, size(A,1), size(Bc,2))
           mul!(CT, AT, $Adj(BT))
         end
-        function *(Ac::$Adj{TA,<:StridedMatrix{TA}}, B::$t{TB}) where {TA,TB}
+        function *(Ac::$Adj{TA,<:AbstractMatrix{TA}}, B::$t{TB}) where {TA,TB}
           A = parent(Ac)
           T = promote_type(TA, TB)
           AT = (T == TA ? A : convert(Array{T}, A))
@@ -394,7 +410,7 @@ mul!(C::StridedVecOrMat{T}, A::ID{T}, B::StridedVecOrMat{T}) where {T} =
           CT = Array{T}(undef, size(Ac,1), size(B,2))
           mul!(CT, $Adj(AT), BT)
         end
-        function *(Ac::$Adj{TA,<:StridedMatrix{TA}}, Bc::$Adj{TB,$t{TB}}) where {TA,TB}
+        function *(Ac::$Adj{TA,<:AbstractMatrix{TA}}, Bc::$Adj{TB,$t{TB}}) where {TA,TB}
           A = parent(Ac)
           B = parent(Bc)
           T = promote_type(TA, TB)

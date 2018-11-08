@@ -14,7 +14,7 @@ for (geqrf, gelqf, orgqr, orglq, elty) in
        (:zgeqrf_, :zgelqf_, :zungqr_, :zunglq_, :ComplexF64))
   @eval begin
     function geqrf!(
-        A::StridedMatrix{$elty}, tau::Vector{$elty}, work::Vector{$elty})
+        A::AbstractMatrix{$elty}, tau::Vector{$elty}, work::Vector{$elty})
       chkstride1(A)
       m, n  = size(A)
       k     = min(m, n)
@@ -37,7 +37,7 @@ for (geqrf, gelqf, orgqr, orglq, elty) in
     end
 
     function gelqf!(
-        A::StridedMatrix{$elty}, tau::Vector{$elty}, work::Vector{$elty})
+        A::AbstractMatrix{$elty}, tau::Vector{$elty}, work::Vector{$elty})
       chkstride1(A)
       m, n  = size(A)
       k     = min(m, n)
@@ -60,7 +60,7 @@ for (geqrf, gelqf, orgqr, orglq, elty) in
     end
 
     function orglq!(
-        A::StridedMatrix{$elty}, tau::Vector{$elty}, k::Integer,
+        A::AbstractMatrix{$elty}, tau::Vector{$elty}, k::Integer,
         work::Vector{$elty})
       chkstride1(A)
       n = size(A, 2)
@@ -86,7 +86,7 @@ for (geqrf, gelqf, orgqr, orglq, elty) in
     end
 
     function orgqr!(
-        A::StridedMatrix{$elty}, tau::Vector{$elty}, k::Integer,
+        A::AbstractMatrix{$elty}, tau::Vector{$elty}, k::Integer,
         work::Vector{$elty})
       chkstride1(A)
       m = size(A, 1)
@@ -120,10 +120,10 @@ for (laqps, elty, relty) in ((:slaqps_, :Float32,    :Float32),
   @eval begin
     function laqps!(
         offset::BlasInt, nb::BlasInt, kb::Ref{BlasInt},
-        A::StridedMatrix{$elty},
-        jpvt::StridedVector{BlasInt}, tau::StridedVector{$elty},
-        vn1::StridedVector{$relty}, vn2::StridedVector{$relty},
-        auxv::StridedVector{$elty}, F::StridedVector{$elty})
+        A::AbstractMatrix{$elty},
+        jpvt::AbstractVector{BlasInt}, tau::AbstractVector{$elty},
+        vn1::AbstractVector{$relty}, vn2::AbstractVector{$relty},
+        auxv::AbstractVector{$elty}, F::AbstractVector{$elty})
       m, n = size(A)
       ccall(
         (@blasfunc($laqps), liblapack), Nothing,

@@ -175,7 +175,7 @@ end
 
 function gen_linop_axpy(A::AbstractLinOp{T}, B::AbstractLinOp{T}, alpha::T) where T
   function linop_axpy!(
-      y::StridedVecOrMat{T}, L::AbstractLinOp{T}, x::StridedVecOrMat{T}) where T
+      y::AbstractVecOrMat{T}, L::AbstractLinOp{T}, x::AbstractVecOrMat{T}) where T
     if isnull(L._tmp) || size(get(L._tmp)) != size(y)
       L._tmp = similar(y)
     end
@@ -189,7 +189,7 @@ end
 
   function gen_linop_axpyc(A::AbstractLinOp{T}, B::AbstractLinOp{T}, alpha::T) where T
     function linop_axpyc!(
-        y::StridedVecOrMat{T}, L::AbstractLinOp{T}, x::StridedVecOrMat{T}) where T
+        y::AbstractVecOrMat{T}, L::AbstractLinOp{T}, x::AbstractVecOrMat{T}) where T
       if isnull(L._tmp) || size(get(L._tmp)) != size(y)
         L._tmp = similar(y)
       end
@@ -216,7 +216,7 @@ end
 
 function gen_linop_comp(A::AbstractLinOp{T}, B::AbstractLinOp{T}) where T
   function linop_comp!(
-      y::StridedVector{T}, L::AbstractLinOp{T}, x::StridedVector{T}) where T
+      y::AbstractVector{T}, L::AbstractLinOp{T}, x::AbstractVector{T}) where T
     n = size(B, 1)
     if isnull(L._tmp) || length(get(L._tmp)) != n
       L._tmp = Array{T}(undef, n)
@@ -226,7 +226,7 @@ function gen_linop_comp(A::AbstractLinOp{T}, B::AbstractLinOp{T}) where T
     mul!( y , A, tmp)
   end
   function linop_comp!(
-      Y::StridedMatrix{T}, L::AbstractLinOp{T}, X::StridedMatrix{T}) where T
+      Y::AbstractMatrix{T}, L::AbstractLinOp{T}, X::AbstractMatrix{T}) where T
     m = size(B, 1)
     n = size(X, 2)
     if isnull(L._tmp) || size(get(L._tmp)) != (m, n)
@@ -241,7 +241,7 @@ end
 
   function gen_linop_compc(A::AbstractLinOp{T}, B::AbstractLinOp{T}) where T
     function linop_compc!(
-        y::StridedVector{T}, L::AbstractLinOp{T}, x::StridedVector{T}) where T
+        y::AbstractVector{T}, L::AbstractLinOp{T}, x::AbstractVector{T}) where T
       n = size(B, 1)
       if isnull(L._tmp) || length(get(L._tmp)) != n
         L._tmp = Array{T}(undef, n)
@@ -251,7 +251,7 @@ end
       mul!( y , A', tmp)
     end
     function linop_compc!(
-        Y::StridedMatrix{T}, L::AbstractLinOp{T}, X::StridedMatrix{T}) where T
+        Y::AbstractMatrix{T}, L::AbstractLinOp{T}, X::AbstractMatrix{T}) where T
       m = size(B, 1)
       n = size(X, 2)
       if isnull(L._tmp) || size(get(L._tmp)) != (m, n)
