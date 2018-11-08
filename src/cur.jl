@@ -210,7 +210,9 @@ size(A::HermOrSymCUR, dim::Integer) = dim == 1 || dim == 2 ? size(A.C,1) : 1
 
   ## CUR left-multiplication
 
-  mul!(C::AbstractVecOrMat{T}, A::CUR{T}, B::AbstractVecOrMat{T}) where {T} =
+  mul!(C::AbstractVector{T}, A::CUR{T}, B::AbstractVector{T}) where {T} =
+    mul!(C, A[:C], A[:U]*(A[:R]*B))
+  mul!(C::AbstractMatrix{T}, A::CUR{T}, B::AbstractMatrix{T}) where {T} =
     mul!(C, A[:C], A[:U]*(A[:R]*B))
 
   ## CUR right-multiplication
@@ -220,7 +222,9 @@ size(A::HermOrSymCUR, dim::Integer) = dim == 1 || dim == 2 ? size(A.C,1) : 1
 
   ## HermCUR left-multiplication
 
-  mul!(C::AbstractVecOrMat{T}, A::HermCUR{T}, B::AbstractVecOrMat{T}) where {T} =
+  mul!(C::AbstractVector{T}, A::HermCUR{T}, B::AbstractVector{T}) where {T} =
+    mul!(C, A[:C], A[:U]*(A[:C]'*B))
+  mul!(C::AbstractMatrix{T}, A::HermCUR{T}, B::AbstractMatrix{T}) where {T} =
     mul!(C, A[:C], A[:U]*(A[:C]'*B))
 
   for Adj in (:Adjoint, :Transpose)
@@ -231,7 +235,13 @@ size(A::HermOrSymCUR, dim::Integer) = dim == 1 || dim == 2 ? size(A.C,1) : 1
         mul!(C, A[:C], A[:U]*tmp)
       end
 
-      function mul!(C::AbstractVecOrMat{T}, Ac::$Adj{T,CUR{T}}, B::AbstractVecOrMat{T}) where T
+      function mul!(C::AbstractVector{T}, Ac::$Adj{T,CUR{T}}, B::AbstractVector{T}) where T
+        A = parent(Ac)
+        tmp = $Adj(A[:C]) * B
+        tmp = $Adj(A[:U]) * tmp
+        mul!(C, $Adj(A[:R]), tmp)
+      end
+      function mul!(C::AbstractMatrix{T}, Ac::$Adj{T,CUR{T}}, B::AbstractMatrix{T}) where T
         A = parent(Ac)
         tmp = $Adj(A[:C]) * B
         tmp = $Adj(A[:U]) * tmp
@@ -279,9 +289,17 @@ size(A::HermOrSymCUR, dim::Integer) = dim == 1 || dim == 2 ? size(A.C,1) : 1
     mul!(C, A[:C], A[:U]*((A[:C]')*Bt))
   end
 
-  mul!(C::AbstractVecOrMat{T}, Ac::Adjoint{T,HermCUR{T}}, B::AbstractVecOrMat{T}) where {T} =
+  mul!(C::AbstractVector{T}, Ac::Adjoint{T,HermCUR{T}}, B::AbstractVector{T}) where {T} =
     mul!(C, parent(Ac), B)
-  function mul!(C::AbstractVecOrMat{T}, At::Transpose{T,HermCUR{T}}, B::AbstractVecOrMat{T}) where T
+  mul!(C::AbstractMatrix{T}, Ac::Adjoint{T,HermCUR{T}}, B::AbstractMatrix{T}) where {T} =
+    mul!(C, parent(Ac), B)
+  function mul!(C::AbstractVector{T}, At::Transpose{T,HermCUR{T}}, B::AbstractVector{T}) where T
+    A = parent(At)
+    tmp = transpose(A[:U])*(transpose(A[:C])*B)
+    mul!(C, A[:C], conj!(tmp))
+    conj!(C)
+  end
+  function mul!(C::AbstractMatrix{T}, At::Transpose{T,HermCUR{T}}, B::AbstractMatrix{T}) where T
     A = parent(At)
     tmp = transpose(A[:U])*(transpose(A[:C])*B)
     mul!(C, A[:C], conj!(tmp))
@@ -335,7 +353,9 @@ size(A::HermOrSymCUR, dim::Integer) = dim == 1 || dim == 2 ? size(A.C,1) : 1
 
   ## SymCUR left-multiplication
 
-  mul!(C::AbstractVecOrMat{T}, A::SymCUR{T}, B::AbstractVecOrMat{T}) where {T} =
+  mul!(C::AbstractVector{T}, A::SymCUR{T}, B::AbstractVector{T}) where {T} =
+    mul!(C, A[:C], A[:U]*(transpose(A[:C])*B))
+  mul!(C::AbstractMatrix{T}, A::SymCUR{T}, B::AbstractMatrix{T}) where {T} =
     mul!(C, A[:C], A[:U]*(transpose(A[:C])*B))
   mul!(C::AbstractMatrix{T}, A::SymCUR{T}, Bc::Adjoint{T,<:AbstractMatrix{T}}) where {T<:Real} =
     mul!(C, A[:C], A[:U]*(A[:C]'*Bc))
@@ -349,13 +369,21 @@ size(A::HermOrSymCUR, dim::Integer) = dim == 1 || dim == 2 ? size(A.C,1) : 1
   mul!(C::AbstractMatrix{T}, A::SymCUR{T}, Bt::Transpose{T,<:AbstractMatrix{T}}) where {T} =
     mul!(C, A[:C], A[:U]*(transpose(A[:C])*Bt))
 
-  function mul!(C::AbstractVecOrMat{T}, Ac::Adjoint{T,SymCUR{T}}, B::AbstractVecOrMat{T}) where T
+  function mul!(C::AbstractVector{T}, Ac::Adjoint{T,SymCUR{T}}, B::AbstractVector{T}) where T
     A = parent(Ac)
     tmp = A[:U]'*(A[:C]'*B)
     mul!(C, A[:C], conj!(tmp))
     conj!(C)
   end
-  mul!(C::AbstractVecOrMat{T}, At::Transpose{T,<:SymCUR{T}}, B::AbstractVecOrMat{T}) where {T} =
+  function mul!(C::AbstractMatrix{T}, Ac::Adjoint{T,SymCUR{T}}, B::AbstractMatrix{T}) where T
+    A = parent(Ac)
+    tmp = A[:U]'*(A[:C]'*B)
+    mul!(C, A[:C], conj!(tmp))
+    conj!(C)
+  end
+  mul!(C::AbstractVector{T}, At::Transpose{T,SymCUR{T}}, B::AbstractVector{T}) where {T} =
+    mul!(C, parent(At), B)
+  mul!(C::AbstractMatrix{T}, At::Transpose{T,SymCUR{T}}, B::AbstractMatrix{T}) where {T} =
     mul!(C, parent(At), B)
 
   function mul!(C::AbstractMatrix{T}, Ac::Adjoint{T,SymCUR{T}}, Bc::Adjoint{T,<:AbstractMatrix{T}}) where T
@@ -399,7 +427,7 @@ size(A::HermOrSymCUR, dim::Integer) = dim == 1 || dim == 2 ? size(A.C,1) : 1
     A = parent(Ac)
     mul!(C, conj!(transpose(A)*B[:C])*B[:U]', B[:C]')
   end
-  mul!(C::AbstractMatrix{T}, At::Transpose{T,<:AbstractMatrix{T}}, Bt::Transpose{T,<:SymCUR{T}}) where {T} =
+  mul!(C::AbstractMatrix{T}, At::Transpose{T,<:AbstractMatrix{T}}, Bt::Transpose{T,SymCUR{T}}) where {T} =
     mul!(C, At, parent(Bt))
 
   # standard operations

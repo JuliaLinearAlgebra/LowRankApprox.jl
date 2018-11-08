@@ -87,11 +87,18 @@ size(A::PartialQR, dim::Integer) =
 
   ## left-multiplication
 
-  function mul!!(C::AbstractVecOrMat{T}, A::PartialQR{T}, B::AbstractVecOrMat{T}) where T
+function mul!!(C::AbstractVector{T}, A::PartialQR{T}, B::AbstractVector{T}) where T
     lmul!(A[:P]', B)
     mul!(C, A[:Q], A[:R]*B)
-  end  # overwrites B
-  mul!(C::AbstractVecOrMat{T}, A::PartialQR{T}, B::AbstractVecOrMat{T}) where {T} =
+end  # overwrites B
+function mul!!(C::AbstractMatrix{T}, A::PartialQR{T}, B::AbstractMatrix{T}) where T
+    lmul!(A[:P]', B)
+    mul!(C, A[:Q], A[:R]*B)
+end  # overwrites B
+mul!(C::AbstractVector{T}, A::PartialQR{T}, B::AbstractVector{T}) where {T} =
+    mul!!(C, A, copy(B))
+
+mul!(C::AbstractMatrix{T}, A::PartialQR{T}, B::AbstractMatrix{T}) where {T} =
     mul!!(C, A, copy(B))
 
   for Adj in (:Transpose, :Adjoint)
@@ -100,7 +107,13 @@ size(A::PartialQR, dim::Integer) =
         tmp = $Adj(A[:P]) * Bc
         mul!(C, A[:Q], A[:R]*tmp)
       end
-      function mul!(C::AbstractVecOrMat{T}, Ac::$Adj{T,PartialQR{T}}, B::AbstractVecOrMat{T}) where T
+      function mul!(C::AbstractVector{T}, Ac::$Adj{T,PartialQR{T}}, B::AbstractVector{T}) where T
+        A = parent(Ac)
+        tmp = $Adj(A[:Q]) * B
+        mul!(C, $Adj(A[:R]), tmp)
+        lmul!(A[:P], C)
+      end
+      function mul!(C::AbstractMatrix{T}, Ac::$Adj{T,PartialQR{T}}, B::AbstractMatrix{T}) where T
         A = parent(Ac)
         tmp = $Adj(A[:Q]) * B
         mul!(C, $Adj(A[:R]), tmp)
@@ -149,11 +162,17 @@ size(A::PartialQR, dim::Integer) =
 
 
   ## left-division (pseudoinverse left-multiplication)
-  function ldiv!(C::AbstractVecOrMat{T}, A::PartialQR{T}, B::AbstractVecOrMat{T}) where T
+  function ldiv!(C::AbstractVector{T}, A::PartialQR{T}, B::AbstractVector{T}) where T
     tmp = (A[:R]*A.R')\(A[:Q]'*B)
     mul!(C, A[:R]', tmp)
     lmul!(A[:P], C)
   end
+
+function ldiv!(C::AbstractMatrix{T}, A::PartialQR{T}, B::AbstractMatrix{T}) where T
+    tmp = (A[:R]*A.R')\(A[:Q]'*B)
+    mul!(C, A[:R]', tmp)
+    lmul!(A[:P], C)
+end
 
   # standard operations
 

@@ -74,7 +74,9 @@ mul!(y::AbstractVector{T}, A::PartialHermEigen{T}, x::AbstractVector{T}) where {
     mul!(C, A[:vectors], tmp)
   end
 
-  mul!(C::AbstractVecOrMat{T}, Ac::Adjoint{T,<:PartialHermEigen{T}}, B::AbstractVecOrMat{T}) where {T} =
+  mul!(C::AbstractVector{T}, Ac::Adjoint{T,<:PartialHermEigen{T}}, B::AbstractVector{T}) where {T} =
+    mul!(C, parent(Ac), B)
+  mul!(C::AbstractMatrix{T}, Ac::Adjoint{T,<:PartialHermEigen{T}}, B::AbstractMatrix{T}) where {T} =
     mul!(C, parent(Ac), B)
   function mul!(y::AbstractVector{T}, At::Transpose{T,<:PartialHermEigen{T}}, x::AbstractVector{T}) where T
     A = parent(At)

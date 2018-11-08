@@ -105,7 +105,9 @@ size(A::IDPackedV, dim::Integer) =
     copyto!(C, view(B,1:k,:))
     BLAS.gemm!('N', 'N', one(T), A[:T], view(B,k+1:n,:), one(T), C)
   end  # overwrites B
-  mul!(C::AbstractVecOrMat{T}, A::IDPackedV{T}, B::AbstractVecOrMat{T}) where {T} =
+  mul!(C::AbstractVector{T}, A::IDPackedV{T}, B::AbstractVector{T}) where {T} =
+    mul!!(C, A, copy(B))
+  mul!(C::AbstractMatrix{T}, A::IDPackedV{T}, B::AbstractMatrix{T}) where {T} =
     mul!!(C, A, copy(B))
 
   for Adj in (:Transpose, :Adjoint)
@@ -116,7 +118,14 @@ size(A::IDPackedV, dim::Integer) =
         copyto!(C, view(tmp,1:k,:))
         BLAS.gemm!('N', 'N', one(T), A[:T], view(tmp,k+1:n,:), one(T), C)
       end
-      function mul!(C::AbstractVecOrMat{T}, Ac::$Adj{T,IDPackedV{T}}, B::AbstractVecOrMat{T}) where T
+      function mul!(C::AbstractVector{T}, Ac::$Adj{T,IDPackedV{T}}, B::AbstractVector{T}) where T
+        A = parent(Ac)
+        k, n = size(A)
+        copyto!(view(C,1:k,:), B)
+        mul!(view(C,k+1:n,:), $Adj(A[:T]), B)
+        lmul!(A[:P], C)
+      end
+      function mul!(C::AbstractMatrix{T}, Ac::$Adj{T,IDPackedV{T}}, B::AbstractMatrix{T}) where T
         A = parent(Ac)
         k, n = size(A)
         copyto!(view(C,1:k,:), B)
@@ -268,7 +277,9 @@ function mul!!(C::AbstractMatrix{T}, A::ID{T}, B::AbstractMatrix{T}) where T
   mul!!(tmp, A[:V], B)
   mul!(C, A[:C], tmp)
 end  # overwrites B
-mul!(C::AbstractVecOrMat{T}, A::ID{T}, B::AbstractVecOrMat{T}) where {T} =
+mul!(C::AbstractVector{T}, A::ID{T}, B::AbstractVector{T}) where {T} =
+  mul!!(C, A, copy(B))
+mul!(C::AbstractMatrix{T}, A::ID{T}, B::AbstractMatrix{T}) where {T} =
   mul!!(C, A, copy(B))
 
 
@@ -278,7 +289,12 @@ mul!(C::AbstractVecOrMat{T}, A::ID{T}, B::AbstractVecOrMat{T}) where {T} =
         tmp = A[:V] * Bc
         mul!(C, A[:C], tmp)
       end
-      function mul!(C::AbstractVecOrMat{T}, Ac::$Adj{T,ID{T}}, B::AbstractVecOrMat{T}) where T
+      function mul!(C::AbstractVector{T}, Ac::$Adj{T,ID{T}}, B::AbstractVector{T}) where T
+        A = parent(Ac)
+        tmp = $Adj(A[:C]) * B
+        mul!(C, $Adj(A[:V]), tmp)
+      end
+      function mul!(C::AbstractMatrix{T}, Ac::$Adj{T,ID{T}}, B::AbstractMatrix{T}) where T
         A = parent(Ac)
         tmp = $Adj(A[:C]) * B
         mul!(C, $Adj(A[:V]), tmp)
