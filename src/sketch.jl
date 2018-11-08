@@ -375,7 +375,7 @@ function srft_init(::Type{T}, n::Integer, k::Integer) where T<:Complex
   X, d, idx, fftplan!
 end
 
-function srft_reshape!(X::StridedMatrix, d::AbstractVector, x::AbstractVecOrMat)
+function srft_reshape!(X::AbstractMatrix, d::AbstractVector, x::AbstractVecOrMat)
   l, m = size(X)
   i = 0
   @inbounds for j = 1:l, k = 1:m
@@ -384,7 +384,7 @@ function srft_reshape!(X::StridedMatrix, d::AbstractVector, x::AbstractVecOrMat)
   end
 end
 function srft_reshape_conj!(
-    X::StridedMatrix, d::AbstractVector, x::AbstractVecOrMat)
+    X::AbstractMatrix, d::AbstractVector, x::AbstractVecOrMat)
   l, m = size(X)
   i = 0
   @inbounds for j = 1:l, k = 1:m
@@ -394,7 +394,7 @@ function srft_reshape_conj!(
 end
 
 function srft_apply!(
-    y::StridedVecOrMat{T}, X::StridedMatrix{T}, idx::AbstractVector,
+    y::AbstractVecOrMat{T}, X::AbstractMatrix{T}, idx::AbstractVector,
     r2rplan!::r2rFFTWPlan) where T<:Real
   l, m = size(X)
   n = l*m
@@ -450,7 +450,7 @@ function srft_apply!(
 end
 
 function srft_apply!(
-    y::StridedVecOrMat{T}, X::StridedMatrix, idx::AbstractVector,
+    y::AbstractVecOrMat{T}, X::AbstractMatrix, idx::AbstractVector,
     fftplan!::FFTWPlan) where T<:Complex
   l, m = size(X)
   n = l*m

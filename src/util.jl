@@ -71,7 +71,7 @@ function iscale!(b::AbstractVector, A::AbstractMatrix)
 end
 
 function orthcols!(
-    A::StridedMatrix{T}, tau::Vector{T}, work::Vector{T}; thin::Bool=true) where T<:BlasFloat
+    A::AbstractMatrix{T}, tau::Vector{T}, work::Vector{T}; thin::Bool=true) where T<:BlasFloat
   m, n = size(A)
   k = min(m, n)
   A, tau, work = _LAPACK.geqrf!(A, tau, work)
@@ -81,11 +81,11 @@ function orthcols!(
   end
   A, tau, work
 end
-orthcols!(A::StridedMatrix{T}; thin::Bool=true) where {T} =
+orthcols!(A::AbstractMatrix{T}; thin::Bool=true) where {T} =
   orthcols!(A, Array{T}(undef, 1), Array{T}(undef, 1), thin=thin)[1]
 
 function orthrows!(
-    A::StridedMatrix{T}, tau::Vector{T}, work::Vector{T}; thin::Bool=true) where T<:BlasFloat
+    A::AbstractMatrix{T}, tau::Vector{T}, work::Vector{T}; thin::Bool=true) where T<:BlasFloat
   m, n = size(A)
   k = min(m, n)
   A, tau, work = _LAPACK.gelqf!(A, tau, work)
@@ -95,7 +95,7 @@ function orthrows!(
   end
   A, tau, work
 end
-orthrows!(A::StridedMatrix{T}; thin::Bool=true) where {T} =
+orthrows!(A::AbstractMatrix{T}; thin::Bool=true) where {T} =
   orthrows!(A, Array{T}(undef, 1), Array{T}(undef, 1), thin=thin)[1]
 
 function scalevec!(s::AbstractVector, x::AbstractVector)
