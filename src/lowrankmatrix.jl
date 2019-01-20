@@ -18,24 +18,24 @@ mutable struct LowRankMatrix{T} <: AbstractMatrix{T}
     end
 end
 
-_LowRankMatrix(U::AbstractMatrix, V::AbstractMatrix) = _LowRankMatrix(promote(U,V)...)
-_LowRankMatrix(U::AbstractVector, V::AbstractMatrix) = _LowRankMatrix(reshape(U,length(U),1),V)
-_LowRankMatrix(U::AbstractMatrix, V::AbstractVector) = _LowRankMatrix(U,reshape(V,length(V),1))
-_LowRankMatrix(U::AbstractVector, V::AbstractVector) =
+LowRankMatrix(U::AbstractMatrix, V::AbstractMatrix) = _LowRankMatrix(promote(U,V)...)
+LowRankMatrix(U::AbstractVector, V::AbstractMatrix) = LowRankMatrix(reshape(U,length(U),1),V)
+LowRankMatrix(U::AbstractMatrix, V::AbstractVector) = LowRankMatrix(U,reshape(V,length(V),1))
+LowRankMatrix(U::AbstractVector, V::AbstractVector) =
     _LowRankMatrix(reshape(U,length(U),1), reshape(V,length(V),1))
 
 LowRankMatrix{T}(::UndefInitializer, mn::NTuple{2,Int}, r::Int) where {T} =
-    _LowRankMatrix(Matrix{T}(undef,mn[1],r),Matrix{T}(undef,mn[2],r))
+    LowRankMatrix(Matrix{T}(undef,mn[1],r),Matrix{T}(undef,mn[2],r))
 LowRankMatrix{T}(Z::Zeros, r::Int=0) where {T<:Number} =
-    _LowRankMatrix(zeros(T,size(Z,1),r), zeros(T,size(Z,2),r))
+    LowRankMatrix(zeros(T,size(Z,1),r), zeros(T,size(Z,2),r))
 LowRankMatrix{T}(Z::Zeros, r::Int=0) where {T} =
-    _LowRankMatrix(zeros(T,size(Z,1),r), zeros(T,size(Z,2),r))
+    LowRankMatrix(zeros(T,size(Z,1),r), zeros(T,size(Z,2),r))
 
 LowRankMatrix(Z::Zeros, r::Int=0) = LowRankMatrix{eltype(Z)}(Z, r)
 function LowRankMatrix{T}(F::AbstractFill) where T
     v = T(FillArrays.getindex_value(F))
     m,n = size(F)
-    _LowRankMatrix(fill(v,m,1), fill(one(T),n,1))
+    LowRankMatrix(fill(v,m,1), fill(one(T),n,1))
 end
 LowRankMatrix(F::AbstractFill{T}) where T = LowRankMatrix{T}(F)
 
@@ -49,7 +49,7 @@ similar(L::LowRankMatrix{T}, ::Type{S}) where {S,T} = LowRankMatrix{S}(undef, si
 function LowRankMatrix{T}(A::AbstractMatrix{T}) where T
     U,Σ,V = svd(A)
     r = refactorsvd!(U,Σ,V)
-    _LowRankMatrix(U[:,1:r], V[:,1:r])
+    LowRankMatrix(U[:,1:r], V[:,1:r])
 end
 
 LowRankMatrix{T}(A::AbstractMatrix) where T = LowRankMatrix{T}(AbstractMatrix{T}(A))
