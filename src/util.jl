@@ -24,12 +24,12 @@ end
 
 function getcols(trans::Symbol, A::AbstractMatrix, cols)
   if     trans == :n  return A[:,cols]
-  elseif trans == :c  return A[cols,:]'
+  elseif trans == :c  return collect(A[cols,:]')
   end
 end
 function getcols(trans::Symbol, A::AbstractLinearOperator, cols)
   if     trans == :n  return A[:,cols]
-  elseif trans == :c  return A'[:, cols]
+  elseif trans == :c  return collect(A'[:, cols])
   end
 end
 
