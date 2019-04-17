@@ -1,0 +1,17 @@
+name = "LowRankApprox"
+uuid = "898213cb-b102-5a47-900c-97e73b919f73"
+
+[deps]
+FFTW = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
+FillArrays = "1a297f60-69ca-5386-bcde-b61e274b549b"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Nullables = "4d1e1d77-625e-5b40-9113-a560ec7a8ecd"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+FFTW = "≥ 0.0.4"
+FillArrays = "≥ 0.0.1"
+Nullables = "≥ 0.0.4"
+julia = "≥ 0.7.0"
