@@ -18,24 +18,24 @@ mutable struct LowRankMatrix{T} <: AbstractMatrix{T}
     end
 end
 
-_LowRankMatrix(U::AbstractMatrix, V::AbstractMatrix) = _LowRankMatrix(promote(U,V)...)
-_LowRankMatrix(U::AbstractVector, V::AbstractMatrix) = _LowRankMatrix(reshape(U,length(U),1),V)
-_LowRankMatrix(U::AbstractMatrix, V::AbstractVector) = _LowRankMatrix(U,reshape(V,length(V),1))
-_LowRankMatrix(U::AbstractVector, V::AbstractVector) =
+LowRankMatrix(U::AbstractMatrix, V::AbstractMatrix) = _LowRankMatrix(promote(U,V)...)
+LowRankMatrix(U::AbstractVector, V::AbstractMatrix) = LowRankMatrix(reshape(U,length(U),1),V)
+LowRankMatrix(U::AbstractMatrix, V::AbstractVector) = LowRankMatrix(U,reshape(V,length(V),1))
+LowRankMatrix(U::AbstractVector, V::AbstractVector) =
     _LowRankMatrix(reshape(U,length(U),1), reshape(V,length(V),1))
 
 LowRankMatrix{T}(::UndefInitializer, mn::NTuple{2,Int}, r::Int) where {T} =
-    _LowRankMatrix(Matrix{T}(undef,mn[1],r),Matrix{T}(undef,mn[2],r))
+    LowRankMatrix(Matrix{T}(undef,mn[1],r),Matrix{T}(undef,mn[2],r))
 LowRankMatrix{T}(Z::Zeros, r::Int=0) where {T<:Number} =
-    _LowRankMatrix(zeros(T,size(Z,1),r), zeros(T,size(Z,2),r))
+    LowRankMatrix(zeros(T,size(Z,1),r), zeros(T,size(Z,2),r))
 LowRankMatrix{T}(Z::Zeros, r::Int=0) where {T} =
-    _LowRankMatrix(zeros(T,size(Z,1),r), zeros(T,size(Z,2),r))
+    LowRankMatrix(zeros(T,size(Z,1),r), zeros(T,size(Z,2),r))
 
 LowRankMatrix(Z::Zeros, r::Int=0) = LowRankMatrix{eltype(Z)}(Z, r)
 function LowRankMatrix{T}(F::AbstractFill) where T
     v = T(FillArrays.getindex_value(F))
     m,n = size(F)
-    _LowRankMatrix(fill(v,m,1), fill(one(T),n,1))
+    LowRankMatrix(fill(v,m,1), fill(one(T),n,1))
 end
 LowRankMatrix(F::AbstractFill{T}) where T = LowRankMatrix{T}(F)
 
@@ -49,7 +49,7 @@ similar(L::LowRankMatrix{T}, ::Type{S}) where {S,T} = LowRankMatrix{S}(undef, si
 function LowRankMatrix{T}(A::AbstractMatrix{T}) where T
     U,Σ,V = svd(A)
     r = refactorsvd!(U,Σ,V)
-    _LowRankMatrix(U[:,1:r], V[:,1:r])
+    LowRankMatrix(U[:,1:r], V[:,1:r])
 end
 
 LowRankMatrix{T}(A::AbstractMatrix) where T = LowRankMatrix{T}(AbstractMatrix{T}(A))
@@ -101,7 +101,7 @@ end
 
 for MAT in (:LowRankMatrix, :AbstractMatrix, :AbstractArray)
     @eval convert(::Type{$MAT{T}}, L::LowRankMatrix) where {T} =
-        _LowRankMatrix(convert(Matrix{T}, L.U), convert(Matrix{T}, L.V))
+        LowRankMatrix(convert(Matrix{T}, L.U), convert(Matrix{T}, L.V))
 end
 convert(::Type{Matrix{T}}, L::LowRankMatrix) where {T} = convert(Matrix{T}, Matrix(L))
 promote_rule(::Type{LowRankMatrix{T}}, ::Type{LowRankMatrix{V}}) where {T,V} = LowRankMatrix{promote_type(T,V)}
@@ -137,7 +137,7 @@ Matrix(L::LowRankMatrix) = L[1:size(L,1),1:size(L,2)]
 
 # constructors
 
-copy(L::LowRankMatrix) = _LowRankMatrix(copy(L.U),copy(L.V))
+copy(L::LowRankMatrix) = LowRankMatrix(copy(L.U),copy(L.V))
 copyto!(L::LowRankMatrix, N::LowRankMatrix) = (copyto!(L.U,N.U); copyto!(L.V,N.V);L)
 
 
@@ -154,15 +154,15 @@ for op in (:+,:-)
 
         function $op(L::LowRankMatrix, M::LowRankMatrix)
             size(L) == size(M) || throw(DimensionMismatch("A has dimensions $(size(L)) but B has dimensions $(size(M))"))
-            _LowRankMatrix(hcat(L.U,$op(M.U)), hcat(L.V,M.V))
+            LowRankMatrix(hcat(L.U,$op(M.U)), hcat(L.V,M.V))
         end
         $op(L::LowRankMatrix,A::Matrix) = $op(promote(L,A)...)
         $op(A::Matrix,L::LowRankMatrix) = $op(promote(A,L)...)
     end
 end
 
-*(a::Number, L::LowRankMatrix) = _LowRankMatrix(a*L.U,L.V)
-*(L::LowRankMatrix, a::Number) = _LowRankMatrix(L.U,L.V*a)
+*(a::Number, L::LowRankMatrix) = LowRankMatrix(a*L.U,L.V)
+*(L::LowRankMatrix, a::Number) = LowRankMatrix(L.U,L.V*a)
 
 # override default:
 
@@ -180,7 +180,7 @@ end
         mul!(temp, transpose(L.V), M.U)
         V = zeros(T,size(M,2),rank(L))
         mul!(V, M.V, transpose(temp))
-        _LowRankMatrix(copy(L.U),V)
+        LowRankMatrix(copy(L.U),V)
     end
 
 
@@ -188,7 +188,7 @@ end
     function *(L::LowRankMatrix, A::Matrix)
         V = zeros(promote_type(eltype(L),eltype(A)),size(A,2),rank(L))
         mul!(V, transpose(A), L.V)
-        _LowRankMatrix(copy(L.U),V)
+        LowRankMatrix(copy(L.U),V)
     end
 
 
@@ -196,7 +196,7 @@ end
 function *(A::Matrix, L::LowRankMatrix)
     U = zeros(promote_type(eltype(A),eltype(L)),size(A,1),rank(L))
     mul!(U,A,L.U)
-    _LowRankMatrix(U,copy(L.V))
+    LowRankMatrix(U,copy(L.V))
 end
 
 \(L::LowRankMatrix, b::AbstractVecOrMat) = transpose(L.V) \ (L.U \ b)
