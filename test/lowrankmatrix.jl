@@ -82,4 +82,12 @@ using LowRankApprox, FillArrays, Test
         @test all(LowRankApprox.mul!(randn(size(A,1)), A, v) .=== A*v )
         @test A*v ≈ Matrix(A)*v
     end
+
+    @testset "triu/tril" begin
+        A = LowRankApprox._LowRankMatrix(randn(20,4), randn(12,4))
+        @test triu(A,2) == triu(Matrix(A),2)
+        @test tril(A,2) == tril(Matrix(A),2)
+        @test triu(A) == triu(Matrix(A))
+        @test tril(A) == tril(Matrix(A))
+    end
 end

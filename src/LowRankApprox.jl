@@ -10,7 +10,7 @@ import Base: convert,
              isreal, real, imag, Nothing, copyto!,
              +, -, *, /, \, ^, conj, conj!, promote_rule, similar, fill!,
              Matrix
-import LinearAlgebra: BlasFloat, BlasInt, checksquare, chkstride1, rank
+import LinearAlgebra: BlasFloat, BlasInt, checksquare, chkstride1, rank, triu, tril
 
 using FFTW
 import FFTW: plan_r2r!, R2HC, r2rFFTWPlan, FFTWPlan

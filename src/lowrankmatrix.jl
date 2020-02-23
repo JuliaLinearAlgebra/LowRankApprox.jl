@@ -200,3 +200,8 @@ function *(A::Matrix, L::LowRankMatrix)
 end
 
 \(L::LowRankMatrix, b::AbstractVecOrMat) = transpose(L.V) \ (L.U \ b)
+
+triu(L::LowRankMatrix, k::Integer) = triu!(Matrix(L), k)
+tril(L::LowRankMatrix, k::Integer) = tril!(Matrix(L), k)
+triu(L::LowRankMatrix) = triu!(Matrix(L))
+tril(L::LowRankMatrix) = tril!(Matrix(L))
