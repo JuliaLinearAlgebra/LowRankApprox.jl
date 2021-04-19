@@ -290,18 +290,18 @@ F = pheigfact(A, args...)
 or:
 
 ```julia
-values, vectors = pheig(A, args...)
+vals, vecs = pheig(A, args...)
 ```
 
-where we have followed the Julia convention of letting `values` denote the eigenvalues comprising `S` and `vectors` denote the eigenvector matrix `U`. The factorization is of type `PartialHermitianEigen` and has access methods:
+where we have followed the Julia convention of letting `vals` denote the eigenvalues comprising `S` and `vecs` denote the eigenvector matrix `U`. The factorization is of type `PartialHermitianEigen` and has access methods:
 
-- `F[:values]`: `values` as type `Vector`
-- `F[:vectors]`: `vectors` as type `Matrix`
+- `F[:values]`: `vals` as type `Vector`
+- `F[:vectors]`: `vecs` as type `Matrix`
 
 It also supports least squares solution by left-division. If only the eigenvalues are desired, use instead:
 
 ```julia
-values = pheigvals(A, args...)
+vals = pheigvals(A, args...)
 ```
 
 ### CUR Decomposition
