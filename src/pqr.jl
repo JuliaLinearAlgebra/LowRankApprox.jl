@@ -455,8 +455,9 @@ function maxdet_swapcols!(
     Tmax, idx = findmaxabs(T)
     Tmax <= 1 + opts.maxdet_tol && break
     if niter == opts.maxdet_niter
-      opts.verb &&
-        warn("iteration limit ($niter) reached in determinant maximization")
+      if opts.verb
+        @warn "iteration limit ($niter) reached in determinant maximization"
+      end
       break
     end
     niter += 1

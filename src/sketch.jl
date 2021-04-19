@@ -68,7 +68,7 @@ sketchfact(A, args...; kwargs...) = sketchfact(:left, :n, A, args...; kwargs...)
 function sketch_chkopts!(opts::LRAOptions, A)
   chkopts!(opts)
   if opts.sketch == :none
-    warn("invalid sketch method; using \"randn\"")
+    @warn "invalid sketch method; using \"randn\""
     opts.sketch = :randn
   end
 end
