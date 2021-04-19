@@ -23,7 +23,9 @@ References:
     niter  = 0
     while s > 0 && abs(s - t) > max(opts.atol, t*opts.rtol)
       if niter == opts.snorm_niter
-        opts.verb && warn("iteration limit ($(opts.snorm_niter)) reached")
+        if opts.verb
+          @warn "iteration limit ($(opts.snorm_niter)) reached"
+        end
         break
       end
       niter += 1

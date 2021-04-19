@@ -141,7 +141,7 @@ end
 function chkopts!(opts::LRAOptions, A)
   chkopts!(opts)
   if typeof(A) <: AbstractLinOp && opts.sketch != :randn
-    warn("invalid sketch method; using \"randn\"")
+    @warn "invalid sketch method; using \"randn\""
     opts.sketch = :randn
   end
 end
