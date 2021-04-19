@@ -310,7 +310,8 @@ end
       $f(A, args...; kwargs...) = $f(:n, A, args...; kwargs...)
 
       function $h(trans::Symbol, A, args...; kwargs...)
-        push!(kwargs, (:pqrfact_retval, "qr"))
+        defaults = (;pqrfact_retval="qr")
+        kwargs = merge(defaults,kwargs)
         F = $f(trans, A, args...; kwargs...)
         F.Q, F.R, F.p
       end
