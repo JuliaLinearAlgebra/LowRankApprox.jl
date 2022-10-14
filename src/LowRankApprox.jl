@@ -47,7 +47,7 @@ export
   PermutationMatrix, RowPermutation, ColumnPermutation,
 
   # pheig.jl
-  HermitianPartialEigen, pheigfact, pheig, pheigvals,
+  pheigfact, pheig, pheigvals,
 
   # pqr.jl
   PartialQRFactors, PartialQR, pqrfact, pqrfact!, pqr, pqr!,

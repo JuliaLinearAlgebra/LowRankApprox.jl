@@ -2,6 +2,10 @@ using Test
 using LowRankApprox
 using LinearAlgebra, Random, SparseArrays
 
+using Aqua
+@testset "Project quality" begin
+    Aqua.test_all(LowRankApprox, ambiguities=false)
+end
 
 Random.seed!(0)
 
