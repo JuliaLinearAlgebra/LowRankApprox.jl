@@ -5,6 +5,9 @@ module LowRankApprox
 using FillArrays
 using LinearAlgebra, SparseArrays, Random
 
+using LowRankMatrices
+using LowRankMatrices: _LowRankMatrix
+
 import Base: convert,
              eltype, size, getindex, setindex!, copy,
              isreal, real, imag, Nothing, copyto!,
