@@ -2,10 +2,11 @@
 =#
 
 module _LAPACK
+import LinearAlgebra
 import LinearAlgebra.BLAS: @blasfunc
 using LinearAlgebra: BlasFloat, BlasInt, chkstride1
 import Base: Nothing
-const liblapack = Base.liblapack_name
+const liblapack = LinearAlgebra.BLAS.liblapack
 
 for (geqrf, gelqf, orgqr, orglq, elty) in
       ((:sgeqrf_, :sgelqf_, :sorgqr_, :sorglq_, :Float32   ),
