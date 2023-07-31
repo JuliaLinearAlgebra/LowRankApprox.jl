@@ -2,8 +2,10 @@
 =#
 __precompile__()
 module LowRankApprox
-using FillArrays
 using LinearAlgebra, SparseArrays, Random
+
+using LowRankMatrices
+using LowRankMatrices: _LowRankMatrix
 
 import Base: convert,
              eltype, size, getindex, setindex!, copy,
@@ -21,7 +23,6 @@ import SparseArrays: sparse
 ind2sub(dims, ind) = CartesianIndices(dims)[ind]
 qrfact!(A) = qr!(A)
 
-import FillArrays: AbstractFill
 
 export
 
