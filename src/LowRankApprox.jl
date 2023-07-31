@@ -2,7 +2,6 @@
 =#
 __precompile__()
 module LowRankApprox
-# using FillArrays
 using LinearAlgebra, SparseArrays, Random
 
 using LowRankMatrices
