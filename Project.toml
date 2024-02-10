@@ -11,10 +11,14 @@ Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [compat]
-Aqua = "0.7"
+Aqua = "0.8"
 FFTW = "0.3, 1"
+LinearAlgebra = "<0.0.1, 1"
 LowRankMatrices = "1"
 Nullables = "0.0.8, 1.0"
+Random = "<0.0.1, 1"
+SparseArrays = "<0.0.1, 1"
+Test = "<0.0.1, 1"
 julia = "1"
 
 [extras]
